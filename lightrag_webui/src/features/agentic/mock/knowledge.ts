@@ -15,7 +15,7 @@ export const mockDocuments: KnowledgeDocument[] = [
     sizeBytes: 2_516_582,
     importedAt: daysAgo(3),
     indexStatus: 'vectorized',
-    extractedText: `SOP BẢO TRÌ MÁY CNC-02\nPhiên bản: 3.1\n\nMục 14 – Xử lý quá nhiệt Spindle\n\nKhi nhiệt độ spindle vượt quá 85°C, vận hành viên phải:\n1. Giảm tải spindle xuống 50% bằng lệnh PLC S=50.\n2. Kích hoạt hệ thống làm mát phụ trợ (Auxiliary Coolant).\n3. Liên hệ bộ phận bảo trì trong vòng 15 phút.\n4. Ghi nhật ký sự kiện vào hệ thống MES.\n\nMục 15 – Kiểm tra ổ đỡ\n\nNhiệt độ > 90°C kèm rung Z-axis > 30% cho thấy ổ đỡ spindle có thể bị mòn.\nCần đặt lịch bảo dưỡng phòng ngừa và dự trữ ổ đỡ #6205 hoặc #6206.\n\nMục 16 – Khởi động lại an toàn\n\nSau khi nhiệt độ trở về dưới 70°C, kiểm tra lại tất cả thông số và xin phê duyệt từ kỹ sư trưởng trước khi tăng tải.`,
+    extractedText: 'SOP BẢO TRÌ MÁY CNC-02\nPhiên bản: 3.1\n\nMục 14 – Xử lý quá nhiệt Spindle\n\nKhi nhiệt độ spindle vượt quá 85°C, vận hành viên phải:\n1. Giảm tải spindle xuống 50% bằng lệnh PLC S=50.\n2. Kích hoạt hệ thống làm mát phụ trợ (Auxiliary Coolant).\n3. Liên hệ bộ phận bảo trì trong vòng 15 phút.\n4. Ghi nhật ký sự kiện vào hệ thống MES.\n\nMục 15 – Kiểm tra ổ đỡ\n\nNhiệt độ > 90°C kèm rung Z-axis > 30% cho thấy ổ đỡ spindle có thể bị mòn.\nCần đặt lịch bảo dưỡng phòng ngừa và dự trữ ổ đỡ #6205 hoặc #6206.\n\nMục 16 – Khởi động lại an toàn\n\nSau khi nhiệt độ trở về dưới 70°C, kiểm tra lại tất cả thông số và xin phê duyệt từ kỹ sư trưởng trước khi tăng tải.',
   },
   {
     id: 'doc-02',
@@ -24,7 +24,7 @@ export const mockDocuments: KnowledgeDocument[] = [
     sizeBytes: 4_251_648,
     importedAt: daysAgo(7),
     indexStatus: 'vectorized',
-    extractedText: `FMEA – Spindle Assembly CNC\nRevision 4 – October 2025\n\nFailure Mode: Bearing Wear\nRisk Priority Number (RPN): 312\nDetection: Temperature > 88°C AND vibration Z > 25%\nRecommended Action: Derate spindle load to 40–60%, schedule PM within 4 hours.\n\nFailure Mode: Coolant Flow Restriction\nRPN: 264\nDetection: Temperature rise > 15°C over 10 min without load change.\nRecommended Action: Inspect coolant lines, flush if necessary.`,
+    extractedText: 'FMEA – Spindle Assembly CNC\nRevision 4 – October 2025\n\nFailure Mode: Bearing Wear\nRisk Priority Number (RPN): 312\nDetection: Temperature > 88°C AND vibration Z > 25%\nRecommended Action: Derate spindle load to 40–60%, schedule PM within 4 hours.\n\nFailure Mode: Coolant Flow Restriction\nRPN: 264\nDetection: Temperature rise > 15°C over 10 min without load change.\nRecommended Action: Inspect coolant lines, flush if necessary.',
   },
   {
     id: 'doc-03',
@@ -33,7 +33,7 @@ export const mockDocuments: KnowledgeDocument[] = [
     sizeBytes: 1_835_008,
     importedAt: daysAgo(14),
     indexStatus: 'vectorized',
-    extractedText: `PLC Parameter Reference – DENSO Monozukuri Hub\n\nS = Spindle Override (0–120%)\nF = Feed Override (0–120%)\nG96 = Constant Surface Speed mode\nM03 = Spindle CW rotation\nM05 = Spindle stop\n\nSafety Interlocks:\n- Overtemp (>95°C): Automatic M05 + Alarm A401\n- Overvibration (>50%): Feed hold + Alarm A312`,
+    extractedText: 'PLC Parameter Reference – DENSO Monozukuri Hub\n\nS = Spindle Override (0–120%)\nF = Feed Override (0–120%)\nG96 = Constant Surface Speed mode\nM03 = Spindle CW rotation\nM05 = Spindle stop\n\nSafety Interlocks:\n- Overtemp (>95°C): Automatic M05 + Alarm A401\n- Overvibration (>50%): Feed hold + Alarm A312',
   },
   {
     id: 'doc-04',
@@ -42,7 +42,7 @@ export const mockDocuments: KnowledgeDocument[] = [
     sizeBytes: 6_710_886,
     importedAt: daysAgo(21),
     indexStatus: 'vectorized',
-    extractedText: `ISO 9001:2015 Quality Manual\nDENSO Monozukuri Hub – Revision 7\n\nSection 8.3 – Control of Nonconforming Outputs\n\nAll production anomalies must be logged within 30 minutes of detection.\nRoot cause analysis (RCA) required for severity Level 3 and above.\nCorrective actions must be approved by Quality Manager before implementation.`,
+    extractedText: 'ISO 9001:2015 Quality Manual\nDENSO Monozukuri Hub – Revision 7\n\nSection 8.3 – Control of Nonconforming Outputs\n\nAll production anomalies must be logged within 30 minutes of detection.\nRoot cause analysis (RCA) required for severity Level 3 and above.\nCorrective actions must be approved by Quality Manager before implementation.',
   },
   {
     id: 'doc-05',
@@ -51,7 +51,7 @@ export const mockDocuments: KnowledgeDocument[] = [
     sizeBytes: 3_145_728,
     importedAt: daysAgo(10),
     indexStatus: 'vectorized',
-    extractedText: `Vibration Analysis Handbook – CNC Machining Centers\n\nChapter 4 – Z-Axis Vibration Signatures\n\nAmplitude increase > 25% from baseline: Inspect toolholder and spindle bearings.\nFrequency > 8 kHz at elevated amplitude: Indicative of bearing race damage.\nImpulsive bursts at low RPM: Check for spindle collet wear.`,
+    extractedText: 'Vibration Analysis Handbook – CNC Machining Centers\n\nChapter 4 – Z-Axis Vibration Signatures\n\nAmplitude increase > 25% from baseline: Inspect toolholder and spindle bearings.\nFrequency > 8 kHz at elevated amplitude: Indicative of bearing race damage.\nImpulsive bursts at low RPM: Check for spindle collet wear.',
   },
   {
     id: 'doc-06',
@@ -60,7 +60,7 @@ export const mockDocuments: KnowledgeDocument[] = [
     sizeBytes: 524_288,
     importedAt: daysAgo(2),
     indexStatus: 'vectorized',
-    extractedText: `Part,PartNumber,Shelf,Stock,Unit\nBearing Deep Groove,6205,B-04,12,pcs\nBearing Deep Groove,6206,B-04,8,pcs\nCoolant Pump Seal,A-220,C-11,24,pcs\nSpindle Belt,BLT-08,A-07,6,pcs\nCollet ER32,ER32-8,D-02,32,pcs`,
+    extractedText: 'Part,PartNumber,Shelf,Stock,Unit\nBearing Deep Groove,6205,B-04,12,pcs\nBearing Deep Groove,6206,B-04,8,pcs\nCoolant Pump Seal,A-220,C-11,24,pcs\nSpindle Belt,BLT-08,A-07,6,pcs\nCollet ER32,ER32-8,D-02,32,pcs',
   },
   {
     id: 'doc-07',
@@ -69,7 +69,7 @@ export const mockDocuments: KnowledgeDocument[] = [
     sizeBytes: 983_040,
     importedAt: daysAgo(30),
     indexStatus: 'vectorized',
-    extractedText: `CNC Alarm Code Reference\n\nA401 – Spindle Overtemp\nTrigger: Spindle temperature > 95°C for > 30 seconds\nAction: Immediate M05, coolant flush, notify maintenance.\n\nA312 – Vibration Threshold Exceeded\nTrigger: Z-axis vibration > 40% above baseline\nAction: Feed hold, inspect spindle assembly.\n\nA420 – Coolant Flow Low\nTrigger: Flow sensor < 2.0 L/min\nAction: Check coolant reservoir and pump.`,
+    extractedText: 'CNC Alarm Code Reference\n\nA401 – Spindle Overtemp\nTrigger: Spindle temperature > 95°C for > 30 seconds\nAction: Immediate M05, coolant flush, notify maintenance.\n\nA312 – Vibration Threshold Exceeded\nTrigger: Z-axis vibration > 40% above baseline\nAction: Feed hold, inspect spindle assembly.\n\nA420 – Coolant Flow Low\nTrigger: Flow sensor < 2.0 L/min\nAction: Check coolant reservoir and pump.',
   },
   {
     id: 'doc-08',
@@ -78,7 +78,7 @@ export const mockDocuments: KnowledgeDocument[] = [
     sizeBytes: 786_432,
     importedAt: daysAgo(5),
     indexStatus: 'vectorized',
-    extractedText: `Preventive Maintenance Schedule – Line A CNC Stations\n\nCNC-01: PM Due 2026-10-15 – Bearing inspection, coolant flush, tool calibration\nCNC-02: PM Due 2026-10-08 – OVERDUE – Bearing inspection PRIORITY\nCNC-03: PM Due 2026-10-22 – Routine inspection\nCNC-04: PM Due 2026-11-01 – Lubrication and alignment\nCNC-05: PM Due 2026-10-12 – Collet and toolholder check`,
+    extractedText: 'Preventive Maintenance Schedule – Line A CNC Stations\n\nCNC-01: PM Due 2026-10-15 – Bearing inspection, coolant flush, tool calibration\nCNC-02: PM Due 2026-10-08 – OVERDUE – Bearing inspection PRIORITY\nCNC-03: PM Due 2026-10-22 – Routine inspection\nCNC-04: PM Due 2026-11-01 – Lubrication and alignment\nCNC-05: PM Due 2026-10-12 – Collet and toolholder check',
   },
   {
     id: 'doc-09',
@@ -87,7 +87,7 @@ export const mockDocuments: KnowledgeDocument[] = [
     sizeBytes: 2_097_152,
     importedAt: daysAgo(15),
     indexStatus: 'vectorized',
-    extractedText: `Root Cause Analysis – CNC-01 Spindle Failure (September 2026)\n\nIncident: Unplanned downtime 4.5 hours due to spindle bearing seizure.\nRoot Cause: Delayed maintenance (PM overdue by 18 days) combined with elevated ambient temperature.\nLeading Indicators: Temperature trending +2°C/hour for 3 hours prior to failure. Vibration +22% at 6 hours before failure.\nRecommendation: Implement AI-based early warning at 85°C and vibration +20%.`,
+    extractedText: 'Root Cause Analysis – CNC-01 Spindle Failure (September 2026)\n\nIncident: Unplanned downtime 4.5 hours due to spindle bearing seizure.\nRoot Cause: Delayed maintenance (PM overdue by 18 days) combined with elevated ambient temperature.\nLeading Indicators: Temperature trending +2°C/hour for 3 hours prior to failure. Vibration +22% at 6 hours before failure.\nRecommendation: Implement AI-based early warning at 85°C and vibration +20%.',
   },
   {
     id: 'doc-10',
@@ -96,7 +96,7 @@ export const mockDocuments: KnowledgeDocument[] = [
     sizeBytes: 1_572_864,
     importedAt: daysAgo(8),
     indexStatus: 'vectorized',
-    extractedText: `OEE Report – Line A – September 2026\n\nOverall OEE: 78.3% (Target: 85%)\nAvailability: 82.1%\nPerformance: 91.4%\nQuality: 98.7%\n\nTop Loss Causes:\n1. Spindle overheating (CNC-01, CNC-02): 34% of downtime\n2. Tool change errors: 18% of downtime\n3. Setup time: 26% of downtime`,
+    extractedText: 'OEE Report – Line A – September 2026\n\nOverall OEE: 78.3% (Target: 85%)\nAvailability: 82.1%\nPerformance: 91.4%\nQuality: 98.7%\n\nTop Loss Causes:\n1. Spindle overheating (CNC-01, CNC-02): 34% of downtime\n2. Tool change errors: 18% of downtime\n3. Setup time: 26% of downtime',
   },
   {
     id: 'doc-11',
@@ -105,7 +105,7 @@ export const mockDocuments: KnowledgeDocument[] = [
     sizeBytes: 8_912_896,
     importedAt: daysAgo(45),
     indexStatus: 'vectorized',
-    extractedText: `Electrical Wiring Diagram – CNC-02\nVersion 2, Revision B\n\nSpindle Drive: Mitsubishi MR-J4-700A\nCoolant Pump: 3-phase 380V, 2.2kW\nTemperature Sensors: PT100 RTD, channels 1–4\nVibration Sensors: PCB 333B30, ICP powered`,
+    extractedText: 'Electrical Wiring Diagram – CNC-02\nVersion 2, Revision B\n\nSpindle Drive: Mitsubishi MR-J4-700A\nCoolant Pump: 3-phase 380V, 2.2kW\nTemperature Sensors: PT100 RTD, channels 1–4\nVibration Sensors: PCB 333B30, ICP powered',
   },
   {
     id: 'doc-12',
@@ -114,7 +114,7 @@ export const mockDocuments: KnowledgeDocument[] = [
     sizeBytes: 3_670_016,
     importedAt: daysAgo(60),
     indexStatus: 'vectorized',
-    extractedText: `Coolant System Manual – DENSO Line A\n\nChapter 3 – Maintenance Intervals\n\nCoolant concentration check: Every 5 working days\nFilter replacement: Every 30 days or when flow drops below 3.5 L/min\nReservoir cleaning: Every 90 days\nPump seal inspection: Every 180 days`,
+    extractedText: 'Coolant System Manual – DENSO Line A\n\nChapter 3 – Maintenance Intervals\n\nCoolant concentration check: Every 5 working days\nFilter replacement: Every 30 days or when flow drops below 3.5 L/min\nReservoir cleaning: Every 90 days\nPump seal inspection: Every 180 days',
   },
   {
     id: 'doc-13',
@@ -123,7 +123,7 @@ export const mockDocuments: KnowledgeDocument[] = [
     sizeBytes: 1_245_184,
     importedAt: daysAgo(90),
     indexStatus: 'vectorized',
-    extractedText: `Lockout/Tagout Procedure – CNC Machines\n\nStep 1: Notify all affected personnel.\nStep 2: Identify all energy sources (electrical, hydraulic, pneumatic).\nStep 3: Apply LOTO devices to all isolation points.\nStep 4: Verify zero energy state before performing maintenance.\nStep 5: Remove LOTO devices and restart only after maintenance sign-off.`,
+    extractedText: 'Lockout/Tagout Procedure – CNC Machines\n\nStep 1: Notify all affected personnel.\nStep 2: Identify all energy sources (electrical, hydraulic, pneumatic).\nStep 3: Apply LOTO devices to all isolation points.\nStep 4: Verify zero energy state before performing maintenance.\nStep 5: Remove LOTO devices and restart only after maintenance sign-off.',
   },
   {
     id: 'doc-14',
@@ -132,7 +132,7 @@ export const mockDocuments: KnowledgeDocument[] = [
     sizeBytes: 2_359_296,
     importedAt: daysAgo(20),
     indexStatus: 'vectorized',
-    extractedText: `OT Network Topology – DENSO Monozukuri Hub\n\nLevel 0: Field devices (PLCs, sensors, actuators)\nLevel 1: Control layer (DCS, SCADA)\nLevel 2: Supervisory layer (MES, historian)\nLevel 3: Manufacturing operations (ERP integration)\n\nProtocols: OPC-UA (primary), Modbus TCP (legacy), MQTT (IoT sensors)`,
+    extractedText: 'OT Network Topology – DENSO Monozukuri Hub\n\nLevel 0: Field devices (PLCs, sensors, actuators)\nLevel 1: Control layer (DCS, SCADA)\nLevel 2: Supervisory layer (MES, historian)\nLevel 3: Manufacturing operations (ERP integration)\n\nProtocols: OPC-UA (primary), Modbus TCP (legacy), MQTT (IoT sensors)',
   },
   {
     id: 'doc-15',
@@ -141,7 +141,7 @@ export const mockDocuments: KnowledgeDocument[] = [
     sizeBytes: 655_360,
     importedAt: daysAgo(12),
     indexStatus: 'vectorized',
-    extractedText: `Annual Training Record – 2026\n\nOperator: Nguyen Van A – CNC Level 3 certified – Expires 2027-03\nOperator: Tran Thi B – CNC Level 2 certified – Expires 2026-12\nEngineer: Le Van C – PLC Programming certified – Expires 2027-06`,
+    extractedText: 'Annual Training Record – 2026\n\nOperator: Nguyen Van A – CNC Level 3 certified – Expires 2027-03\nOperator: Tran Thi B – CNC Level 2 certified – Expires 2026-12\nEngineer: Le Van C – PLC Programming certified – Expires 2027-06',
   },
   {
     id: 'doc-16',
@@ -150,7 +150,7 @@ export const mockDocuments: KnowledgeDocument[] = [
     sizeBytes: 1_048_576,
     importedAt: daysAgo(180),
     indexStatus: 'vectorized',
-    extractedText: `Emergency Response Plan – Production Incidents\n\nLevel 1 (Minor): Operator resolves within 15 minutes. Log in MES.\nLevel 2 (Significant): Team leader notified. Resolve within 60 minutes.\nLevel 3 (Critical): Production Manager + Maintenance Manager paged. Isolate line. RCA required within 24 hours.\nLevel 4 (Major): Plant Director notified. Potential line shutdown.`,
+    extractedText: 'Emergency Response Plan – Production Incidents\n\nLevel 1 (Minor): Operator resolves within 15 minutes. Log in MES.\nLevel 2 (Significant): Team leader notified. Resolve within 60 minutes.\nLevel 3 (Critical): Production Manager + Maintenance Manager paged. Isolate line. RCA required within 24 hours.\nLevel 4 (Major): Plant Director notified. Potential line shutdown.',
   },
   {
     id: 'doc-17',
@@ -159,7 +159,7 @@ export const mockDocuments: KnowledgeDocument[] = [
     sizeBytes: 12_582_912,
     importedAt: daysAgo(90),
     indexStatus: 'vectorized',
-    extractedText: `Mitsubishi Electric MR-J4-700A Servo Amplifier\nSpecification Sheet – October 2024\n\nRated Output: 7 kW\nOverload Capacity: 150% for 3 seconds\nSpindle Override Range: 0–120%\nTemperature Protection: Internal thermal model + external PT100 input\nCommunication: CC-Link IE, EtherCAT`,
+    extractedText: 'Mitsubishi Electric MR-J4-700A Servo Amplifier\nSpecification Sheet – October 2024\n\nRated Output: 7 kW\nOverload Capacity: 150% for 3 seconds\nSpindle Override Range: 0–120%\nTemperature Protection: Internal thermal model + external PT100 input\nCommunication: CC-Link IE, EtherCAT',
   },
   {
     id: 'doc-18',
@@ -168,6 +168,6 @@ export const mockDocuments: KnowledgeDocument[] = [
     sizeBytes: 327_680,
     importedAt: daysAgo(1),
     indexStatus: 'vectorized',
-    extractedText: `Tag,Description,Unit,HiHi,Hi,Lo,LoLo\nCNC02.SPIN.TEMP,Spindle Temperature,°C,95,85,0,-\nCNC02.VIB.Z,Z-Axis Vibration,%,50,30,0,-\nCNC02.SPIN.OVRD,Spindle Override,%,120,100,0,-\nCNC02.COOL.FLOW,Coolant Flow,L/min,-,10,3,2\nCNC02.FEED.OVRD,Feed Override,%,120,100,0,-`,
+    extractedText: 'Tag,Description,Unit,HiHi,Hi,Lo,LoLo\nCNC02.SPIN.TEMP,Spindle Temperature,°C,95,85,0,-\nCNC02.VIB.Z,Z-Axis Vibration,%,50,30,0,-\nCNC02.SPIN.OVRD,Spindle Override,%,120,100,0,-\nCNC02.COOL.FLOW,Coolant Flow,L/min,-,10,3,2\nCNC02.FEED.OVRD,Feed Override,%,120,100,0,-',
   },
 ]

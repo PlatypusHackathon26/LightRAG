@@ -11,7 +11,7 @@ import { MessageSquareIcon, AlertTriangleIcon } from 'lucide-react'
 const DEMO_RESPONSES = [
   {
     trigger: /pm|maintenance|interval|schedule/i,
-    response: `Based on the **Maintenance Schedule** and **SOP_Bao_Tri_CNC_02.pdf**, here's the current PM status:\n\n- CNC-02 bearing inspection is **overdue by 3 days** (due 2026-10-08)\n- Standard bearing PM interval: every 500 hours or 30 days\n- Coolant flush: every 5 working days\n\nThe overdue PM is likely contributing to the current overheating incident.`,
+    response: 'Based on the **Maintenance Schedule** and **SOP_Bao_Tri_CNC_02.pdf**, here\'s the current PM status:\n\n- CNC-02 bearing inspection is **overdue by 3 days** (due 2026-10-08)\n- Standard bearing PM interval: every 500 hours or 30 days\n- Coolant flush: every 5 working days\n\nThe overdue PM is likely contributing to the current overheating incident.',
     citations: [
       { id: 'r1', documentId: 'doc-08', documentName: 'Maintenance_Schedule_Line_A_2026.xlsx', pages: 'Sheet 1' },
       { id: 'r2', documentId: 'doc-01', documentName: 'SOP_Bao_Tri_CNC_02.pdf', pages: '22–24' },
@@ -19,17 +19,17 @@ const DEMO_RESPONSES = [
   },
   {
     trigger: /bearing|part|6205/i,
-    response: `**Bearing #6205** is confirmed available:\n\n| Part | Shelf | Stock | Status |\n|---|---|---|---|\n| Deep Groove #6205 | **B-04** | **12 pcs** | ✅ Available |\n| Deep Groove #6206 (backup) | B-04 | 8 pcs | ✅ Available |\n\nI have already included a reservation for 1x #6205 in the proposed HITL action.`,
+    response: '**Bearing #6205** is confirmed available:\n\n| Part | Shelf | Stock | Status |\n|---|---|---|---|\n| Deep Groove #6205 | **B-04** | **12 pcs** | ✅ Available |\n| Deep Groove #6206 (backup) | B-04 | 8 pcs | ✅ Available |\n\nI have already included a reservation for 1x #6205 in the proposed HITL action.',
     citations: [{ id: 'r3', documentId: 'doc-06', documentName: 'Inventory_BOM_Q4_2026.csv', pages: 'Row 2' }],
   },
   {
     trigger: /plc|command|s=|spindle|override/i,
-    response: `To reduce spindle override to 50% on CNC-02:\n\n\`\`\`gcode\nS=50  ; Spindle override to 50%\n\`\`\`\n\nThis is the command included in the pending HITL action. Per **PLC_Parameter_Reference_DENSO_2026.pdf**, the override range is 0–120%. Reducing to 50% will lower thermal output significantly while maintaining workpiece quality above 40%.`,
+    response: 'To reduce spindle override to 50% on CNC-02:\n\n```gcode\nS=50  ; Spindle override to 50%\n```\n\nThis is the command included in the pending HITL action. Per **PLC_Parameter_Reference_DENSO_2026.pdf**, the override range is 0–120%. Reducing to 50% will lower thermal output significantly while maintaining workpiece quality above 40%.',
     citations: [{ id: 'r4', documentId: 'doc-03', documentName: 'PLC_Parameter_Reference_DENSO_2026.pdf', pages: '12–13' }],
   },
   {
     trigger: /.*/,
-    response: `I have analyzed your query against the knowledge base. Based on current telemetry (CNC-02 spindle at 92°C, Z-vibration +35%) and matching SOP sections, the situation requires immediate attention.\n\nThe proposed HITL action (spindle derate to 50%) remains pending your approval. Please review and confirm or reject the action above.`,
+    response: 'I have analyzed your query against the knowledge base. Based on current telemetry (CNC-02 spindle at 92°C, Z-vibration +35%) and matching SOP sections, the situation requires immediate attention.\n\nThe proposed HITL action (spindle derate to 50%) remains pending your approval. Please review and confirm or reject the action above.',
     citations: [
       { id: 'r5', documentId: 'doc-01', documentName: 'SOP_Bao_Tri_CNC_02.pdf', pages: '14–16' },
       { id: 'r6', documentId: 'doc-02', documentName: 'FMEA_Spindle_Assembly_Rev4.pdf', pages: '8–9' },

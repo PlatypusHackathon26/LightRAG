@@ -35,7 +35,7 @@ export default function TelemetryStrip({ telemetry }: { telemetry: TelemetrySnap
             style={{
               background: p.isAnomalous ? '#EF444415' : '#1C2541',
               border: `1px solid ${p.isAnomalous ? '#EF444440' : '#3A506B'}`,
-              boxShadow: p.isAnomalous ? `0 0 8px #EF444420` : 'none',
+              boxShadow: p.isAnomalous ? '0 0 8px #EF444420' : 'none',
             }}
           >
             <span className="text-[10px]" style={{ color: '#8a9ab5', fontFamily: 'Roboto Mono, monospace' }}>

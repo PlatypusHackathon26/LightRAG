@@ -14,6 +14,8 @@ import App from './App'
 import LoginPage from '@/features/LoginPage'
 import ThemeProvider from '@/components/ThemeProvider'
 import MigrationErrorScreen from '@/components/MigrationErrorScreen'
+// DEMO MODE: bypass auth entirely and show the Industrial Agentic Copilot
+import { AgenticWorkspace } from '@/features/agentic'
 
 const AppContent = () => {
   const [initializing, setInitializing] = useState(true)
@@ -93,6 +95,14 @@ const AppContent = () => {
 }
 
 const AppRouter = () => {
+  // ── DEMO MODE: skip all auth and render the Industrial Agentic Copilot ──────
+  // VITE_DEMO_MODE is a build-time constant; Vite/Rollup tree-shakes the dead
+  // branch in production when the env var is absent or 'false'.
+  if (import.meta.env.VITE_DEMO_MODE === 'true') {
+    return <AgenticWorkspace />
+  }
+  // ── END DEMO MODE ────────────────────────────────────────────────────────────
+
   if (getSettingsMigrationError() != null) {
     // Storage split migration did not complete: dependent stores skipped
     // hydration, so render a retryable error instead of running on defaults.
