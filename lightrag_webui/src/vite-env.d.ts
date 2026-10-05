@@ -29,6 +29,10 @@ interface ImportMetaEnv {
   /** Browser-visible API prefix to simulate in dev. Must match the backend's
    *  `LIGHTRAG_API_PREFIX` if a real prefixed backend is being proxied to. */
   readonly VITE_DEV_API_PREFIX?: string
+
+  /** When `true`, the Industrial Agentic Copilot runs in full demo/mock mode
+   *  without any backend connection. Default: `true` in dev. */
+  readonly VITE_DEMO_MODE?: string
 }
 
 interface ImportMeta {
