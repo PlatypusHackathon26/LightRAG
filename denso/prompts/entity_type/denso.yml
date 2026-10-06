@@ -1,0 +1,69 @@
+### DENSO automotive aftermarket / maintenance entity profile for LightRAG.
+### Enable with (see denso/env.denso):
+###   PROMPT_DIR=./denso/prompts
+###   ENTITY_TYPE_PROMPT_FILE=denso.yml
+###
+### LightRAG embeds the *_examples below as an "Output Format Template" and tells
+### the model never to copy entities from it, so they stay placeholder-only like
+### the upstream sample. Domain knowledge goes into entity_types_guidance; a
+### concrete worked example here would leak its entities into real extractions.
+### When ENTITY_EXTRACTION_USE_JSON=false, entity_extraction_examples is used;
+### when true, entity_extraction_json_examples is used. Both are provided.
+
+entity_types_guidance: |
+  The documents are DENSO automotive technical material: installation guides,
+  service bulletins, troubleshooting posters and parts catalogues. Classify each
+  entity using exactly one of the following types. If no type fits, use `Other`.
+
+  - Product: a DENSO product line, series or model (an A/C compressor series, a spark plug range, a wiper blade series, a compressor oil grade)
+  - PartNumber: an exact part, kit or catalogue number, copied character-for-character including suffixes and any number in brackets
+  - Component: a physical sub-part or assembly (valve, O-ring, guide pin, pulley, shaft seal, electrode, rubber edge, connector)
+  - Vehicle: a vehicle make, model, engine or application
+  - Specification: a measurable value with its unit or limit (torque, oil quantity, gap, length, pressure, temperature, replacement interval, shelf life)
+  - Fluid: refrigerants, oils, coolants and fuels, including their type codes (PAG, POE, R-134a style codes)
+  - Material: materials and coatings (graphite, iridium, platinum, rubber compounds)
+  - Procedure: an installation, removal, flushing, inspection or maintenance procedure or step
+  - FailureMode: a failure, symptom or damage pattern (contamination, seizure, noise, leakage)
+  - Cause: the root cause or condition that leads to a failure
+  - Tool: a service, diagnostic or measuring tool or equipment
+  - Code: an error, diagnostic trouble or identification code
+  - Organization: companies and brands (DENSO, vehicle makers, competitor brands)
+  - Document: a named document, section, table or chart within the material
+
+  Domain rules:
+  - Prefer specific technical entities over generic words. Do not extract postal addresses, websites, slogans or marketing claims as entities.
+  - Copy numbers, ranges, units and part numbers exactly as written (never convert units, round values or translate codes).
+  - Put the exact value of a Specification in its description together with what it applies to.
+  - Relate every Specification, Fluid and Procedure to the Product or Component it belongs to.
+  - Keep entity names and descriptions in the language of the input text.
+
+entity_extraction_examples:
+  - |
+    entity{tuple_delimiter}<entity_name>{tuple_delimiter}<entity_type>{tuple_delimiter}<entity_description>
+    relation{tuple_delimiter}<source_entity>{tuple_delimiter}<target_entity>{tuple_delimiter}<relationship_keywords>{tuple_delimiter}<relationship_description>
+    {completion_delimiter}
+
+entity_extraction_json_examples:
+  - |
+    {
+      "entities": [
+        {
+          "name": "<entity_name>",
+          "type": "<entity_type>",
+          "description": "<entity_description>"
+        },
+        {
+          "name": "<related_entity_name>",
+          "type": "<related_entity_type>",
+          "description": "<related_entity_description>"
+        }
+      ],
+      "relationships": [
+        {
+          "source": "<entity_name>",
+          "target": "<related_entity_name>",
+          "keywords": "<relationship_keywords>",
+          "description": "<relationship_description>"
+        }
+      ]
+    }
