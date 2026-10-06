@@ -1,0 +1,5 @@
+# Extra packages for the denso/ pipeline, on top of `uv sync --extra api`.
+# Install: uv pip install --python .venv\Scripts\python.exe -r denso\requirements.txt
+ollama>=0.5.4,<1.0.0   # LightRAG's Ollama binding (not in the api extra)
+langdetect>=1.0.9      # per-page language tagging in clean.py
+wordfreq>=3.1          # dictionary evidence for OCR word-joining in clean.py

@@ -1,0 +1,18 @@
+# Local docling-serve for LightRAG (CPU build: the laptop GPU is AMD, no CUDA).
+# Start:  docker compose -f denso/docling/docker-compose.yml up -d
+# UI:     http://localhost:5001/ui   (health: http://localhost:5001/health)
+services:
+  docling-serve:
+    image: ghcr.io/docling-project/docling-serve-cpu:latest
+    container_name: docling-serve
+    ports:
+      # Bind to localhost only: documents are confidential.
+      - "127.0.0.1:5001:5001"
+    environment:
+      DOCLING_SERVE_ENABLE_UI: "true"
+      # One conversion at a time keeps RAM within a 16GB laptop budget.
+      DOCLING_SERVE_ENG_LOC_NUM_WORKERS: "1"
+      # Large catalogues take a long time on CPU.
+      DOCLING_SERVE_MAX_SYNC_WAIT: "3600"
+    restart: unless-stopped
+    mem_limit: 6g
