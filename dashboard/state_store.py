@@ -1,98 +1,109 @@
+# dashboard/state_store.py
 from __future__ import annotations
 
-import threading
-from collections import deque
-from datetime import datetime, timezone
-from typing import Any, Deque, Dict, Iterable, Optional
+import time
+from threading import Lock
+from typing import Any, Dict, List
 
 
 class DashboardState:
-    """Thread-safe snapshot of simulator events for the browser dashboard."""
+    """Kho lưu trữ trạng thái tập trung phục vụ hiển thị Dashboard."""
 
-    def __init__(self, alert_limit: int = 30, history_limit: int = 30) -> None:
-        self._lock = threading.RLock()
-        self._machines: Dict[str, Dict[str, Any]] = {}
-        self._alerts: Deque[Dict[str, Any]] = deque(maxlen=alert_limit)
-        self._history_limit = history_limit
+    def __init__(self) -> None:
+        self._lock = Lock()
+        # Trạng thái 5 máy: {machine_id: {...}}
+        self.machines: Dict[str, Dict[str, Any]] = {}
+        # Lịch sử chat AI/RAG
+        self.chat_history: List[Dict[str, Any]] = []
+        # Danh sách lệnh chờ phê duyệt: {approval_id: {...}}
+        self.pending_approvals: Dict[str, Dict[str, Any]] = {}
+        # Lịch sử cảnh báo
+        self.alerts: List[Dict[str, Any]] = []
 
-    def register_machines(self, machines: Iterable[Any]) -> None:
+    def register_machines(self, machines: List[Any]) -> None:
+        """Đăng ký danh mục máy ban đầu."""
         with self._lock:
-            for machine in machines:
-                self._machines[machine.machine_id] = {
-                    "machine_id": machine.machine_id,
-                    "machine_type": machine.machine_type,
-                    "model": machine.model,
-                    "location": machine.location,
-                    "status": "starting",
+            for m in machines:
+                self.machines[m.machine_id] = {
+                    "machine_id": m.machine_id,
+                    "machine_type": getattr(m, "machine_type", "UNKNOWN"),
+                    "model": getattr(m, "model", "N/A"),
+                    "location": getattr(m, "location", "Shopfloor"),
+                    "status": "ONLINE",
+                    "label": "normal",
                     "telemetry": {},
-                    "history": {},
-                    "last_updated": None,
-                    "last_alert": None,
-                    "last_agent_result": None,
+                    "last_updated": time.time(),
                 }
 
     def handle_event(self, event: Dict[str, Any]) -> None:
-        machine_id = event.get("machine_id")
-        if not machine_id:
-            return
-
-        timestamp = event.get("timestamp") or datetime.now(timezone.utc).isoformat()
+        """Lắng nghe tất cả các sự kiện trên EventBus."""
         event_type = event.get("event_type")
-        payload = event.get("payload") or {}
+        label = event.get("label")
+        machine_id = event.get("machine_id")
 
         with self._lock:
-            machine = self._machines.get(machine_id)
-            if machine is None:
-                return
+            # 1. Cập nhật Telemetry máy
+            if event_type == "telemetry" or label in ("normal", "alert"):
+                if machine_id in self.machines:
+                    m = self.machines[machine_id]
+                    m["last_updated"] = time.time()
+                    if "payload" in event:
+                        m["telemetry"] = event["payload"]
+                    if label:
+                        m["label"] = label
+                        m["status"] = "ALERT" if label == "alert" else "ONLINE"
 
-            machine["last_updated"] = timestamp
-            if event_type == "connection":
-                machine["status"] = payload.get("status", "online")
-            elif event_type == "telemetry":
-                machine["status"] = "online"
-                machine["telemetry"] = dict(payload)
-                for key, value in payload.items():
-                    if isinstance(value, (int, float)) and not isinstance(value, bool):
-                        points = machine["history"].setdefault(key, deque(maxlen=self._history_limit))
-                        points.append(value)
-            elif event_type == "alert":
-                alert = {
-                    "timestamp": timestamp,
+                if label == "alert":
+                    self.alerts.append({
+                        "timestamp": event.get("timestamp", time.time()),
+                        "machine_id": machine_id,
+                        "anomalies": event.get("anomalies", []),
+                    })
+                    if len(self.alerts) > 50:
+                        self.alerts.pop(0)
+
+            # 2. Cập nhật thông điệp Chatbot từ RAG/Agent
+            elif event_type == "chat_notification":
+                self.chat_history.append({
+                    "timestamp": time.strftime("%H:%M:%S"),
                     "machine_id": machine_id,
-                    "issue": payload.get("issue", "Unknown alert"),
-                    "telemetry": dict(payload.get("telemetry") or {}),
-                    "agent_result": None,
-                }
-                machine["status"] = "alert"
-                machine["last_alert"] = alert["issue"]
-                machine["last_agent_result"] = None
-                self._alerts.appendleft(alert)
+                    "text": event.get("text", ""),
+                    "source": event.get("source", "AI_AGENT"),
+                })
+                if len(self.chat_history) > 100:
+                    self.chat_history.pop(0)
 
-    def record_agent_result(self, machine_id: str, result: Dict[str, Any]) -> None:
+            # 3. Cập nhật yêu cầu phê duyệt an toàn
+            elif event_type == "approval_required":
+                app_id = event.get("approval_id")
+                cmd = event.get("command", {})
+                if app_id:
+                    self.pending_approvals[app_id] = {
+                        "approval_id": app_id,
+                        "machine_id": cmd.get("machine_id"),
+                        "command": cmd.get("command"),
+                        "params": cmd.get("params", {}),
+                        "reason": cmd.get("reason", ""),
+                        "created_at": time.strftime("%H:%M:%S"),
+                    }
+
+            # 4. Khi lệnh đã được thực thi hoặc hủy
+            elif event_type in ("command_response", "command_result"):
+                # Dọn các lệnh đã xử lý xong ra khỏi danh sách chờ
+                pass
+
+    def get_snapshot(self) -> Dict[str, Any]:
+        """Lấy toàn bộ dữ liệu snapshot để trả về cho giao diện Web."""
         with self._lock:
-            machine = self._machines.get(machine_id)
-            if machine is None:
-                return
-            machine["last_agent_result"] = dict(result)
-            for alert in self._alerts:
-                if alert["machine_id"] == machine_id and alert["agent_result"] is None:
-                    alert["agent_result"] = dict(result)
-                    break
-
-    def snapshot(self) -> Dict[str, Any]:
-        with self._lock:
-            machines = []
-            for machine in self._machines.values():
-                item = dict(machine)
-                item["telemetry"] = dict(machine["telemetry"])
-                item["history"] = {key: list(values) for key, values in machine["history"].items()}
-                item["last_agent_result"] = (
-                    dict(machine["last_agent_result"]) if machine["last_agent_result"] else None
-                )
-                machines.append(item)
-
             return {
-                "generated_at": datetime.now(timezone.utc).isoformat(),
-                "machines": machines,
-                "alerts": [dict(alert) for alert in self._alerts],
+                "server_time": time.strftime("%H:%M:%S"),
+                "machines": list(self.machines.values()),
+                "chat_history": list(self.chat_history[-20:]),  # 20 tin gần nhất
+                "pending_approvals": list(self.pending_approvals.values()),
+                "alerts": list(self.alerts[-10:]),
             }
+
+    def remove_approval(self, approval_id: str) -> None:
+        """Xóa lệnh chờ khi đã được bấm duyệt trên web."""
+        with self._lock:
+            self.pending_approvals.pop(approval_id, None)

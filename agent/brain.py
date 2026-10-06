@@ -1,44 +1,81 @@
+# agent/brain.py
 from __future__ import annotations
 
-from typing import Any, Dict, List
+import logging
+from typing import Any, Dict
 
-from .knowledge_base import KnowledgeBase
+logger = logging.getLogger("AgentBrain")
 
 
 class AgentBrain:
-    """Rule-based reasoning layer (mock LLM / mock RAG logic)."""
-
-    def __init__(self, tools: Any | None = None, knowledge_base: KnowledgeBase | None = None) -> None:
+    def __init__(self, rag_engine: Any, tools: Any, event_bus: Any = None) -> None:
+        self.rag = rag_engine
         self.tools = tools
-        self.knowledge_base = knowledge_base or KnowledgeBase()
+        self.event_bus = event_bus
+        # Bộ nhớ lưu trạng thái gần nhất của các máy
+        self.machine_states: Dict[str, Dict[str, Any]] = {}
 
-    def handle_alert(self, alert: Dict[str, Any]) -> Dict[str, Any]:
-        machine_id = alert.get("machine_id", "unknown")
-        issue = alert.get("payload", {}).get("issue", "unknown")
-        telemetry = alert.get("payload", {}).get("telemetry", {})
-
-        diagnosis = self.knowledge_base.query(issue)
-        recommendations = self._recommend_actions(issue, telemetry)
-
-        if self.tools is not None:
-            self.tools.create_ticket(machine_id, f"Maintenance alert: {issue}", priority="high")
-            self.tools.send_notification(machine_id, diagnosis)
-
-        return {
-            "machine_id": machine_id,
-            "issue": issue,
-            "diagnosis": diagnosis,
-            "recommendations": recommendations,
+    def handle_heartbeat(self, event: Dict[str, Any]) -> None:
+        """Gói tin 'normal' (chu kỳ 10s): chỉ cập nhật trạng thái sống, không gọi RAG."""
+        machine_id = event.get("machine_id", "UNKNOWN")
+        self.machine_states[machine_id] = {
+            "timestamp": event.get("timestamp"),
+            "machine_type": event.get("machine_type", ""),
+            "payload": event.get("payload", {}),
         }
 
-    def _recommend_actions(self, issue: str, telemetry: Dict[str, Any]) -> List[Dict[str, Any]]:
-        normalized = issue.lower()
-        if "thermal" in normalized or "temperature" in normalized:
-            return [{"action": "feed_hold", "payload": {"reason": issue, "temp": telemetry.get("Spindle_Temp_C") or telemetry.get("Barrel_Zone_Temp_C")}}]
-        if "vibration" in normalized or "overload" in normalized:
-            return [{"action": "safe_home", "payload": {"reason": issue, "vibration": telemetry.get("Vibration_RMS_mm_s") or telemetry.get("Motor_Current_A")}}]
-        if "pressure" in normalized:
-            return [{"action": "quality_hold", "payload": {"reason": issue, "pressure": telemetry.get("Injection_Peak_Pressure_MPa")}}]
-        if "battery" in normalized:
-            return [{"action": "battery_charge", "payload": {"reason": issue, "battery": telemetry.get("Battery_SOC_pct")}}]
-        return [{"action": "reduce_speed", "payload": {"reason": issue, "telemetry": telemetry}}]
+    def handle_alert(self, event: Dict[str, Any]) -> None:
+        """Gói tin 'alert': Kích hoạt quy trình 3 bước xử lý sự cố."""
+        machine_id = event.get("machine_id", "UNKNOWN")
+        machine_type = event.get("machine_type", "")
+        payload = event.get("payload", {})
+
+        logger.info(f"[Brain] Bắt đầu xử lý cảnh báo cho máy {machine_id} ({machine_type})")
+
+        # =========================================================================
+        # BƯỚC 1: Gọi RAG với định dạng input theo yêu cầu
+        # =========================================================================
+        rag_input = (
+            f"đây là máy {machine_type} (ID: {machine_id}), "
+            f"đang có trạng thái {payload}, "
+            f"hãy đưa ra giải pháp giúp máy ổn định"
+        )
+
+        # Hàm query từ RAG trả về một đoạn text tư vấn kỹ thuật
+        advice_text = self.rag.query(rag_input)
+
+        # Phát câu trả lời của RAG lên Chatbot để kỹ sư đọc
+        if self.event_bus:
+            self.event_bus.publish({
+                "event_type": "chat_notification",
+                "machine_id": machine_id,
+                "text": advice_text,
+                "source": "AI_RAG",
+            })
+
+        # =========================================================================
+        # BƯỚC 2: Gọi hàm ở tool để dịch text của RAG thành chuỗi hành động chuẩn
+        # =========================================================================
+        # Tool sẽ dựa trên machine_type và nội dung advice_text để bóc tách hành động
+        actions = self.tools.translate_advice_to_actions(
+            machine_id=machine_id,
+            machine_type=machine_type,
+            advice_text=advice_text,
+        )
+
+        # =========================================================================
+        # BƯỚC 3: Chuyển toàn bộ danh sách hành động chuẩn đó cho EventBus
+        # =========================================================================
+        if actions and self.event_bus:
+            for act in actions:
+                command_event = {
+                    "event_type": "action_command",
+                    "machine_id": machine_id,
+                    "command": act.get("command"),
+                    "params": act.get("params", {}),
+                    "risk_level": act.get("risk_level", "LOW"),
+                    "reason": act.get("reason", "Thực thi theo khuyến nghị từ RAG"),
+                }
+                # Bắn ra EventBus để action_approval hoặc actuator_dispatcher tiếp nhận
+                self.event_bus.publish(command_event)
+                logger.info(f"[Brain] Đã đẩy lệnh '{act.get('command')}' vào Bus cho máy {machine_id}")
