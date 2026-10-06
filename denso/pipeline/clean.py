@@ -205,18 +205,32 @@ def with_page_column(table_md: str, page: int) -> str:
 # ---------------------------------------------------------------- document
 
 
+# Footnote legends ('*2 No applicable item is available', '※ ...') explain markers
+# used inside tables on that page; every chunk needs them, so they are never
+# treated as running boilerplate even when printed on every page.
+FOOTNOTE_LEGEND = re.compile(r"^(?:[-*+]\s+)?(?:\*\s*\d+|※|\(\s*\d+\s*\)\s|\(Note)")
+
+
 def repeated_lines(pages: list[str]) -> set[str]:
     """Short lines repeated on at least half of the pages: running headers/footers."""
     if len(pages) < 3:
         return set()
     counts: Counter[str] = Counter()
     for page in pages:
-        seen = {ln.strip() for ln in page.split("\n") if 0 < len(ln.strip()) < 80 and not ln.startswith("|")}
+        seen = {
+            ln.strip()
+            for ln in page.split("\n")
+            if 0 < len(ln.strip()) < 80 and not ln.startswith("|") and not FOOTNOTE_LEGEND.match(ln.strip())
+        }
         counts.update(seen)
     return {ln for ln, n in counts.items() if n >= max(3, len(pages) // 2)}
 
 
-def clean_page(raw: str, number: int, boilerplate: set[str]) -> tuple[list[str], list[dict], PageReport]:
+def clean_page(
+    raw: str, number: int, boilerplate: set[str], emitted: set[str] | None = None
+) -> tuple[list[str], list[dict], PageReport]:
+    """Clean one page. `emitted` collects boilerplate lines already kept once in this document."""
+    emitted = set() if emitted is None else emitted
     lang = detect_lang(raw)
     report = PageReport(page=number, language=lang)
     blocks: list[str] = []
@@ -241,8 +255,10 @@ def clean_page(raw: str, number: int, boilerplate: set[str]) -> tuple[list[str],
             continue
         i += 1
         if stripped in boilerplate:
-            report.dropped.append(f"boilerplate: {stripped}")
-            continue
+            if stripped in emitted:
+                report.dropped.append(f"boilerplate: {stripped}")
+                continue
+            emitted.add(stripped)  # keep the first occurrence, run it through the normal rules
         heading = HEADING.match(stripped)
         if heading:
             text = clean_inline(heading.group(2), lang, report.joined)
@@ -374,13 +390,14 @@ def process(doc_dir: Path, out_root: Path, tiers: dict | None = None) -> dict | 
         return None  # nothing publishable until more ranges are parsed
     pages_raw = [html.unescape(p) for p in pages_raw]
     boilerplate = repeated_lines(pages_raw)
+    emitted: set[str] = set()
 
     md_parts: list[str] = []
     text_parts: list[str] = []
     all_tables: list[dict] = []
     reports: list[PageReport] = []
     for n, raw in enumerate(pages_raw, 1):
-        blocks, tables, report = clean_page(raw, n, boilerplate)
+        blocks, tables, report = clean_page(raw, n, boilerplate, emitted)
         reports.append(report)
         all_tables += tables
         md_parts.append(markdown_page(blocks, n, report.language))

@@ -116,6 +116,26 @@ def test_multilingual_toc_page_is_mixed_not_guessed():
     assert detect_lang("Fit the bolts and tighten them with the torque given in the table below.") == "en"
 
 
+def test_footnote_legends_are_never_boilerplate():
+    # Regression: the Wiper catalogue legend ('*2 No applicable item is available')
+    # printed under every application table was removed from all 151 pages,
+    # leaving '*2' markers in table cells unexplained.
+    legend = "- *2 No applicable item is available"
+    pages = [f"| Car | *2 |\n{legend}\n*7 Shorter than OEM wiper\nNotes footer {i % 1}" for i in range(6)]
+    found = repeated_lines(pages)
+    assert legend not in found and "*7 Shorter than OEM wiper" not in found
+    assert "Notes footer 0" in found
+
+
+def test_boilerplate_keeps_its_first_occurrence():
+    boiler = {"Please take off the plastic part put on the wiper arm"}
+    emitted: set[str] = set()
+    first, _, _ = clean_page("Please take off the plastic part put on the wiper arm\nBody one.", 26, boiler, emitted)
+    later, _, rep = clean_page("Please take off the plastic part put on the wiper arm\nBody two.", 27, boiler, emitted)
+    assert first == ["Please take off the plastic part put on the wiper arm", "Body one."]
+    assert later == ["Body two."] and rep.dropped == ["boilerplate: Please take off the plastic part put on the wiper arm"]
+
+
 def test_running_headers_detected_only_when_repeated():
     pages = ["Diesel Common Rail System\nbody one", "Diesel Common Rail System\nbody two", "Diesel Common Rail System\nbody three"]
     assert repeated_lines(pages) == {"Diesel Common Rail System"}
