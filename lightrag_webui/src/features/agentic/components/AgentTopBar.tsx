@@ -8,7 +8,7 @@ export default function AgentTopBar() {
   return (
     <header
       className="ag-topbar flex items-center justify-between px-4 shrink-0"
-      style={{ height: 56, background: '#0B132B', borderBottom: '1px solid #3A506B' }}
+      style={{ height: 56, background: '#1E293B', borderBottom: '1px solid #0F172A' }}
     >
       {/* Left: Brand */}
       <div className="flex items-center gap-3 min-w-0">
@@ -17,13 +17,13 @@ export default function AgentTopBar() {
             className="flex items-center justify-center rounded"
             style={{ width: 28, height: 28, background: '#00A896', boxShadow: '0 0 10px #00A89680' }}
           >
-            <CpuIcon size={16} color="#0B132B" />
+            <CpuIcon size={16} color="#FFFFFF" />
           </div>
           <div className="leading-tight">
-            <div className="text-white font-bold text-sm tracking-wide" style={{ fontFamily: 'Inter, sans-serif' }}>
+            <div className="font-bold tracking-wide" style={{ fontSize: 14, color: '#F1F5F9', fontFamily: 'Inter, sans-serif' }}>
               DENSO Monozukuri Intelligent Hub
             </div>
-            <div className="text-xs" style={{ color: '#3A506B', fontFamily: 'Roboto Mono, monospace' }}>
+            <div style={{ fontSize: 11, color: '#94A3B8', fontFamily: 'Roboto Mono, monospace' }}>
               Line A – CNC Station
             </div>
           </div>
@@ -43,19 +43,20 @@ export default function AgentTopBar() {
           id="knowledge-hub-button"
           aria-label={`Knowledge Hub, ${vectorizedCount} documents`}
           onClick={() => setKnowledgeDrawerOpen(!knowledgeDrawerOpen)}
-          className="flex items-center gap-2 rounded px-3 py-1.5 text-xs font-medium transition-all focus-visible:outline-2 focus-visible:outline-[#00A896]"
+          className="flex items-center gap-2 rounded px-3 py-1.5 font-medium transition-all focus-visible:outline-2 focus-visible:outline-[#00A896]"
           style={{
-            background: knowledgeDrawerOpen ? '#00A896' : '#1C2541',
-            color: knowledgeDrawerOpen ? '#0B132B' : '#e2e8f0',
-            border: '1px solid #3A506B',
+            fontSize: 13,
+            background: knowledgeDrawerOpen ? '#00A896' : '#334155',
+            color: knowledgeDrawerOpen ? '#FFFFFF' : '#CBD5E1',
+            border: '1px solid #475569',
             fontFamily: 'Inter, sans-serif',
           }}
         >
           <BookOpenIcon size={14} />
           <span>Knowledge Hub</span>
           <span
-            className="rounded px-1.5 py-0.5 text-[10px] font-bold"
-            style={{ background: knowledgeDrawerOpen ? '#0B132B20' : '#00A89620', color: '#00A896' }}
+            className="rounded px-1.5 py-0.5 font-bold"
+            style={{ fontSize: 10, background: knowledgeDrawerOpen ? '#FFFFFF30' : '#00A89630', color: knowledgeDrawerOpen ? '#FFFFFF' : '#00A896' }}
           >
             {vectorizedCount}
           </span>
@@ -63,10 +64,10 @@ export default function AgentTopBar() {
 
         <div
           className="flex items-center gap-2 rounded px-3 py-1.5"
-          style={{ background: '#1C2541', border: '1px solid #3A506B' }}
+          style={{ background: '#334155', border: '1px solid #475569' }}
         >
-          <DatabaseIcon size={13} style={{ color: '#3A506B' }} />
-          <span className="text-xs" style={{ color: '#8a9ab5', fontFamily: 'Roboto Mono, monospace' }}>
+          <DatabaseIcon size={13} style={{ color: '#94A3B8' }} />
+          <span style={{ fontSize: 12, color: '#CBD5E1', fontFamily: 'Roboto Mono, monospace' }}>
             OPR-01
           </span>
           <div className="size-2 rounded-full" style={{ background: '#10B981' }} />
@@ -99,10 +100,10 @@ function StatusPill({
         )}
       </div>
       <div className="leading-tight">
-        <div className="text-[10px] font-medium" style={{ color: '#8a9ab5', fontFamily: 'Roboto Mono, monospace' }}>
+        <div className="font-medium" style={{ fontSize: 10, color: '#94A3B8', fontFamily: 'Roboto Mono, monospace' }}>
           {label}
         </div>
-        <div className="text-[10px] font-bold" style={{ color, fontFamily: 'Roboto Mono, monospace' }}>
+        <div className="font-bold" style={{ fontSize: 10, color, fontFamily: 'Roboto Mono, monospace' }}>
           {sublabel}
         </div>
       </div>

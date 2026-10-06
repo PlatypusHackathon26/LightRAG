@@ -62,7 +62,7 @@ export default function AgentActivityTrace({ events }: { events: AgentEvent[] })
   return (
     <div
       className="shrink-0 mx-4 my-2 rounded overflow-hidden"
-      style={{ border: '1px solid #3A506B', background: '#0B132B' }}
+      style={{ border: '1px solid #D9E1E8', background: '#FFFFFF' }}
     >
       {/* Header */}
       <button
@@ -70,25 +70,25 @@ export default function AgentActivityTrace({ events }: { events: AgentEvent[] })
         aria-label={expanded ? 'Collapse agent trace' : 'Expand agent trace'}
         aria-expanded={expanded}
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-[#1C2541]/60 transition-colors focus-visible:outline-2 focus-visible:outline-[#00A896]"
-        style={{ borderBottom: expanded ? '1px solid #3A506B' : 'none' }}
+        className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-[#F0F4F8] transition-colors focus-visible:outline-2 focus-visible:outline-[#00A896]"
+        style={{ borderBottom: expanded ? '1px solid #D9E1E8' : 'none' }}
       >
         <div className="flex items-center gap-2">
           <ActivityIcon size={13} style={{ color: '#00A896' }} />
-          <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#00A896', fontFamily: 'Roboto Mono, monospace' }}>
+          <span className="font-semibold uppercase tracking-wider" style={{ fontSize: 11, color: '#00A896', fontFamily: 'Roboto Mono, monospace' }}>
             Agent Execution Trace
           </span>
           <span
-            className="text-[10px] rounded px-1.5 py-0.5"
-            style={{ background: '#00A89620', color: '#00A896', fontFamily: 'Roboto Mono, monospace' }}
+            className="rounded px-1.5 py-0.5"
+            style={{ fontSize: 10, background: '#EBF5F4', color: '#00A896', fontFamily: 'Roboto Mono, monospace' }}
           >
             {events.length} events
           </span>
         </div>
         {expanded ? (
-          <ChevronUpIcon size={13} style={{ color: '#3A506B' }} />
+          <ChevronUpIcon size={13} style={{ color: '#5B6575' }} />
         ) : (
-          <ChevronDownIcon size={13} style={{ color: '#3A506B' }} />
+          <ChevronDownIcon size={13} style={{ color: '#5B6575' }} />
         )}
       </button>
 
@@ -99,7 +99,7 @@ export default function AgentActivityTrace({ events }: { events: AgentEvent[] })
             {/* Vertical line */}
             <div
               className="absolute left-[17px] top-3 bottom-0"
-              style={{ width: 1, background: '#3A506B' }}
+              style={{ width: 1, background: '#D9E1E8' }}
             />
             <div className="space-y-0">
               {events.map((ev, idx) => {
@@ -118,9 +118,9 @@ export default function AgentActivityTrace({ events }: { events: AgentEvent[] })
                         style={{
                           width: 24,
                           height: 24,
-                          background: `${color}20`,
-                          border: `1px solid ${color}60`,
-                          boxShadow: isLast ? `0 0 8px ${color}40` : 'none',
+                          background: `${color}15`,
+                          border: `1px solid ${color}50`,
+                          boxShadow: isLast ? `0 0 8px ${color}30` : 'none',
                         }}
                       >
                         <Icon size={12} style={{ color }} />
@@ -139,22 +139,22 @@ export default function AgentActivityTrace({ events }: { events: AgentEvent[] })
                       >
                         <div className="flex items-center gap-2">
                           <span
-                            className="text-[10px] shrink-0"
-                            style={{ color: '#8a9ab5', fontFamily: 'Roboto Mono, monospace' }}
+                            className="shrink-0"
+                            style={{ fontSize: 10, color: '#5B6575', fontFamily: 'Roboto Mono, monospace' }}
                           >
                             {ev.timestamp}
                           </span>
                           <span
-                            className="text-xs font-medium"
-                            style={{ color: '#e2e8f0', fontFamily: 'Inter, sans-serif' }}
+                            className="font-medium"
+                            style={{ fontSize: 12, color: '#172033', fontFamily: 'Inter, sans-serif' }}
                           >
                             {ev.label}
                           </span>
                           {hasDetail && (
                             isExpanded ? (
-                              <ChevronUpIcon size={10} style={{ color: '#3A506B', marginLeft: 'auto', flexShrink: 0 }} />
+                              <ChevronUpIcon size={10} style={{ color: '#5B6575', marginLeft: 'auto', flexShrink: 0 }} />
                             ) : (
-                              <ChevronDownIcon size={10} style={{ color: '#3A506B', marginLeft: 'auto', flexShrink: 0 }} />
+                              <ChevronDownIcon size={10} style={{ color: '#5B6575', marginLeft: 'auto', flexShrink: 0 }} />
                             )
                           )}
                         </div>
@@ -162,8 +162,8 @@ export default function AgentActivityTrace({ events }: { events: AgentEvent[] })
 
                       {isExpanded && hasDetail && (
                         <div
-                          className="mt-1 text-[11px] rounded px-2 py-1"
-                          style={{ background: '#1C2541', color: '#94a3b8', fontFamily: 'Roboto Mono, monospace', lineHeight: 1.5 }}
+                          className="mt-1 rounded px-2 py-1"
+                          style={{ fontSize: 11, background: '#F0F4F8', color: '#5B6575', fontFamily: 'Roboto Mono, monospace', lineHeight: 1.5 }}
                         >
                           {ev.detail}
                           {ev.citations && ev.citations.length > 0 && (
@@ -171,8 +171,8 @@ export default function AgentActivityTrace({ events }: { events: AgentEvent[] })
                               {ev.citations.map((c) => (
                                 <span
                                   key={c.id}
-                                  className="text-[10px] rounded px-1.5 py-0.5"
-                                  style={{ background: '#00A89615', color: '#00A896', border: '1px solid #00A89630' }}
+                                  className="rounded px-1.5 py-0.5"
+                                  style={{ fontSize: 10, background: '#EBF5F4', color: '#00A896', border: '1px solid #00A89625' }}
                                 >
                                   {c.documentName}{c.pages ? ` p.${c.pages}` : ''}
                                 </span>

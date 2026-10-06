@@ -75,14 +75,14 @@ function DocumentRow({
 
   return (
     <tr
-      style={{ borderBottom: '1px solid #3A506B20' }}
+      style={{ borderBottom: '1px solid #EEF2F7' }}
     >
       <td className="py-2 pr-3">
         <div className="flex items-center gap-1.5">
           <FileTextIcon size={12} style={{ color: '#00A896', flexShrink: 0 }} />
           <span
-            className="text-xs font-medium truncate max-w-[180px]"
-            style={{ color: '#e2e8f0', fontFamily: 'Inter, sans-serif' }}
+            className="font-medium truncate max-w-[180px]"
+            style={{ fontSize: 13, color: '#172033', fontFamily: 'Inter, sans-serif' }}
             title={doc.name}
           >
             {doc.name}
@@ -92,8 +92,8 @@ function DocumentRow({
           {doc.tags.map((tag) => (
             <span
               key={tag}
-              className="text-[9px] rounded px-1 py-0.5"
-              style={{ background: '#00A89615', color: '#00A896', fontFamily: 'Roboto Mono, monospace' }}
+              className="rounded px-1 py-0.5"
+              style={{ fontSize: 10, background: '#EBF5F4', color: '#00A896', fontFamily: 'Roboto Mono, monospace' }}
             >
               {tag}
             </span>
@@ -101,27 +101,27 @@ function DocumentRow({
         </div>
       </td>
       <td className="py-2 pr-3 whitespace-nowrap">
-        <span className="text-[10px]" style={{ color: '#8a9ab5', fontFamily: 'Roboto Mono, monospace' }}>
+        <span style={{ fontSize: 12, color: '#5B6575', fontFamily: 'Roboto Mono, monospace' }}>
           {formatBytes(doc.sizeBytes)}
         </span>
       </td>
       <td className="py-2 pr-3 whitespace-nowrap">
-        <span className="text-[10px]" style={{ color: '#8a9ab5', fontFamily: 'Roboto Mono, monospace' }}>
+        <span style={{ fontSize: 12, color: '#5B6575', fontFamily: 'Roboto Mono, monospace' }}>
           {doc.importedAt}
         </span>
       </td>
       <td className="py-2 pr-3">
         <div className="flex items-center gap-1.5">
           {isProcessing ? (
-            <LoaderIcon size={10} className="animate-spin" style={{ color: statusColor }} />
+            <LoaderIcon size={11} className="animate-spin" style={{ color: statusColor }} />
           ) : doc.indexStatus === 'vectorized' ? (
-            <CheckCircle2Icon size={10} style={{ color: statusColor }} />
+            <CheckCircle2Icon size={11} style={{ color: statusColor }} />
           ) : (
-            <AlertCircleIcon size={10} style={{ color: statusColor }} />
+            <AlertCircleIcon size={11} style={{ color: statusColor }} />
           )}
           <span
-            className="text-[10px] font-medium"
-            style={{ color: statusColor, fontFamily: 'Roboto Mono, monospace' }}
+            className="font-medium"
+            style={{ fontSize: 12, color: statusColor, fontFamily: 'Roboto Mono, monospace' }}
           >
             {STATUS_LABEL[doc.indexStatus]}
           </span>
@@ -129,7 +129,7 @@ function DocumentRow({
         {isProcessing && doc.progress !== undefined && (
           <div
             className="mt-0.5 rounded-full overflow-hidden"
-            style={{ height: 2, background: '#3A506B', width: 60 }}
+            style={{ height: 3, background: '#EEF2F7', width: 60 }}
           >
             <div
               className="h-full rounded-full transition-all"
@@ -145,7 +145,7 @@ function DocumentRow({
             aria-label={`Preview document ${doc.name}`}
             onClick={() => onPreview(doc.id)}
             disabled={doc.indexStatus !== 'vectorized'}
-            className="rounded p-1 transition-colors hover:bg-[#1C2541] focus-visible:outline-2 focus-visible:outline-[#00A896] disabled:opacity-40 disabled:cursor-not-allowed"
+            className="rounded p-1 transition-colors hover:bg-[#EBF5F4] focus-visible:outline-2 focus-visible:outline-[#00A896] disabled:opacity-40 disabled:cursor-not-allowed"
             title="Preview extracted text"
           >
             <EyeIcon size={13} style={{ color: '#00A896' }} />
@@ -154,7 +154,7 @@ function DocumentRow({
             id={`doc-delete-${doc.id}`}
             aria-label={`Delete document ${doc.name}`}
             onClick={() => onDelete(doc.id)}
-            className="rounded p-1 transition-colors hover:bg-[#EF444420] focus-visible:outline-2 focus-visible:outline-[#EF4444]"
+            className="rounded p-1 transition-colors hover:bg-[#FEF2F2] focus-visible:outline-2 focus-visible:outline-[#EF4444]"
             title="Delete document"
           >
             <Trash2Icon size={13} style={{ color: '#EF4444' }} />
@@ -176,7 +176,7 @@ function PreviewModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ background: '#0B132B99', backdropFilter: 'blur(4px)' }}
+      style={{ background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(4px)' }}
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -188,34 +188,34 @@ function PreviewModal({
           maxWidth: 640,
           width: '90vw',
           maxHeight: '80vh',
-          background: '#1C2541',
-          border: '1px solid #3A506B',
-          boxShadow: '0 20px 60px #00000080',
+          background: '#FFFFFF',
+          border: '1px solid #D9E1E8',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
         }}
         onClick={(e) => e.stopPropagation()}
       >
         <div
           className="flex items-center justify-between px-4 py-3"
-          style={{ borderBottom: '1px solid #3A506B' }}
+          style={{ borderBottom: '1px solid #D9E1E8' }}
         >
           <div className="flex items-center gap-2">
             <FileTextIcon size={14} style={{ color: '#00A896' }} />
-            <span className="text-sm font-semibold" style={{ color: '#e2e8f0', fontFamily: 'Inter, sans-serif' }}>
+            <span className="font-semibold" style={{ fontSize: 15, color: '#172033', fontFamily: 'Inter, sans-serif' }}>
               {doc.name}
             </span>
           </div>
           <button
             aria-label="Close preview"
             onClick={onClose}
-            className="rounded p-1 hover:bg-[#3A506B]/40 transition-colors focus-visible:outline-2 focus-visible:outline-[#00A896]"
+            className="rounded p-1 hover:bg-[#F0F4F8] transition-colors focus-visible:outline-2 focus-visible:outline-[#00A896]"
           >
-            <XIcon size={14} style={{ color: '#8a9ab5' }} />
+            <XIcon size={14} style={{ color: '#5B6575' }} />
           </button>
         </div>
-        <div className="flex-1 overflow-auto p-4">
+        <div className="flex-1 overflow-auto p-4" style={{ background: '#F8FAFC' }}>
           <pre
-            className="text-xs leading-relaxed whitespace-pre-wrap"
-            style={{ color: '#94a3b8', fontFamily: 'Roboto Mono, monospace' }}
+            className="leading-relaxed whitespace-pre-wrap"
+            style={{ fontSize: 13, color: '#172033', fontFamily: 'Roboto Mono, monospace' }}
           >
             {doc.extractedText ?? '(No extracted text available)'}
           </pre>
@@ -279,7 +279,7 @@ export default function KnowledgeHubDrawer() {
       <div
         className="fixed inset-0 z-30"
         onClick={() => setKnowledgeDrawerOpen(false)}
-        style={{ background: '#00000040' }}
+        style={{ background: 'rgba(15,23,42,0.25)' }}
         aria-hidden="true"
       />
 
@@ -292,43 +292,43 @@ export default function KnowledgeHubDrawer() {
         className="fixed top-0 right-0 bottom-0 z-40 flex flex-col overflow-hidden"
         style={{
           width: 440,
-          background: '#0B132B',
-          borderLeft: '1px solid #3A506B',
-          boxShadow: '-20px 0 60px #00000060',
+          background: '#FFFFFF',
+          borderLeft: '1px solid #D9E1E8',
+          boxShadow: '-12px 0 40px rgba(0,0,0,0.12)',
           animation: 'slideInRight 0.25s ease-out',
         }}
       >
         {/* Header */}
         <div
           className="px-4 py-3 flex items-center justify-between shrink-0"
-          style={{ borderBottom: '1px solid #3A506B', background: '#1C2541' }}
+          style={{ borderBottom: '1px solid #D9E1E8', background: '#F8FAFC' }}
         >
           <div>
-            <div className="text-sm font-bold" style={{ color: '#e2e8f0', fontFamily: 'Inter, sans-serif' }}>
+            <div className="font-bold" style={{ fontSize: 16, color: '#172033', fontFamily: 'Inter, sans-serif' }}>
               Knowledge Hub
             </div>
-            <div className="text-[10px]" style={{ color: '#8a9ab5', fontFamily: 'Roboto Mono, monospace' }}>
+            <div style={{ fontSize: 12, color: '#5B6575', fontFamily: 'Roboto Mono, monospace' }}>
               {documents.filter((d) => d.indexStatus === 'vectorized').length} vectorized &nbsp;·&nbsp; {documents.length} total
             </div>
           </div>
           <button
             aria-label="Close Knowledge Hub"
             onClick={() => setKnowledgeDrawerOpen(false)}
-            className="rounded p-1.5 transition-colors hover:bg-[#3A506B]/40 focus-visible:outline-2 focus-visible:outline-[#00A896]"
+            className="rounded p-1.5 transition-colors hover:bg-[#EEF2F7] focus-visible:outline-2 focus-visible:outline-[#00A896]"
           >
-            <XIcon size={16} style={{ color: '#8a9ab5' }} />
+            <XIcon size={16} style={{ color: '#5B6575' }} />
           </button>
         </div>
 
         {/* Upload zone */}
-        <div className="px-4 py-3 shrink-0" style={{ borderBottom: '1px solid #3A506B' }}>
+        <div className="px-4 py-3 shrink-0" style={{ borderBottom: '1px solid #D9E1E8' }}>
           <div
             {...getRootProps()}
             id="knowledge-upload-dropzone"
             className="rounded border-2 border-dashed px-4 py-5 text-center cursor-pointer transition-all focus-visible:outline-2 focus-visible:outline-[#00A896]"
             style={{
-              borderColor: isDragActive ? '#00A896' : '#3A506B',
-              background: isDragActive ? '#00A89610' : '#1C2541',
+              borderColor: isDragActive ? '#00A896' : '#D9E1E8',
+              background: isDragActive ? '#EBF5F4' : '#F8FAFC',
             }}
             tabIndex={0}
             role="button"
@@ -337,12 +337,12 @@ export default function KnowledgeHubDrawer() {
             <input {...getInputProps()} />
             <UploadCloudIcon
               size={24}
-              style={{ color: isDragActive ? '#00A896' : '#3A506B', margin: '0 auto 8px' }}
+              style={{ color: isDragActive ? '#00A896' : '#C2CDD9', margin: '0 auto 8px' }}
             />
-            <div className="text-xs font-medium" style={{ color: isDragActive ? '#00A896' : '#8a9ab5', fontFamily: 'Inter, sans-serif' }}>
+            <div className="font-medium" style={{ fontSize: 13, color: isDragActive ? '#00A896' : '#5B6575', fontFamily: 'Inter, sans-serif' }}>
               {isDragActive ? 'Drop files here' : 'Drag & drop or click to upload'}
             </div>
-            <div className="text-[10px] mt-1" style={{ color: '#3A506B', fontFamily: 'Roboto Mono, monospace' }}>
+            <div className="mt-1" style={{ fontSize: 11, color: '#C2CDD9', fontFamily: 'Roboto Mono, monospace' }}>
               PDF · DOCX · TXT · CSV
             </div>
           </div>
@@ -352,12 +352,12 @@ export default function KnowledgeHubDrawer() {
         <div className="flex-1 overflow-y-auto scrollbar-thin px-4 py-3">
           <table className="w-full" style={{ borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ borderBottom: '1px solid #3A506B' }}>
+              <tr style={{ borderBottom: '1px solid #D9E1E8' }}>
                 {['Document', 'Size', 'Imported', 'Status', 'Actions'].map((h) => (
                   <th
                     key={h}
-                    className="pb-2 text-left text-[10px] uppercase tracking-wider"
-                    style={{ color: '#3A506B', fontFamily: 'Roboto Mono, monospace' }}
+                    className="pb-2 text-left uppercase tracking-wider"
+                    style={{ fontSize: 11, color: '#5B6575', fontFamily: 'Roboto Mono, monospace' }}
                   >
                     {h}
                   </th>

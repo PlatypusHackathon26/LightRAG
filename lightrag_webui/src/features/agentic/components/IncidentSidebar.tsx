@@ -51,11 +51,11 @@ function IncidentCardComp({
       onClick={onClick}
       className={cn(
         'w-full text-left px-3 py-2.5 rounded transition-all focus-visible:outline-2 focus-visible:outline-[#00A896] relative overflow-hidden',
-        isActive ? '' : 'hover:bg-[#1C2541]/80'
+        isActive ? '' : 'hover:bg-[#EEF2F7]'
       )}
       style={{
-        background: isActive ? '#1C2541' : 'transparent',
-        borderLeft: `3px solid ${isUnresolved ? sevColor : '#3A506B'}`,
+        background: isActive ? '#EBF5F4' : 'transparent',
+        borderLeft: `3px solid ${isUnresolved ? sevColor : '#D9E1E8'}`,
         marginBottom: 2,
       }}
     >
@@ -71,18 +71,18 @@ function IncidentCardComp({
         <div className="flex items-center gap-1.5 min-w-0 flex-1">
           <AlertTriangleIcon
             size={12}
-            style={{ color: sevColor, flexShrink: 0, opacity: isUnresolved ? 1 : 0.5 }}
+            style={{ color: sevColor, flexShrink: 0, opacity: isUnresolved ? 1 : 0.4 }}
           />
           <span
-            className="text-xs font-semibold truncate"
-            style={{ color: isUnresolved ? '#e2e8f0' : '#8a9ab5', fontFamily: 'Inter, sans-serif' }}
+            className="font-semibold truncate"
+            style={{ fontSize: 13, color: isUnresolved ? '#172033' : '#5B6575', fontFamily: 'Inter, sans-serif' }}
           >
             {incident.device}
           </span>
         </div>
         <span
-          className="text-[10px] shrink-0"
-          style={{ color: '#8a9ab5', fontFamily: 'Roboto Mono, monospace' }}
+          className="shrink-0"
+          style={{ fontSize: 10, color: '#5B6575', fontFamily: 'Roboto Mono, monospace' }}
         >
           {timeStr}
           <br />
@@ -91,17 +91,18 @@ function IncidentCardComp({
       </div>
 
       <div
-        className="text-xs mt-0.5 leading-snug"
-        style={{ color: isUnresolved ? '#cbd5e1' : '#64748b', fontFamily: 'Roboto Mono, monospace' }}
+        className="mt-0.5 leading-snug"
+        style={{ fontSize: 12, color: isUnresolved ? '#172033' : '#5B6575', fontFamily: 'Roboto Mono, monospace' }}
       >
         {incident.alarm}
       </div>
 
       <div className="flex items-center gap-2 mt-1">
         <span
-          className="text-[10px] rounded px-1.5 py-0.5 font-medium uppercase tracking-wide"
+          className="rounded px-1.5 py-0.5 font-medium uppercase tracking-wide"
           style={{
-            background: `${sevColor}20`,
+            fontSize: 10,
+            background: `${sevColor}18`,
             color: sevColor,
             fontFamily: 'Roboto Mono, monospace',
           }}
@@ -109,9 +110,9 @@ function IncidentCardComp({
           {incident.severity}
         </span>
         <span
-          className="text-[10px]"
           style={{
-            color: isUnresolved ? sevColor : '#64748b',
+            fontSize: 10,
+            color: isUnresolved ? sevColor : '#5B6575',
             fontFamily: 'Roboto Mono, monospace',
           }}
         >
@@ -121,8 +122,8 @@ function IncidentCardComp({
 
       {conversation.agentState === 'waiting_hitl' && (
         <div
-          className="text-[10px] mt-1 font-bold animate-pulse"
-          style={{ color: '#F59E0B', fontFamily: 'Roboto Mono, monospace' }}
+          className="mt-1 font-bold animate-pulse"
+          style={{ fontSize: 10, color: '#F59E0B', fontFamily: 'Roboto Mono, monospace' }}
         >
           ⏳ AWAITING APPROVAL
         </div>
@@ -152,11 +153,11 @@ function QACardComp({
       onClick={onClick}
       className={cn(
         'w-full text-left px-3 py-2.5 rounded transition-all focus-visible:outline-2 focus-visible:outline-[#00A896]',
-        isActive ? '' : 'hover:bg-[#1C2541]/80'
+        isActive ? '' : 'hover:bg-[#EEF2F7]'
       )}
       style={{
-        background: isActive ? '#1C2541' : 'transparent',
-        borderLeft: '3px solid #3A506B',
+        background: isActive ? '#EBF5F4' : 'transparent',
+        borderLeft: '3px solid #D9E1E8',
         marginBottom: 2,
       }}
     >
@@ -164,15 +165,15 @@ function QACardComp({
         <div className="flex items-center gap-1.5 min-w-0 flex-1">
           <MessageSquareIcon size={11} style={{ color: '#00A896', flexShrink: 0 }} />
           <span
-            className="text-xs font-medium truncate"
-            style={{ color: '#cbd5e1', fontFamily: 'Inter, sans-serif' }}
+            className="font-medium truncate"
+            style={{ fontSize: 13, color: '#172033', fontFamily: 'Inter, sans-serif' }}
           >
             {conversation.title}
           </span>
         </div>
         <span
-          className="text-[10px] shrink-0"
-          style={{ color: '#8a9ab5', fontFamily: 'Roboto Mono, monospace' }}
+          className="shrink-0"
+          style={{ fontSize: 10, color: '#5B6575', fontFamily: 'Roboto Mono, monospace' }}
         >
           {timeStr}
           <br />
@@ -204,20 +205,20 @@ export default function IncidentSidebar() {
       style={{
         width: '25%',
         minWidth: 300,
-        background: '#0B132B',
-        borderRight: '1px solid #3A506B',
+        background: '#FFFFFF',
+        borderRight: '1px solid #D9E1E8',
       }}
     >
       {/* Sidebar Header */}
-      <div className="px-4 pt-3 pb-2 shrink-0" style={{ borderBottom: '1px solid #3A506B' }}>
+      <div className="px-4 pt-3 pb-2 shrink-0" style={{ borderBottom: '1px solid #D9E1E8' }}>
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#8a9ab5', fontFamily: 'Roboto Mono, monospace' }}>
+          <span className="font-semibold uppercase tracking-widest" style={{ fontSize: 11, color: '#5B6575', fontFamily: 'Roboto Mono, monospace' }}>
             Sessions
           </span>
           {unresolvedCount > 0 && (
             <span
-              className="text-[10px] font-bold px-1.5 py-0.5 rounded animate-pulse"
-              style={{ background: '#EF444420', color: '#EF4444', fontFamily: 'Roboto Mono, monospace' }}
+              className="font-bold px-1.5 py-0.5 rounded animate-pulse"
+              style={{ fontSize: 10, background: '#EF444415', color: '#EF4444', fontFamily: 'Roboto Mono, monospace' }}
             >
               {unresolvedCount} UNRESOLVED
             </span>
@@ -233,12 +234,13 @@ export default function IncidentSidebar() {
               aria-label={`Filter: ${FILTER_LABELS[f]}`}
               aria-pressed={sidebarFilter === f}
               onClick={() => setSidebarFilter(f)}
-              className="flex-1 rounded text-center text-[10px] font-medium py-1 px-1 transition-all focus-visible:outline-2 focus-visible:outline-[#00A896]"
+              className="flex-1 rounded text-center font-medium py-1 px-1 transition-all focus-visible:outline-2 focus-visible:outline-[#00A896]"
               style={{
-                background: sidebarFilter === f ? '#00A896' : '#1C2541',
-                color: sidebarFilter === f ? '#0B132B' : '#8a9ab5',
+                fontSize: 11,
+                background: sidebarFilter === f ? '#00A896' : '#F0F4F8',
+                color: sidebarFilter === f ? '#FFFFFF' : '#5B6575',
                 fontFamily: 'Inter, sans-serif',
-                border: '1px solid #3A506B',
+                border: `1px solid ${sidebarFilter === f ? '#00A896' : '#D9E1E8'}`,
               }}
             >
               {FILTER_LABELS[f]}
@@ -250,7 +252,7 @@ export default function IncidentSidebar() {
       {/* Session List */}
       <div className="flex-1 overflow-y-auto scrollbar-thin px-2 py-2">
         {displayItems.length === 0 && (
-          <div className="text-center py-8 text-xs" style={{ color: '#3A506B', fontFamily: 'Roboto Mono, monospace' }}>
+          <div className="text-center py-8" style={{ fontSize: 12, color: '#5B6575', fontFamily: 'Roboto Mono, monospace' }}>
             No sessions
           </div>
         )}

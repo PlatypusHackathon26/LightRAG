@@ -12,8 +12,8 @@ export default function ChatMessage({ message }: { message: ChatMessageType }) {
     return (
       <div className="flex justify-center my-1">
         <div
-          className="text-[10px] rounded px-3 py-1"
-          style={{ background: '#1C2541', color: '#8a9ab5', border: '1px solid #3A506B', fontFamily: 'Roboto Mono, monospace' }}
+          className="rounded px-3 py-1"
+          style={{ fontSize: 11, background: '#F0F4F8', color: '#5B6575', border: '1px solid #D9E1E8', fontFamily: 'Roboto Mono, monospace' }}
         >
           {message.content}
         </div>
@@ -29,12 +29,12 @@ export default function ChatMessage({ message }: { message: ChatMessageType }) {
         style={{
           width: 28,
           height: 28,
-          background: isUser ? '#1C2541' : '#00A89620',
-          border: `1px solid ${isUser ? '#3A506B' : '#00A896'}`,
+          background: isUser ? '#F0F4F8' : '#EBF5F4',
+          border: `1px solid ${isUser ? '#D9E1E8' : '#00A89650'}`,
         }}
       >
         {isUser ? (
-          <UserIcon size={13} style={{ color: '#8a9ab5' }} />
+          <UserIcon size={13} style={{ color: '#5B6575' }} />
         ) : (
           <BotIcon size={13} style={{ color: '#00A896' }} />
         )}
@@ -45,14 +45,13 @@ export default function ChatMessage({ message }: { message: ChatMessageType }) {
         {/* Header */}
         <div className="flex items-center gap-2 mb-0.5">
           <span
-            className="text-[10px] font-medium"
-            style={{ color: '#64748b', fontFamily: 'Roboto Mono, monospace' }}
+            className="font-medium"
+            style={{ fontSize: 11, color: '#5B6575', fontFamily: 'Roboto Mono, monospace' }}
           >
             {message.timestamp}
           </span>
           <span
-            className="text-[10px]"
-            style={{ color: isUser ? '#8a9ab5' : '#00A896', fontFamily: 'Roboto Mono, monospace' }}
+            style={{ fontSize: 11, color: isUser ? '#5B6575' : '#00A896', fontFamily: 'Roboto Mono, monospace' }}
           >
             {isUser ? 'Operator' : 'AI Agent'}
           </span>
@@ -60,33 +59,35 @@ export default function ChatMessage({ message }: { message: ChatMessageType }) {
 
         {/* Content */}
         <div
-          className="rounded p-3 text-xs"
+          className="rounded p-3"
           style={{
-            background: isUser ? '#1C2541' : '#0B132B',
-            border: `1px solid ${isUser ? '#3A506B' : '#00A89630'}`,
-            color: '#e2e8f0',
+            fontSize: 14,
+            background: isUser ? '#EEF2F7' : '#FFFFFF',
+            border: `1px solid ${isUser ? '#D9E1E8' : '#D9E1E8'}`,
+            color: '#172033',
             fontFamily: 'Inter, sans-serif',
-            lineHeight: 1.6,
+            lineHeight: 1.65,
+            boxShadow: isUser ? 'none' : '0 1px 4px rgba(0,0,0,0.06)',
           }}
         >
           {isUser ? (
             <span style={{ whiteSpace: 'pre-wrap' }}>{message.content}</span>
           ) : (
             <div
-              className="prose prose-sm dark:prose-invert max-w-none"
+              className="prose prose-sm max-w-none"
               style={{
-                // Override prose colors for industrial dark theme
-                '--tw-prose-body': '#e2e8f0',
-                '--tw-prose-headings': '#f1f5f9',
-                '--tw-prose-bold': '#f1f5f9',
-                '--tw-prose-bullets': '#3A506B',
-                '--tw-prose-counters': '#8a9ab5',
-                '--tw-prose-th-borders': '#3A506B',
-                '--tw-prose-td-borders': '#3A506B',
+                // Override prose colors for industrial light theme
+                '--tw-prose-body': '#172033',
+                '--tw-prose-headings': '#0F172A',
+                '--tw-prose-bold': '#172033',
+                '--tw-prose-bullets': '#5B6575',
+                '--tw-prose-counters': '#5B6575',
+                '--tw-prose-th-borders': '#D9E1E8',
+                '--tw-prose-td-borders': '#D9E1E8',
                 '--tw-prose-code': '#00A896',
                 '--tw-prose-links': '#00A896',
-                '--tw-prose-quotes': '#94a3b8',
-                '--tw-prose-quote-borders': '#3A506B',
+                '--tw-prose-quotes': '#5B6575',
+                '--tw-prose-quote-borders': '#D9E1E8',
               } as React.CSSProperties}
             >
               <ReactMarkdown
@@ -99,13 +100,13 @@ export default function ChatMessage({ message }: { message: ChatMessageType }) {
                         <pre
                           className="rounded p-2 overflow-x-auto"
                           style={{
-                            background: '#0B132B',
-                            border: '1px solid #3A506B',
+                            background: '#F0F4F8',
+                            border: '1px solid #D9E1E8',
                             fontFamily: 'Roboto Mono, monospace',
-                            fontSize: '11px',
+                            fontSize: '12px',
                           }}
                         >
-                          <code style={{ color: '#00A896' }} {...props}>{children}</code>
+                          <code style={{ color: '#007A6C' }} {...props}>{children}</code>
                         </pre>
                       )
                     }
@@ -113,10 +114,10 @@ export default function ChatMessage({ message }: { message: ChatMessageType }) {
                       <code
                         className="rounded px-1 py-0.5"
                         style={{
-                          background: '#1C2541',
-                          color: '#00A896',
+                          background: '#EBF5F4',
+                          color: '#007A6C',
                           fontFamily: 'Roboto Mono, monospace',
-                          fontSize: '11px',
+                          fontSize: '12px',
                         }}
                         {...props}
                       >
@@ -132,7 +133,7 @@ export default function ChatMessage({ message }: { message: ChatMessageType }) {
                             width: '100%',
                             borderCollapse: 'collapse',
                             fontFamily: 'Roboto Mono, monospace',
-                            fontSize: '11px',
+                            fontSize: '12px',
                           }}
                         >
                           {children}
@@ -144,13 +145,13 @@ export default function ChatMessage({ message }: { message: ChatMessageType }) {
                     return (
                       <th
                         style={{
-                          background: '#1C2541',
-                          color: '#8a9ab5',
+                          background: '#F0F4F8',
+                          color: '#5B6575',
                           padding: '4px 8px',
                           textAlign: 'left',
-                          borderBottom: '1px solid #3A506B',
+                          borderBottom: '1px solid #D9E1E8',
                           fontFamily: 'Roboto Mono, monospace',
-                          fontSize: '10px',
+                          fontSize: '11px',
                           textTransform: 'uppercase',
                           letterSpacing: '0.05em',
                         }}
@@ -164,8 +165,8 @@ export default function ChatMessage({ message }: { message: ChatMessageType }) {
                       <td
                         style={{
                           padding: '4px 8px',
-                          borderBottom: '1px solid #3A506B20',
-                          color: '#e2e8f0',
+                          borderBottom: '1px solid #D9E1E820',
+                          color: '#172033',
                           verticalAlign: 'top',
                         }}
                       >
@@ -189,18 +190,19 @@ export default function ChatMessage({ message }: { message: ChatMessageType }) {
                 key={c.id}
                 className="flex items-center gap-1 rounded px-2 py-1"
                 style={{
-                  background: '#1C2541',
-                  border: '1px solid #3A506B',
+                  background: '#FFFFFF',
+                  border: '1px solid #D9E1E8',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
                 }}
                 title={c.excerpt}
               >
                 <FileTextIcon size={10} style={{ color: '#00A896', flexShrink: 0 }} />
                 <div className="leading-tight">
-                  <div className="text-[10px] font-medium" style={{ color: '#94a3b8', fontFamily: 'Roboto Mono, monospace' }}>
+                  <div className="font-medium" style={{ fontSize: 11, color: '#5B6575', fontFamily: 'Roboto Mono, monospace' }}>
                     {c.documentName}
                   </div>
                   {c.pages && (
-                    <div className="text-[10px]" style={{ color: '#3A506B', fontFamily: 'Roboto Mono, monospace' }}>
+                    <div style={{ fontSize: 10, color: '#5B6575', fontFamily: 'Roboto Mono, monospace' }}>
                       Pages {c.pages}
                     </div>
                   )}

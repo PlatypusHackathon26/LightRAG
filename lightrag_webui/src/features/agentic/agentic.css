@@ -12,14 +12,14 @@
   }
 }
 
-/* Fine scrollbar for the industrial dark theme */
+/* Fine scrollbar for the industrial light theme */
 .scrollbar-thin::-webkit-scrollbar {
   width: 4px;
   height: 4px;
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb {
-  background-color: #3a506b;
+  background-color: #C2CDD9;
   border-radius: 2px;
 }
 
@@ -35,9 +35,14 @@
 /* Global body override for agentic entry */
 body {
   font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
-  background: #0b132b;
-  color: #e2e8f0;
+  background: #F5F7FA;
+  color: #172033;
   overflow: hidden;
+}
+
+/* Placeholder color for light composer input */
+#agent-composer-input::placeholder {
+  color: #C2CDD9;
 }
 
 /* Suppress webkit scrollbar from index.css for body */
@@ -47,7 +52,7 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: #3a506b;
+  background-color: #C2CDD9;
   border-radius: 2px;
 }
 

@@ -41,17 +41,17 @@ export default function AgentComposer({ onSend, disabled }: AgentComposerProps) 
   return (
     <div
       className="shrink-0 px-4 py-3"
-      style={{ borderTop: '1px solid #3A506B', background: '#0B132B' }}
+      style={{ borderTop: '1px solid #D9E1E8', background: '#FFFFFF' }}
     >
       <div
         className="flex items-end gap-2 rounded"
-        style={{ background: '#1C2541', border: '1px solid #3A506B' }}
+        style={{ background: '#F8FAFC', border: '1px solid #D9E1E8' }}
       >
         {/* Attachment */}
         <button
           aria-label="Attach file"
-          className="p-2.5 rounded-l transition-colors hover:bg-[#3A506B]/40 focus-visible:outline-2 focus-visible:outline-[#00A896]"
-          style={{ color: '#3A506B' }}
+          className="p-2.5 rounded-l transition-colors hover:bg-[#EEF2F7] focus-visible:outline-2 focus-visible:outline-[#00A896]"
+          style={{ color: '#C2CDD9' }}
         >
           <PaperclipIcon size={16} />
         </button>
@@ -66,9 +66,10 @@ export default function AgentComposer({ onSend, disabled }: AgentComposerProps) 
           disabled={disabled}
           placeholder="Chat với Agent hoặc ra lệnh..."
           rows={1}
-          className="flex-1 resize-none bg-transparent py-2.5 text-sm outline-none placeholder:text-[#3A506B] disabled:opacity-50"
+          className="flex-1 resize-none bg-transparent py-2.5 outline-none disabled:opacity-50"
           style={{
-            color: '#e2e8f0',
+            fontSize: 15,
+            color: '#172033',
             fontFamily: 'Inter, sans-serif',
             lineHeight: 1.5,
             maxHeight: 140,
@@ -85,7 +86,7 @@ export default function AgentComposer({ onSend, disabled }: AgentComposerProps) 
           disabled={!value.trim() || disabled}
           className="p-2.5 rounded-r transition-all focus-visible:outline-2 focus-visible:outline-[#00A896] disabled:opacity-40 disabled:cursor-not-allowed"
           style={{
-            color: value.trim() ? '#00A896' : '#3A506B',
+            color: value.trim() ? '#00A896' : '#C2CDD9',
           }}
         >
           <SendIcon size={16} />
@@ -93,8 +94,8 @@ export default function AgentComposer({ onSend, disabled }: AgentComposerProps) 
       </div>
 
       <div
-        className="text-[10px] text-center mt-1.5"
-        style={{ color: '#3A506B', fontFamily: 'Roboto Mono, monospace' }}
+        className="text-center mt-1.5"
+        style={{ fontSize: 11, color: '#C2CDD9', fontFamily: 'Roboto Mono, monospace' }}
       >
         Enter to send · Shift+Enter for newline · DEMO MODE
       </div>

@@ -11,16 +11,16 @@ export default function TelemetryStrip({ telemetry }: { telemetry: TelemetrySnap
   return (
     <div
       className="flex items-center gap-3 px-4 py-2 shrink-0 flex-wrap"
-      style={{ background: '#0B132B', borderBottom: '1px solid #3A506B' }}
+      style={{ background: '#FFFFFF', borderBottom: '1px solid #D9E1E8' }}
     >
       <div className="flex items-center gap-1.5 mr-2">
         <div
-          className="rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
-          style={{ background: '#EF444420', color: '#EF4444', fontFamily: 'Roboto Mono, monospace' }}
+          className="rounded px-2 py-0.5 font-bold uppercase tracking-wider"
+          style={{ fontSize: 10, background: '#EF444418', color: '#EF4444', fontFamily: 'Roboto Mono, monospace' }}
         >
           LIVE
         </div>
-        <span className="text-[11px] font-medium" style={{ color: '#8a9ab5', fontFamily: 'Roboto Mono, monospace' }}>
+        <span className="font-medium" style={{ fontSize: 12, color: '#5B6575', fontFamily: 'Roboto Mono, monospace' }}>
           {telemetry.deviceName}
         </span>
       </div>
@@ -31,26 +31,26 @@ export default function TelemetryStrip({ telemetry }: { telemetry: TelemetrySnap
         return (
           <div
             key={p.key}
-            className="flex items-center gap-1.5 rounded px-2 py-1"
+            className="flex items-center gap-1.5 rounded px-2.5 py-1"
             style={{
-              background: p.isAnomalous ? '#EF444415' : '#1C2541',
-              border: `1px solid ${p.isAnomalous ? '#EF444440' : '#3A506B'}`,
-              boxShadow: p.isAnomalous ? '0 0 8px #EF444420' : 'none',
+              background: p.isAnomalous ? '#FEF2F2' : '#F0F4F8',
+              border: `1px solid ${p.isAnomalous ? '#EF444440' : '#D9E1E8'}`,
+              boxShadow: p.isAnomalous ? '0 0 8px #EF444415' : 'none',
             }}
           >
-            <span className="text-[10px]" style={{ color: '#8a9ab5', fontFamily: 'Roboto Mono, monospace' }}>
+            <span style={{ fontSize: 11, color: '#5B6575', fontFamily: 'Roboto Mono, monospace' }}>
               {p.label}:
             </span>
             <span
-              className="text-[11px] font-bold"
-              style={{ color: anomalyColor, fontFamily: 'Roboto Mono, monospace' }}
+              className="font-bold"
+              style={{ fontSize: 13, color: anomalyColor, fontFamily: 'Roboto Mono, monospace' }}
             >
               {typeof p.value === 'number' && !Number.isInteger(p.value)
                 ? p.value.toFixed(1)
                 : p.value}
               {p.unit}
             </span>
-            <TrendIcon size={10} style={{ color: anomalyColor }} />
+            <TrendIcon size={11} style={{ color: anomalyColor }} />
           </div>
         )
       })}
@@ -58,7 +58,7 @@ export default function TelemetryStrip({ telemetry }: { telemetry: TelemetrySnap
       {telemetry.predictionHorizonMin !== undefined && (
         <div className="flex items-center gap-1.5 ml-auto">
           <ClockIcon size={11} style={{ color: '#F59E0B' }} />
-          <span className="text-[10px] font-medium" style={{ color: '#F59E0B', fontFamily: 'Roboto Mono, monospace' }}>
+          <span className="font-medium" style={{ fontSize: 11, color: '#F59E0B', fontFamily: 'Roboto Mono, monospace' }}>
             Risk horizon: ~{telemetry.predictionHorizonMin} min
           </span>
         </div>

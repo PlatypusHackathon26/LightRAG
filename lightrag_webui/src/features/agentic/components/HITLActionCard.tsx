@@ -53,38 +53,38 @@ function Countdown({
     <div className="flex flex-col items-center gap-1" aria-label={`Time remaining: ${remaining} seconds`}>
       <div
         className="relative flex items-center justify-center rounded-full"
-        style={{ width: 48, height: 48, background: '#0B132B', border: `2px solid ${color}` }}
+        style={{ width: 56, height: 56, background: '#F8FAFC', border: `2px solid ${color}` }}
         role="timer"
         aria-live="polite"
       >
         <svg
           className="absolute inset-0 -rotate-90"
-          style={{ width: 48, height: 48 }}
-          viewBox="0 0 48 48"
+          style={{ width: 56, height: 56 }}
+          viewBox="0 0 56 56"
           aria-hidden="true"
         >
-          <circle cx="24" cy="24" r="21" fill="none" stroke="#3A506B" strokeWidth="3" />
+          <circle cx="28" cy="28" r="24" fill="none" stroke="#E2E8F0" strokeWidth="3" />
           <circle
-            cx="24"
-            cy="24"
-            r="21"
+            cx="28"
+            cy="28"
+            r="24"
             fill="none"
             stroke={color}
             strokeWidth="3"
-            strokeDasharray={`${2 * Math.PI * 21}`}
-            strokeDashoffset={`${2 * Math.PI * 21 * (1 - pct / 100)}`}
+            strokeDasharray={`${2 * Math.PI * 24}`}
+            strokeDashoffset={`${2 * Math.PI * 24 * (1 - pct / 100)}`}
             strokeLinecap="round"
             style={{ transition: 'stroke-dashoffset 1s linear, stroke 0.5s' }}
           />
         </svg>
         <span
-          className="text-sm font-bold"
-          style={{ color, fontFamily: 'Roboto Mono, monospace', zIndex: 1 }}
+          className="font-bold"
+          style={{ fontSize: 15, color, fontFamily: 'Roboto Mono, monospace', zIndex: 1 }}
         >
           {String(Math.floor(remaining / 60)).padStart(2, '0')}:{String(remaining % 60).padStart(2, '0')}
         </span>
       </div>
-      <span className="text-[10px]" style={{ color: '#8a9ab5', fontFamily: 'Roboto Mono, monospace' }}>
+      <span style={{ fontSize: 10, color: '#5B6575', fontFamily: 'Roboto Mono, monospace' }}>
         Auto-expire
       </span>
     </div>
@@ -113,9 +113,9 @@ export default function HITLActionCard({ action }: { action: ProposedAction }) {
       id="hitl-action-card"
       className="mx-4 my-2 rounded overflow-hidden"
       style={{
-        border: `1px solid ${isSuccess ? '#10B981' : isRejected ? '#3A506B' : isExpired ? '#3A506B' : '#F59E0B'}`,
-        background: '#0B132B',
-        boxShadow: isWaiting || isExecuting ? '0 0 20px #F59E0B20' : 'none',
+        border: `2px solid ${isSuccess ? '#10B981' : isRejected ? '#D9E1E8' : isExpired ? '#D9E1E8' : '#F59E0B'}`,
+        background: '#FFFFFF',
+        boxShadow: isWaiting || isExecuting ? '0 4px 24px rgba(245,158,11,0.15)' : '0 1px 4px rgba(0,0,0,0.06)',
       }}
       role="region"
       aria-label="Human-in-the-Loop action approval required"
@@ -123,46 +123,46 @@ export default function HITLActionCard({ action }: { action: ProposedAction }) {
       {/* Header */}
       <div
         className="px-4 py-3 flex items-start justify-between gap-3"
-        style={{ background: '#1C2541', borderBottom: '1px solid #3A506B' }}
+        style={{ background: '#FFFBEB', borderBottom: '1px solid #FDE68A' }}
       >
         <div>
           {/* DEMO badge */}
           <div className="flex items-center gap-2 mb-1">
             <span
-              className="text-[10px] font-bold rounded px-1.5 py-0.5 uppercase tracking-wider"
-              style={{ background: '#F59E0B20', color: '#F59E0B', border: '1px solid #F59E0B40', fontFamily: 'Roboto Mono, monospace' }}
+              className="font-bold rounded px-1.5 py-0.5 uppercase tracking-wider"
+              style={{ fontSize: 10, background: '#FEF3C7', color: '#D97706', border: '1px solid #FDE68A', fontFamily: 'Roboto Mono, monospace' }}
             >
               ⚠ DEMO ACTION / MOCK PLC
             </span>
           </div>
           <div
-            className="text-sm font-bold"
-            style={{ color: '#F59E0B', fontFamily: 'Roboto Mono, monospace', letterSpacing: '0.02em' }}
+            className="font-bold"
+            style={{ fontSize: 15, color: '#92400E', fontFamily: 'Roboto Mono, monospace', letterSpacing: '0.02em' }}
           >
             {action.titleVi}
           </div>
-          <div className="text-xs mt-0.5" style={{ color: '#e2e8f0', fontFamily: 'Inter, sans-serif' }}>
+          <div style={{ fontSize: 13, marginTop: 2, color: '#78350F', fontFamily: 'Inter, sans-serif' }}>
             {action.subtitleVi}
           </div>
         </div>
-        <ShieldAlertIcon size={24} style={{ color: '#F59E0B', flexShrink: 0 }} />
+        <ShieldAlertIcon size={26} style={{ color: '#F59E0B', flexShrink: 0 }} />
       </div>
 
       {/* Body */}
       <div className="px-4 py-3 space-y-3">
         {/* Diagnosis */}
         <div>
-          <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: '#3A506B', fontFamily: 'Roboto Mono, monospace' }}>
+          <div className="uppercase tracking-wider mb-1" style={{ fontSize: 10, color: '#5B6575', fontFamily: 'Roboto Mono, monospace' }}>
             AI Diagnosis
           </div>
-          <p className="text-xs leading-relaxed" style={{ color: '#94a3b8', fontFamily: 'Inter, sans-serif' }}>
+          <p className="leading-relaxed" style={{ fontSize: 13, color: '#172033', fontFamily: 'Inter, sans-serif' }}>
             {action.diagnosisEn}
           </p>
         </div>
 
         {/* Proposed action items */}
         <div>
-          <div className="text-[10px] uppercase tracking-wider mb-1.5" style={{ color: '#3A506B', fontFamily: 'Roboto Mono, monospace' }}>
+          <div className="uppercase tracking-wider mb-1.5" style={{ fontSize: 10, color: '#5B6575', fontFamily: 'Roboto Mono, monospace' }}>
             Proposed Actions
           </div>
           <div className="space-y-2">
@@ -172,29 +172,29 @@ export default function HITLActionCard({ action }: { action: ProposedAction }) {
                 <div
                   key={idx}
                   className="rounded p-2.5"
-                  style={{ background: '#1C2541', border: '1px solid #3A506B' }}
+                  style={{ background: '#F8FAFC', border: '1px solid #D9E1E8' }}
                 >
                   <div className="flex items-center gap-1.5 mb-2">
                     <div
                       className="rounded flex items-center justify-center"
-                      style={{ width: 20, height: 20, background: '#00A89620' }}
+                      style={{ width: 20, height: 20, background: '#EBF5F4' }}
                     >
                       <Icon size={11} style={{ color: '#00A896' }} />
                     </div>
-                    <span className="text-xs font-semibold" style={{ color: '#00A896', fontFamily: 'Roboto Mono, monospace' }}>
+                    <span className="font-semibold" style={{ fontSize: 13, color: '#00A896', fontFamily: 'Roboto Mono, monospace' }}>
                       {idx + 1}. {item.title}
                     </span>
-                    <span className="text-[10px]" style={{ color: '#64748b', fontFamily: 'Roboto Mono, monospace' }}>
+                    <span style={{ fontSize: 11, color: '#5B6575', fontFamily: 'Roboto Mono, monospace' }}>
                       – {item.description}
                     </span>
                   </div>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
                     {Object.entries(item.params).map(([k, v]) => (
                       <div key={k} className="flex items-center gap-1.5">
-                        <span className="text-[10px]" style={{ color: '#64748b', fontFamily: 'Roboto Mono, monospace' }}>
+                        <span style={{ fontSize: 11, color: '#5B6575', fontFamily: 'Roboto Mono, monospace' }}>
                           {k}:
                         </span>
-                        <span className="text-[10px] font-bold" style={{ color: '#e2e8f0', fontFamily: 'Roboto Mono, monospace' }}>
+                        <span className="font-bold" style={{ fontSize: 13, color: '#172033', fontFamily: 'Roboto Mono, monospace' }}>
                           {v}
                         </span>
                       </div>
@@ -210,13 +210,13 @@ export default function HITLActionCard({ action }: { action: ProposedAction }) {
         {!isDone && (
           <div
             className="flex items-center justify-center gap-2 rounded py-2"
-            style={{ background: '#F59E0B15', border: '1px solid #F59E0B40' }}
+            style={{ background: '#FFFBEB', border: '1px solid #FDE68A' }}
             role="status"
           >
             <ShieldAlertIcon size={13} style={{ color: '#F59E0B' }} />
             <span
-              className="text-[11px] font-bold uppercase tracking-wider"
-              style={{ color: '#F59E0B', fontFamily: 'Roboto Mono, monospace' }}
+              className="font-bold uppercase tracking-wider"
+              style={{ fontSize: 12, color: '#D97706', fontFamily: 'Roboto Mono, monospace' }}
             >
               Human Approval Required
             </span>
@@ -227,24 +227,24 @@ export default function HITLActionCard({ action }: { action: ProposedAction }) {
         {isSuccess && (
           <div
             className="flex items-center gap-3 rounded p-3"
-            style={{ background: '#10B98115', border: '1px solid #10B98140' }}
+            style={{ background: '#F0FDF4', border: '1px solid #BBF7D0' }}
             role="status"
             aria-live="polite"
           >
             <CheckCircle2Icon size={18} style={{ color: '#10B981', flexShrink: 0 }} />
             <div>
-              <div className="text-xs font-bold" style={{ color: '#10B981', fontFamily: 'Roboto Mono, monospace' }}>
+              <div className="font-bold" style={{ fontSize: 13, color: '#065F46', fontFamily: 'Roboto Mono, monospace' }}>
                 ✓ PLC COMMAND ACK
               </div>
-              <div className="text-[10px]" style={{ color: '#94a3b8', fontFamily: 'Roboto Mono, monospace' }}>
+              <div style={{ fontSize: 11, color: '#5B6575', fontFamily: 'Roboto Mono, monospace' }}>
                 {execution.executedAt} &nbsp;|&nbsp; Response: {execution.ackCode}
               </div>
-              <div className="text-[10px]" style={{ color: '#94a3b8', fontFamily: 'Roboto Mono, monospace' }}>
+              <div style={{ fontSize: 11, color: '#5B6575', fontFamily: 'Roboto Mono, monospace' }}>
                 {execution.responseText}
               </div>
               <div
-                className="mt-1 text-[10px] rounded px-1.5 py-0.5 inline-block"
-                style={{ background: '#10B98120', color: '#10B981', fontFamily: 'Roboto Mono, monospace' }}
+                className="mt-1 rounded px-1.5 py-0.5 inline-block"
+                style={{ fontSize: 10, background: '#DCFCE7', color: '#10B981', fontFamily: 'Roboto Mono, monospace' }}
               >
                 DEMO: No real PLC command was issued
               </div>
@@ -255,16 +255,16 @@ export default function HITLActionCard({ action }: { action: ProposedAction }) {
         {isRejected && (
           <div
             className="flex items-center gap-2 rounded p-2.5"
-            style={{ background: '#EF444415', border: '1px solid #EF444440' }}
+            style={{ background: '#FEF2F2', border: '1px solid #FECACA' }}
             role="status"
             aria-live="polite"
           >
             <XCircleIcon size={16} style={{ color: '#EF4444', flexShrink: 0 }} />
             <div>
-              <div className="text-xs font-bold" style={{ color: '#EF4444', fontFamily: 'Roboto Mono, monospace' }}>
+              <div className="font-bold" style={{ fontSize: 13, color: '#991B1B', fontFamily: 'Roboto Mono, monospace' }}>
                 Action Rejected
               </div>
-              <div className="text-[10px]" style={{ color: '#94a3b8', fontFamily: 'Roboto Mono, monospace' }}>
+              <div style={{ fontSize: 11, color: '#5B6575', fontFamily: 'Roboto Mono, monospace' }}>
                 {execution.rejectedAt} &nbsp;|&nbsp; Keeping current load
               </div>
             </div>
@@ -274,16 +274,16 @@ export default function HITLActionCard({ action }: { action: ProposedAction }) {
         {isExpired && (
           <div
             className="flex items-center gap-2 rounded p-2.5"
-            style={{ background: '#F59E0B15', border: '1px solid #F59E0B40' }}
+            style={{ background: '#FFFBEB', border: '1px solid #FDE68A' }}
             role="status"
             aria-live="polite"
           >
             <ClockIcon size={16} style={{ color: '#F59E0B', flexShrink: 0 }} />
             <div>
-              <div className="text-xs font-bold" style={{ color: '#F59E0B', fontFamily: 'Roboto Mono, monospace' }}>
+              <div className="font-bold" style={{ fontSize: 13, color: '#92400E', fontFamily: 'Roboto Mono, monospace' }}>
                 SAFE STATE SIMULATED
               </div>
-              <div className="text-[10px]" style={{ color: '#94a3b8', fontFamily: 'Roboto Mono, monospace' }}>
+              <div style={{ fontSize: 11, color: '#5B6575', fontFamily: 'Roboto Mono, monospace' }}>
                 No real PLC command was issued. Timer expired at {execution.expiredAt}.
               </div>
             </div>
@@ -293,13 +293,13 @@ export default function HITLActionCard({ action }: { action: ProposedAction }) {
         {isExecuting && (
           <div
             className="flex items-center gap-2 rounded p-2.5 animate-pulse"
-            style={{ background: '#00A89615', border: '1px solid #00A89640' }}
+            style={{ background: '#EBF5F4', border: '1px solid #00A89640' }}
             role="status"
             aria-live="polite"
             aria-label="Executing PLC command"
           >
             <LoaderIcon size={16} className="animate-spin" style={{ color: '#00A896', flexShrink: 0 }} />
-            <div className="text-xs font-medium" style={{ color: '#00A896', fontFamily: 'Roboto Mono, monospace' }}>
+            <div className="font-medium" style={{ fontSize: 13, color: '#00A896', fontFamily: 'Roboto Mono, monospace' }}>
               EXECUTING (SIMULATED)…
             </div>
           </div>
@@ -310,19 +310,20 @@ export default function HITLActionCard({ action }: { action: ProposedAction }) {
       {!isDone && !isExecuting && (
         <div
           className="px-4 py-3 flex items-center gap-3"
-          style={{ borderTop: '1px solid #3A506B' }}
+          style={{ borderTop: '1px solid #D9E1E8', background: '#F8FAFC' }}
         >
           <button
             id="hitl-approve-button"
             aria-label="Confirm spindle derate: approve the proposed PLC action"
             onClick={() => approveAction(action.id)}
             disabled={!isWaiting}
-            className="flex-1 rounded py-2.5 text-xs font-bold uppercase tracking-wider transition-all focus-visible:outline-2 focus-visible:outline-[#10B981] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 rounded py-3 font-bold uppercase tracking-wider transition-all focus-visible:outline-2 focus-visible:outline-[#10B981] disabled:opacity-50 disabled:cursor-not-allowed"
             style={{
+              fontSize: 13,
               background: '#00A896',
-              color: '#0B132B',
+              color: '#FFFFFF',
               fontFamily: 'Roboto Mono, monospace',
-              boxShadow: '0 0 12px #00A89640',
+              boxShadow: '0 2px 12px rgba(0,168,150,0.35)',
             }}
           >
             ✓ CONFIRM SPINDLE DERATE
@@ -333,11 +334,12 @@ export default function HITLActionCard({ action }: { action: ProposedAction }) {
             aria-label="Reject the proposed action and keep current spindle load"
             onClick={() => rejectAction(action.id)}
             disabled={!isWaiting}
-            className="flex-1 rounded py-2.5 text-xs font-bold uppercase tracking-wider transition-all focus-visible:outline-2 focus-visible:outline-[#EF4444] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 rounded py-3 font-bold uppercase tracking-wider transition-all focus-visible:outline-2 focus-visible:outline-[#EF4444] disabled:opacity-50 disabled:cursor-not-allowed"
             style={{
-              background: '#1C2541',
+              fontSize: 13,
+              background: '#FEF2F2',
               color: '#EF4444',
-              border: '1px solid #EF444440',
+              border: '1px solid #FECACA',
               fontFamily: 'Roboto Mono, monospace',
             }}
           >
