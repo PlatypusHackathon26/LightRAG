@@ -16,3 +16,5 @@ services:
       DOCLING_SERVE_MAX_SYNC_WAIT: "3600"
     restart: unless-stopped
     mem_limit: 6g
+    # Cap CPU (6 of 16 threads) so long catalogue runs do not overheat the laptop.
+    cpus: 6

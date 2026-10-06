@@ -84,6 +84,22 @@ data/raw/[level_N/]*  ─► pipeline/parse.py  ─► data/parsed/<tên>/doclin
 
 `access_level` lấy từ thư mục `level_N` gần nhất (mặc định 1) hoặc `--level`.
 
+### Catalogue lớn và máy bị tắt đột ngột
+
+PDF dài hơn `--chunk-pages` (mặc định 20) được parse theo từng đoạn trang, mỗi
+đoạn lưu ngay vào `data/parsed/<tên>/parts/`. File được ghi qua tên tạm rồi
+đổi tên; `meta.json` ghi cuối cùng = file đã xong. docling-serve bị giới hạn
+6 CPU (`docker-compose.yml`) để giảm nhiệt.
+
+Nếu máy tắt giữa chừng:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File denso\start.ps1 -DoclingOnly   # tự dọn socket Docker hỏng
+.venv\Scripts\python denso\pipeline\parse.py --chunk-pages 20 --cooldown 15 denso\data\raw   # chạy lại y nguyên lệnh cũ
+```
+
+Chỉ mất đoạn trang đang dở; log nằm ở `denso/logs/parse_catalogues.log`.
+
 Quy tắc làm sạch (`clean.py`), rút từ lỗi thật trong output Docling:
 
 | Lỗi | Xử lý |
