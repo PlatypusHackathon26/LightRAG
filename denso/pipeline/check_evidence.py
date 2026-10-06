@@ -41,11 +41,13 @@ def tokens(text: str) -> list[str]:
 
 
 def split_pages(md: str) -> dict[int, str]:
+    """Map page number -> text. A page's marker repeats after each heading, so join its segments."""
     pages: dict[int, str] = {}
     marks = list(PAGE_MARK.finditer(md))
     for i, m in enumerate(marks):
         end = marks[i + 1].start() if i + 1 < len(marks) else len(md)
-        pages[int(m.group(1))] = md[m.end() : end]
+        n = int(m.group(1))
+        pages[n] = pages.get(n, "") + md[m.end() : end]
     return pages
 
 

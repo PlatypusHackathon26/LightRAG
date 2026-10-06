@@ -80,6 +80,31 @@ def test_tables_are_recompacted_with_page_number():
     assert tables[0]["markdown"] in blocks
 
 
+def test_large_tables_get_a_page_column_but_json_tables_do_not():
+    # Regression: split slices of big tables (NGK cross reference, pp.10-15)
+    # lost their page marker, so 42/74 Spark Plug chunks could not cite a page.
+    rows = "".join(f"| BKR{i}ES | K{i}TT |\n" for i in range(400))
+    raw = "| NGK TYPE | DENSO |\n|---|---|\n" + rows
+    blocks, tables, _ = clean_page(raw, 11, set())
+    assert blocks[0].startswith("| Trang | NGK TYPE | DENSO |\n|---|---|---|\n| 11 | BKR0ES | K0TT |")
+    assert all(line.startswith("| 11 | ") for line in blocks[0].split("\n")[2:])
+    assert tables[0]["markdown"].startswith("| NGK TYPE | DENSO |")  # A3 JSON keeps the original table
+
+
+def test_repeated_paragraph_on_same_page_is_dropped_once():
+    # Real case: Spark Plug p.32 repeats one 127-char sentence 4 times.
+    para = "Both electrodes are needle shaped for better ignitability and wider heat range, and the gap stays stable."
+    raw = f"{para}\n\n{para}\n\nShort line here.\n\nShort line here.\n\n{para}\n"
+    blocks, _, report = clean_page(raw, 32, set())
+    assert blocks == [para, "Short line here.", "Short line here."]  # short lines are never deduplicated
+    assert sum(d.startswith("duplicate_in_page") for d in report.dropped) == 2
+
+
+def test_small_tables_are_left_alone():
+    blocks, _, _ = clean_page("| A | B |\n|---|---|\n| 1 | 2 |\n", 3, set())
+    assert blocks == ["| A | B |\n|---|---|\n| 1 | 2 |"]
+
+
 def test_multilingual_toc_page_is_mixed_not_guessed():
     # Regression: the Installation Manual TOC (17 languages) was tagged 'ca'.
     toc = (

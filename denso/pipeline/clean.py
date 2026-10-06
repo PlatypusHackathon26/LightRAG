@@ -183,6 +183,25 @@ def clean_table(lines: list[str], lang: str, log: list[str]) -> str:
     return "\n".join(out)
 
 
+# Tables this big are likely to be split across chunks by LightRAG's P chunker
+# (~2000-token chunks; a heading section holding several mid-size tables gets
+# split too). Row slices keep the header row but not the page marker, so such
+# tables get a per-row page column instead.
+SPLIT_TABLE_CHARS = 1500
+SPLIT_TABLE_ROWS = 10
+
+
+def likely_split(table_md: str) -> bool:
+    return len(table_md) >= SPLIT_TABLE_CHARS or table_md.count("\n") - 1 >= SPLIT_TABLE_ROWS
+
+
+def with_page_column(table_md: str, page: int) -> str:
+    lines = table_md.split("\n")
+    out = [lines[0].replace("| ", f"| Trang | ", 1), lines[1].replace("|", "|---|", 1)]
+    out += [line.replace("| ", f"| {page} | ", 1) for line in lines[2:]]
+    return "\n".join(out)
+
+
 # ---------------------------------------------------------------- document
 
 
@@ -217,7 +236,7 @@ def clean_page(raw: str, number: int, boilerplate: set[str]) -> tuple[list[str],
                 i += 1
             table_md = clean_table(table_lines, lang, report.joined)
             if table_md:
-                blocks.append(table_md)
+                blocks.append(with_page_column(table_md, number) if likely_split(table_md) else table_md)
                 tables.append({"page": number, "markdown": table_md})
             continue
         i += 1
@@ -245,7 +264,51 @@ def clean_page(raw: str, number: int, boilerplate: set[str]) -> tuple[list[str],
         text = clean_inline(stripped, lang, report.joined)
         if text:
             blocks.append(text)
-    return blocks, tables, report
+    return drop_repeats_in_page(blocks, report), tables, report
+
+
+DUP_MIN_CHARS = 80
+
+
+def drop_repeats_in_page(blocks: list[str], report: PageReport) -> list[str]:
+    """Drop exact repeats of a prose paragraph on the same page (keep the first).
+
+    Layered PDFs make Docling emit the same warning or caption several times on
+    one page. Repeats across pages or documents are kept on purpose: the
+    brochure reprints whole bulletins and both copies are cited.
+    """
+    seen: set[str] = set()
+    out = []
+    for block in blocks:
+        if block.startswith(("#", "|")) or len(block) < DUP_MIN_CHARS:
+            out.append(block)
+            continue
+        key = " ".join(block.lower().split())
+        if key in seen:
+            report.dropped.append(f"duplicate_in_page: {block[:80]}")
+            continue
+        seen.add(key)
+        out.append(block)
+    return out
+
+
+def markdown_page(blocks: list[str], number: int, lang: str) -> str:
+    """Render one page, repeating its marker right after every heading.
+
+    LightRAG's native parser splits Markdown into heading-led blocks, and a
+    marker placed before a heading ends up at the tail of the previous block.
+    Putting the marker after each heading makes every block - and so every
+    chunk - start with the page it comes from, which is what citations need.
+    """
+    marker = page_marker(number, lang)
+    out: list[str] = []
+    if not blocks or not HEADING.match(blocks[0]):
+        out.append(marker)
+    for block in blocks:
+        out.append(block)
+        if HEADING.match(block):
+            out.append(marker)
+    return "\n\n".join(out)
 
 
 def page_marker(number: int, lang: str | None = None) -> str:
@@ -320,7 +383,7 @@ def process(doc_dir: Path, out_root: Path, tiers: dict | None = None) -> dict | 
         blocks, tables, report = clean_page(raw, n, boilerplate)
         reports.append(report)
         all_tables += tables
-        md_parts.append(page_marker(n, report.language) + "\n\n" + "\n\n".join(blocks))
+        md_parts.append(markdown_page(blocks, n, report.language))
         prose = [b for b in blocks if not b.startswith("|")]
         text_parts.append(page_marker(n) + "\n" + "\n".join(b.lstrip("#").strip() for b in prose))
 
