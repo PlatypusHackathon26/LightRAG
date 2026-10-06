@@ -57,6 +57,15 @@ Cách sửa: thoát Docker, đổi tên `%LOCALAPPDATA%\Docker\run` (và
 `%LOCALAPPDATA%\docker-secrets-engine` nếu lỗi nhắc tới nó), rồi mở lại Docker.
 Luôn thoát Docker bằng Quit ở khay hệ thống.
 
+6. Cấu hình: `.env` không được commit, các giá trị DENSO nằm ở `denso/env.denso`:
+   ```powershell
+   Copy-Item env.example .env
+   Get-Content denso\env.denso | Add-Content .env
+   ```
+   Quan trọng nhất: `OLLAMA_LLM_NUM_PREDICT=8192`. Mặc định của LightRAG cho
+   Ollama là 128 token output, cắt JSON trích xuất thực thể sau ~2 entity →
+   log báo "JSON extraction result is empty or unrecoverable" và đồ thị rỗng.
+
 ## Chạy
 
 ```powershell
