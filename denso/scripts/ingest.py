@@ -1,17 +1,25 @@
-"""Upload documents to a running LightRAG server and wait until they are indexed.
+"""Upload documents to LightRAG server(s) and wait until they are indexed.
 
-Access levels map to cumulative workspaces: a level-N document is uploaded to
-workspaces level_N .. level_3, so a user cleared for level K queries only
-workspace level_K and never sees documents above K.
+One LightRAG server instance serves exactly one workspace (set by WORKSPACE at
+start-up; the LIGHTRAG-WORKSPACE request header does NOT select storage). So
+access levels are separate server instances, cumulative by level:
+
+    level_1 server (default :9621)  public documents
+    level_2 server (default :9622)  level 1 + level 2 documents
+    level_3 server (default :9623)  everything
+
+A level-N document is uploaded to the servers of levels N..3. Override the
+URLs with DENSO_LEVEL_SERVERS="http://...:9621,http://...:9622,http://...:9623".
 
 Usage:
-    python denso/scripts/ingest.py --level 1 denso/data/raw
-    python denso/scripts/ingest.py --workspace bench denso/data/raw/*.pdf
+    python denso/scripts/ingest.py --level 1 denso/data/cleaned_md
+    python denso/scripts/ingest.py --server http://127.0.0.1:9621 some.md
 """
 
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import time
 from pathlib import Path
@@ -19,11 +27,19 @@ from pathlib import Path
 import httpx
 
 MAX_LEVEL = 3
+DEFAULT_SERVERS = "http://127.0.0.1:9621,http://127.0.0.1:9622,http://127.0.0.1:9623"
 SUPPORTED = {".pdf", ".docx", ".pptx", ".xlsx", ".png", ".jpg", ".jpeg", ".md", ".txt"}
 TERMINAL = {"processed", "failed"}
 
 
-def collect_files(paths: list[str]) -> list[Path]:
+def level_servers() -> list[str]:
+    urls = [u.strip() for u in os.environ.get("DENSO_LEVEL_SERVERS", DEFAULT_SERVERS).split(",") if u.strip()]
+    if len(urls) != MAX_LEVEL:
+        sys.exit(f"DENSO_LEVEL_SERVERS must list {MAX_LEVEL} URLs, got {len(urls)}")
+    return urls
+
+
+def collect_files(paths: list[str], include_lookup: bool) -> list[Path]:
     files: list[Path] = []
     for p in map(Path, paths):
         if p.is_dir():
@@ -32,37 +48,31 @@ def collect_files(paths: list[str]) -> list[Path]:
             files.append(p)
         else:
             sys.exit(f"Not found: {p}")
+    if not include_lookup:
+        files = [f for f in files if " - lookup." not in f.name]
     return files
 
 
-def upload(client: httpx.Client, workspace: str, path: Path) -> str:
+def upload(client: httpx.Client, path: Path) -> str:
     with path.open("rb") as fh:
-        r = client.post(
-            "/documents/upload",
-            headers={"LIGHTRAG-WORKSPACE": workspace},
-            files={"file": (path.name, fh)},
-        )
+        r = client.post("/documents/upload", files={"file": (path.name, fh)})
     r.raise_for_status()
     body = r.json()
-    print(f"  [{workspace}] {path.name}: {body.get('status')} - {body.get('message')}")
+    print(f"  {path.name}: {body.get('status')} - {body.get('message')}")
     return body["track_id"]
 
 
-def wait(client: httpx.Client, workspace: str, track_ids: dict[str, str], poll: float) -> int:
+def wait(client: httpx.Client, track_ids: dict[str, str], poll: float) -> int:
     pending = dict(track_ids)
     failed = 0
     started = time.time()
     while pending:
         time.sleep(poll)
         for name, tid in list(pending.items()):
-            r = client.get(
-                f"/documents/track_status/{tid}",
-                headers={"LIGHTRAG-WORKSPACE": workspace},
-            )
+            r = client.get(f"/documents/track_status/{tid}")
             r.raise_for_status()
             docs = r.json().get("documents", [])
-            statuses = {d["status"] for d in docs}
-            if docs and statuses <= TERMINAL:
+            if docs and {d["status"] for d in docs} <= TERMINAL:
                 for d in docs:
                     if d["status"] == "failed":
                         failed += 1
@@ -71,8 +81,7 @@ def wait(client: httpx.Client, workspace: str, track_ids: dict[str, str], poll: 
                         print(f"  done   {name} ({d.get('chunks_count')} chunks)")
                 del pending[name]
         if pending:
-            mins = (time.time() - started) / 60
-            print(f"  ... {len(pending)} still processing ({mins:.1f} min elapsed)")
+            print(f"  ... {len(pending)} still processing ({(time.time() - started) / 60:.1f} min elapsed)", flush=True)
     return failed
 
 
@@ -81,30 +90,30 @@ def main() -> None:
     ap.add_argument("paths", nargs="+", help="Files or directories to upload")
     target = ap.add_mutually_exclusive_group(required=True)
     target.add_argument("--level", type=int, choices=range(1, MAX_LEVEL + 1), help="Access level of the documents")
-    target.add_argument("--workspace", help="Upload to a single explicit workspace")
-    ap.add_argument("--server", default="http://127.0.0.1:9621")
-    ap.add_argument("--api-key", default=None, help="LIGHTRAG_API_KEY if the server requires one")
+    target.add_argument("--server", help="Upload to this single server only")
+    ap.add_argument("--include-lookup", action="store_true", help="Also upload '<doc> - lookup.[native-P!].md' files")
+    ap.add_argument("--api-key", default=None, help="LIGHTRAG_API_KEY if the servers require one")
     ap.add_argument("--poll", type=float, default=30.0, help="Seconds between status polls")
     ap.add_argument("--no-wait", action="store_true", help="Upload only, do not wait for indexing")
     args = ap.parse_args()
 
-    files = collect_files(args.paths)
+    files = collect_files(args.paths, args.include_lookup)
     if not files:
         sys.exit("No supported files found.")
-    workspaces = (
-        [args.workspace]
-        if args.workspace
-        else [f"level_{n}" for n in range(args.level, MAX_LEVEL + 1)]
-    )
+    servers = [args.server] if args.server else level_servers()[args.level - 1 :]
     headers = {"X-API-Key": args.api_key} if args.api_key else {}
 
     total_failed = 0
-    with httpx.Client(base_url=args.server, headers=headers, timeout=120) as client:
-        for ws in workspaces:
-            print(f"Workspace {ws}: uploading {len(files)} file(s)")
-            track_ids = {f.name: upload(client, ws, f) for f in files}
+    for url in servers:
+        with httpx.Client(base_url=url, headers=headers, timeout=120) as client:
+            try:
+                ws = client.get("/health").json().get("configuration", {}).get("workspace") or "(default)"
+            except httpx.HTTPError as exc:
+                sys.exit(f"Server {url} is not reachable ({exc}); start it or use --server")
+            print(f"{url} [workspace {ws}]: uploading {len(files)} file(s)")
+            track_ids = {f.name: upload(client, f) for f in files}
             if not args.no_wait:
-                total_failed += wait(client, ws, track_ids, args.poll)
+                total_failed += wait(client, track_ids, args.poll)
     sys.exit(1 if total_failed else 0)
 
 

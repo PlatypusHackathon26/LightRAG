@@ -11,7 +11,7 @@ Results are cached per (mode, id) in the output JSON, so an interrupted run
 resumes where it stopped.
 
 Usage:
-    python denso/scripts/run_benchmark.py --workspace level_3 --modes naive mix
+    python denso/scripts/run_benchmark.py --server http://127.0.0.1:9621 --name level_1 --modes naive mix
 """
 
 from __future__ import annotations
@@ -53,11 +53,10 @@ def norm_name(name: str) -> str:
     return re.sub(r"[^a-z0-9]", "", stem.lower())
 
 
-def query(client: httpx.Client, workspace: str, question: str, mode: str) -> dict:
+def query(client: httpx.Client, question: str, mode: str) -> dict:
     t0 = time.time()
     r = client.post(
         "/query",
-        headers={"LIGHTRAG-WORKSPACE": workspace},
         json={"query": question, "mode": mode, "include_references": True},
     )
     r.raise_for_status()
@@ -124,7 +123,7 @@ def summarize(questions: list[dict], results: dict, modes: list[str]) -> str:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--workspace", required=True)
+    ap.add_argument("--name", required=True, help="Label for the result files, e.g. level_1 or level_1_rerank")
     ap.add_argument("--modes", nargs="+", default=["naive", "mix"])
     ap.add_argument("--bench", type=Path, default=DEFAULT_BENCH)
     ap.add_argument("--out", type=Path, default=DEFAULT_OUT)
@@ -139,7 +138,7 @@ def main() -> None:
     if args.ids:
         questions = [q for q in questions if q["id"] in set(args.ids)]
     args.out.mkdir(parents=True, exist_ok=True)
-    out_json = args.out / f"benchmark_{args.workspace}.json"
+    out_json = args.out / f"benchmark_{args.name}.json"
     results: dict = json.loads(out_json.read_text(encoding="utf-8")) if out_json.exists() else {}
 
     headers = {"X-API-Key": args.api_key} if args.api_key else {}
@@ -152,7 +151,7 @@ def main() -> None:
                 key = f"{mode}:{q['id']}"
                 if key in results:
                     continue
-                res = query(client, args.workspace, q["question"], mode)
+                res = query(client, q["question"], mode)
                 cited = {norm_name(c["file"]) for c in q.get("citations", [])}
                 got = {norm_name(f) for f in res["references"]}
                 res["source_hit"] = bool(cited & got) if cited else None
@@ -166,7 +165,7 @@ def main() -> None:
                 )
 
     report = summarize(questions, results, args.modes)
-    (args.out / f"benchmark_{args.workspace}.md").write_text(report, encoding="utf-8")
+    (args.out / f"benchmark_{args.name}.md").write_text(report, encoding="utf-8")
     print("\n" + report)
 
 
