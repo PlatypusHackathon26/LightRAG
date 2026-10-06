@@ -1,0 +1,15 @@
+{
+  "_comment": "Knowledge tier = full LightRAG KG + vectors. Remaining pages = lookup tier (vector-only, no entity extraction). Page ranges are inclusive PDF page numbers; boundaries come from each catalogue's own table of contents.",
+  "Spark Plug Catalogue 2025": {
+    "knowledge_pages": [1, 41],
+    "reason": "pp.1-41 = technical section (selection, torque, replacement timing, NGK cross reference, specs); pp.42+ = per-country vehicle application tables"
+  },
+  "WiperBlade-Cat26_Full-Version": {
+    "knowledge_pages": [1, 25],
+    "reason": "pp.1-25 = product and features section listed under Contents; pp.26+ = APPLICATIONS tables"
+  },
+  "AC Components Catalogue_2020": {
+    "knowledge_pages": [1, 0],
+    "reason": "not decided yet; whole catalogue treated as lookup until its sections are reviewed"
+  }
+}

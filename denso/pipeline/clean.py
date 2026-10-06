@@ -257,10 +257,59 @@ def doc_id_for(source: Path) -> str:
     return f"DENSO_{digest[:8].upper()}"
 
 
-def process(doc_dir: Path, out_root: Path) -> dict:
-    meta = json.loads((doc_dir / "meta.json").read_text(encoding="utf-8"))
-    md = (doc_dir / "docling.md").read_text(encoding="utf-8")
-    pages_raw = [html.unescape(p) for p in md.split(PAGE_BREAK)]
+TIERS_FILE = Path(__file__).resolve().parent / "tiers.json"
+PART_NAME = re.compile(r"^p(\d{4})-(\d{4})\.md$")
+LOOKUP_HINT = "[native-P!]"  # LightRAG filename hint: native engine, P chunking, no KG extraction
+
+
+def load_tiers() -> dict:
+    data = json.loads(TIERS_FILE.read_text(encoding="utf-8"))
+    return {k: v for k, v in data.items() if not k.startswith("_")}
+
+
+def load_pages(doc_dir: Path) -> tuple[list[str], bool, int]:
+    """Return (raw pages, complete?, raw char count).
+
+    A finished parse has docling.md. An unfinished one is assembled from the
+    contiguous run of parts/ ranges starting at page 1, so the knowledge tier
+    of a long catalogue can be cleaned before the lookup pages are parsed.
+    """
+    if (doc_dir / "meta.json").exists() and (doc_dir / "docling.md").exists():
+        md = (doc_dir / "docling.md").read_text(encoding="utf-8")
+        return md.split(PAGE_BREAK), True, len(md)
+    parts = sorted(
+        (int(m.group(1)), int(m.group(2)), f)
+        for f in (doc_dir / "parts").glob("p*.md")
+        if (m := PART_NAME.match(f.name))
+    ) if (doc_dir / "parts").exists() else []
+    pages: list[str] = []
+    size = 0
+    for start, end, f in parts:
+        if start != len(pages) + 1:
+            break  # gap: stop at the last contiguous page
+        md = f.read_text(encoding="utf-8")
+        size += len(md)
+        chunk = md.split(PAGE_BREAK)
+        chunk += [""] * (end - start + 1 - len(chunk))
+        pages += chunk[: end - start + 1]
+    return pages, False, size
+
+
+def write_md(path: Path, title: str, md_parts: list[str]) -> None:
+    path.write_text(f"# {title}\n\n" + "\n\n".join(md_parts) + "\n", encoding="utf-8")
+
+
+def process(doc_dir: Path, out_root: Path, tiers: dict | None = None) -> dict | None:
+    """Clean one parsed document. Returns its report, or None if nothing could be written yet."""
+    tiers = load_tiers() if tiers is None else tiers
+    stem = doc_dir.name
+    pages_raw, complete, raw_chars = load_pages(doc_dir)
+    tier = tiers.get(stem)
+    if not pages_raw:
+        return None
+    if not complete and (tier is None or len(pages_raw) < tier["knowledge_pages"][1]):
+        return None  # nothing publishable until more ranges are parsed
+    pages_raw = [html.unescape(p) for p in pages_raw]
     boilerplate = repeated_lines(pages_raw)
 
     md_parts: list[str] = []
@@ -277,7 +326,38 @@ def process(doc_dir: Path, out_root: Path) -> dict:
 
     langs = Counter(r.language for r in reports if r.language not in ("unknown", "mixed"))
     cleaned_text = "\n\n".join(text_parts).strip()
-    stem = doc_dir.name
+    md_dir = out_root / "cleaned_md"
+    md_dir.mkdir(parents=True, exist_ok=True)
+    clean_report = {
+        "source_file": stem,
+        "complete": complete,
+        "languages": dict(langs),
+        "boilerplate": sorted(boilerplate),
+        "pages": [r.__dict__ for r in reports],
+        "chars_before": raw_chars,
+        "chars_after": len(cleaned_text),
+        "outputs": [],
+    }
+    if tier:
+        first, last = tier["knowledge_pages"]
+        knowledge = md_parts[first - 1 : last] if last >= first else []
+        if knowledge:
+            write_md(md_dir / f"{stem}.md", stem, knowledge)
+            clean_report["outputs"].append(f"{stem}.md (knowledge pp.{first}-{last})")
+        if complete:
+            lookup_from = max(last, 0) + 1
+            lookup_name = f"{stem} - lookup.{LOOKUP_HINT}.md"
+            write_md(md_dir / lookup_name, f"{stem} (lookup tables)", md_parts[lookup_from - 1 :])
+            clean_report["outputs"].append(f"{lookup_name} (lookup pp.{lookup_from}-{len(md_parts)})")
+    else:
+        write_md(md_dir / f"{stem}.md", stem, md_parts)
+        clean_report["outputs"].append(f"{stem}.md")
+    (doc_dir / "clean_report.json").write_text(json.dumps(clean_report, ensure_ascii=False, indent=2), encoding="utf-8")
+    if not complete:
+        return clean_report  # the A3 JSON describes the whole document; wait for the full parse
+
+    meta = json.loads((doc_dir / "meta.json").read_text(encoding="utf-8"))
+    clean_report["source_file"] = meta["source_file"]
     source = Path(meta["source_path"])
     record = {
         "doc_id": doc_id_for(source),
@@ -294,21 +374,11 @@ def process(doc_dir: Path, out_root: Path) -> dict:
             "is_corrupted": meta.get("docling_status") != "success" or len(cleaned_text) < 50,
         },
     }
-    header = f"# {Path(meta['source_file']).stem}\n\n"
-    (out_root / "cleaned_md").mkdir(parents=True, exist_ok=True)
     (out_root / "cleaned_json").mkdir(parents=True, exist_ok=True)
-    (out_root / "cleaned_md" / f"{stem}.md").write_text(header + "\n\n".join(md_parts) + "\n", encoding="utf-8")
     (out_root / "cleaned_json" / f"{stem}.json").write_text(
         json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8"
     )
-    clean_report = {
-        "source_file": meta["source_file"],
-        "languages": dict(langs),
-        "boilerplate": sorted(boilerplate),
-        "pages": [r.__dict__ for r in reports],
-        "chars_before": len(md),
-        "chars_after": len(cleaned_text),
-    }
+    clean_report["outputs"].append(f"cleaned_json/{stem}.json")
     (doc_dir / "clean_report.json").write_text(json.dumps(clean_report, ensure_ascii=False, indent=2), encoding="utf-8")
     return clean_report
 
@@ -321,16 +391,21 @@ def main() -> None:
     args = ap.parse_args()
 
     dirs = [args.parsed / n for n in args.names] if args.names else sorted(
-        d for d in args.parsed.iterdir() if (d / "docling.md").exists()
+        d for d in args.parsed.iterdir() if (d / "docling.md").exists() or (d / "parts").exists()
     )
+    tiers = load_tiers()
     for d in dirs:
-        rep = process(d, args.out)
+        rep = process(d, args.out, tiers)
+        if rep is None:
+            print(f"{d.name}: not enough pages parsed yet, skipped")
+            continue
         dropped = sum(len(p["dropped"]) for p in rep["pages"])
         joined = sum(len(p["joined"]) for p in rep["pages"])
+        state = "" if rep["complete"] else " [PARTIAL parse]"
         print(
-            f"{rep['source_file']}: {len(rep['pages'])} pages, languages={rep['languages']}, "
+            f"{rep['source_file']}{state}: {len(rep['pages'])} pages, languages={rep['languages']}, "
             f"dropped={dropped} lines, joined={joined} OCR splits, "
-            f"{rep['chars_before']} -> {rep['chars_after']} chars"
+            f"{rep['chars_before']} -> {rep['chars_after']} chars -> {', '.join(rep['outputs'])}"
         )
 
 
