@@ -89,7 +89,7 @@ class ActuatorDispatcher:
         )
         try:
             # Gọi trực tiếp hàm tiếp nhận chuẩn hóa của BaseMachine
-            machine_result_event = machine.receive_plc_command(command=command, payload=payload)[cite: 1]
+            machine_result_event = machine.receive_plc_command(command=command, payload=payload)
             exec_payload = machine_result_event.get("payload", {})
             status = "SUCCESS" if "rejected" not in str(exec_payload.get("execution_detail", "")).lower() else "REJECTED"
 

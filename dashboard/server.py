@@ -5,12 +5,11 @@ import json
 import os
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any, Callable, Dict, Tuple
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import urlparse
 
 
 class DashboardHandler(BaseHTTPRequestHandler):
     def log_message(self, format: str, *args: Any) -> None:
-        # Tắt bớt log HTTP để đỡ rối terminal
         return
 
     def do_GET(self) -> None:
@@ -18,11 +17,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
         # 1. Trả về giao diện chính
         if parsed.path in ("/", "/index.html"):
-            tmpl_path = os.path.join(
-                os.path.dirname(__file__), "templates", "index.html"
-            )
+            # index.html nằm NGANG HÀNG với server.py
+            tmpl_path = os.path.join(os.path.dirname(__file__), "index.html")
+
             if not os.path.exists(tmpl_path):
-                self.send_error(404, "Template index.html not found")
+                self.send_error(404, f"File index.html không tồn tại tại: {tmpl_path}")
                 return
 
             with open(tmpl_path, "r", encoding="utf-8") as f:
@@ -45,15 +44,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
-
-        # API xử lý bấm nút DUYỆT hoặc TỪ CHỐI
         if parsed.path == "/api/decision":
             length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(length).decode("utf-8")
             data = json.loads(body) if body else {}
 
             action_id = data.get("action_id", "")
-            decision = data.get("decision", "REJECT")  # APPROVE hoặc REJECT
+            decision = data.get("decision", "REJECT")
 
             result = {"status": "FAILED"}
             if self.server.on_decision and action_id:
@@ -69,8 +66,6 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
 
 class DashboardServer(HTTPServer):
-    """Máy chủ Dashboard phục vụ Web UI và API."""
-
     def __init__(
         self,
         server_address: Tuple[str, int],
