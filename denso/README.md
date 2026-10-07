@@ -129,22 +129,13 @@ giữ đúng định dạng `--- [Trang N] ---` của schema.
 Hạn chế đã biết: từ IN HOA bị cắt ở mép cột trong lớp text của PDF gốc
 (`LEAKAG`, `INSTALLATIO`) chưa được sửa.
 
-### Chống sập máy khi chạy dài (RAM / nhiệt)
+### Không chạy LLM trả lời trên máy local
 
-Hai lần tắt nguồn đột ngột ngày 2026-10-07 đều là tắt cứng (không màn hình xanh, không
-dump, Windows không ghi cảnh báo hết bộ nhớ) trong lúc qwen3:8b chạy với
-`num_ctx=32768`: model + KV cache + bge-m3 vượt 8 GB VRAM nên Vulkan lấn sang RAM hệ
-thống, trong khi trình duyệt/Notion đã chiếm ~10 GB.
-
-- `tools/mem_guard.py`: ghi RAM/CPU/app nặng nhất vào `logs/mem_guard.jsonl` (fsync –
-  sập máy vẫn còn log để biết nguyên nhân); RAM trống < 1.5 GB thì unload model Ollama,
-  < 0.8 GB hai lần liên tiếp thì dừng job DENSO chạy lại được (benchmark, ingest, eval).
-  Không bao giờ đụng tới app của người dùng.
-- `scripts/serve_level1_ollama.ps1`: chạy level_1 với QUERY/KEYWORD trên qwen3:8b local
-  (khi chưa có API key), `num_ctx=20480` để vừa VRAM, tự bật mem_guard, và **từ chối
-  chạy** nếu RAM trống < 4 GB. `-StopExtras` tắt lookup/gateway/Vite để dành RAM.
-- Trước khi chạy dài: đóng bớt tab trình duyệt và app nặng; không chạy Docling (Docker)
-  cùng lúc với Ollama.
+Ba lần tắt nguồn đột ngột ngày 2026-10-07 đều xảy ra khi qwen3:8b trả lời câu hỏi
+(prompt ~16K token): runner của Ollama chiếm thêm ~4.75 GB RAM hệ thống ngay lúc bắt đầu
+suy luận, RAM trống tụt dưới 1 GB rồi máy tắt cứng. Vai trò QUERY/KEYWORD chỉ chạy qua API
+(proxy `tools/llm_rate_proxy.py`); Ollama local chỉ giữ bge-m3 cho embedding. Trước khi
+chạy dài: đóng bớt tab trình duyệt và app nặng; không chạy Docling (Docker) cùng lúc.
 
 ## Nạp tài liệu
 
