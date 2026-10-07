@@ -186,3 +186,26 @@ $env:PYTHONIOENCODING="utf-8"; .venv\Scripts\python denso\gateway\app.py
 
 Phía UI cần: thêm `/agent` vào `VITE_API_ENDPOINTS` (proxy dev tới :9700) và cho
 `agenticStore.ts` gọi `api/agent.ts` thay vì mock.
+
+## Benchmark: kết quả và cách chạy lại
+
+Kết quả lượt đầu (`results/benchmark_level_1_knowledge.*`): naive 30/30 câu, mix
+dừng ở Q25 vì Cerebras hết quota ngày. Trên 24 câu chạy cả hai mode: naive judge 98% /
+dữ kiện 91%, mix 83% / 73% – nhưng mix bị thiệt: với `MAX_TOTAL_TOKENS=16000`, ngân
+sách mặc định 6000 (entity) + 8000 (relation) chỉ chừa 2 chunk văn bản gốc.
+
+Chạy lại mix công bằng (naive giữ nguyên trong `benchmark_level_1_budgetfix.json`):
+
+```powershell
+# 1. key mới trong .env (EXTRACT_LLM_BINDING_API_KEY=csk-..., không kèm < >)
+# 2. proxy với hạn mức mới, không fallback
+.venv\Scripts\python denso\tools\llm_rate_proxy.py --fresh-key --fallback-model ""
+# 3. khởi động lại server level_1 để nhận MAX_ENTITY_TOKENS=3000 / MAX_RELATION_TOKENS=4000
+$env:WORKSPACE="level_1"; $env:PORT="9621"; $env:PYTHONIOENCODING="utf-8"; .venv\Scripts\lightrag-server.exe
+# 4. chỉ chạy mix (naive đã có sẵn trong file)
+.venv\Scripts\python denso\scripts\run_benchmark.py --name level_1_budgetfix --modes mix
+.venv\Scripts\python denso\scripts\score_facts.py --name level_1_budgetfix
+```
+
+Thí nghiệm prompt (`USER_PROMPT_PREFIX_FILE=denso_answer.md`) ảnh hưởng mọi mode nên
+chạy riêng với tên khác, cả naive lẫn mix.
