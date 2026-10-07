@@ -140,3 +140,36 @@ def test_running_headers_detected_only_when_repeated():
     pages = ["Diesel Common Rail System\nbody one", "Diesel Common Rail System\nbody two", "Diesel Common Rail System\nbody three"]
     assert repeated_lines(pages) == {"Diesel Common Rail System"}
     assert repeated_lines(pages[:2]) == set()
+
+
+# --- image descriptions inlined at Docling's placeholders (benchmark Q29) ---------------------
+
+from clean import IMG_LINE, compact_caption, inline_captions  # noqa: E402
+
+SHELF_PAGE = ("####### Shelf life\n\nThe shelf life for DENSO ND-oils is:\n\n<!-- image -->\n\n"
+              "Expiry date is printed on the label\n\n<!-- image -->\n\nSHELF LIFE: 36 MONTHS\n\n<!-- image -->\n")
+
+
+def test_descriptions_take_the_placeholders_in_order():
+    raw = inline_captions(SHELF_PAGE, ["can of ND-OIL 11", "can of ND-OIL 8", "can of ND-OIL 12"])
+    blocks, _, _ = clean_page(raw, 12, set())
+    i = blocks.index("The shelf life for DENSO ND-oils is:")
+    assert blocks[i + 1] == "[Ảnh] can of ND-OIL 11"
+    assert blocks[-1] == "[Ảnh] can of ND-OIL 12" and "SHELF LIFE: 36 MONTHS" in blocks
+
+
+def test_a_count_mismatch_puts_descriptions_at_the_page_end_not_in_a_wrong_section():
+    raw = inline_captions(SHELF_PAGE, ["can of ND-OIL 8", "can of ND-OIL 12"])
+    assert raw.count("<!-- image -->") == 3 and raw.rstrip().endswith(IMG_LINE + "can of ND-OIL 12")
+
+
+def test_descriptions_do_not_change_the_page_language():
+    german = "####### Einbau\n\nDie Schrauben mit 6,9 bis 10,8 Nm anziehen und die Führungsstifte entfernen.\n\n<!-- image -->\n"
+    raw = inline_captions(german, ["The image shows the suction control valve with two guide pins and the bolts."])
+    _, _, report = clean_page(raw, 5, set())
+    assert report.language == "de"
+
+
+def test_compact_caption_collapses_a_looping_transcription():
+    looped = "A can of ND-OIL 11.\n" + "* ND-OIL 11\n" * 40 + "* HFC-134a"
+    assert compact_caption(looped) == "A can of ND-OIL 11.; ND-OIL 11; HFC-134a"

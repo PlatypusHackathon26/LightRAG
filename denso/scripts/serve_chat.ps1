@@ -69,7 +69,8 @@ if (-not (Test-Port 7998)) { Start-Bg $py @("denso\tools\lang_rerank.py") "lang_
 "reranker   :7998"
 
 if ($Restart) { Stop-Port 9621; Stop-Port 9631; Stop-Port 9700; Start-Sleep 3 }
-foreach ($role in "QUERY", "KEYWORD") {
+# EXTRACT too: a (re-)ingest through this server must not ask the proxy for a model its upstream lacks.
+foreach ($role in "QUERY", "KEYWORD", "EXTRACT") {
     Set-Item "env:${role}_LLM_MODEL" $Model
     Set-Item "env:${role}_OPENAI_LLM_REASONING_EFFORT" $Reasoning
 }

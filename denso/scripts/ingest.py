@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -62,6 +63,39 @@ def upload(client: httpx.Client, path: Path) -> str:
     return body["track_id"]
 
 
+def doc_ids_by_name(client: httpx.Client) -> dict[str, list[str]]:
+    """file name -> document ids currently on the server."""
+    out: dict[str, list[str]] = {}
+    page = 1
+    while True:
+        r = client.post("/documents/paginated", json={"page": page, "page_size": 100})
+        r.raise_for_status()
+        body = r.json()
+        for d in body.get("documents", []):
+            # file_path is the canonical name ("x - images.md", parser hint stripped); the uploaded
+            # name ("x - images.[native-P!].md") is kept in metadata.source_file.
+            names = {Path(d.get("file_path") or "").name, (d.get("metadata") or {}).get("source_file") or ""}
+            for name in names - {""}:
+                out.setdefault(name, []).append(d["id"])
+        if page >= (body.get("pagination") or {}).get("total_pages", 1):
+            return out
+        page += 1
+
+
+def delete_existing(client: httpx.Client, names: list[str], poll: float) -> None:
+    """Delete the server's copies of these files and wait until they are gone (for --replace)."""
+    # Also the canonical name: "x.[native-P!].md" and an earlier "x.md" are the same document to LightRAG.
+    names = list(dict.fromkeys([*names, *(re.sub(r"\.\[[^\]]*\](?=\.[^.]+$)", "", n) for n in names)]))
+    ids = [i for n in names for i in doc_ids_by_name(client).get(n, [])]
+    if not ids:
+        return
+    r = client.request("DELETE", "/documents/delete_document", json={"doc_ids": ids, "delete_file": False})
+    r.raise_for_status()
+    print(f"  deleting {len(ids)} existing document(s): {r.json().get('status')}")
+    while any(i for n in names for i in doc_ids_by_name(client).get(n, [])):
+        time.sleep(poll)
+
+
 def wait(client: httpx.Client, track_ids: dict[str, str], poll: float) -> int:
     pending = dict(track_ids)
     failed = 0
@@ -95,6 +129,8 @@ def main() -> None:
     ap.add_argument("--api-key", default=None, help="LIGHTRAG_API_KEY if the servers require one")
     ap.add_argument("--poll", type=float, default=30.0, help="Seconds between status polls")
     ap.add_argument("--no-wait", action="store_true", help="Upload only, do not wait for indexing")
+    ap.add_argument("--replace", action="store_true",
+                    help="Delete documents with the same file name first (an updated file is otherwise a duplicate)")
     args = ap.parse_args()
 
     files = collect_files(args.paths, args.include_lookup)
@@ -110,6 +146,8 @@ def main() -> None:
                 ws = client.get("/health").json().get("configuration", {}).get("workspace") or "(default)"
             except httpx.HTTPError as exc:
                 sys.exit(f"Server {url} is not reachable ({exc}); start it or use --server")
+            if args.replace:
+                delete_existing(client, [f.name for f in files], min(args.poll, 10))
             print(f"{url} [workspace {ws}]: uploading {len(files)} file(s)")
             track_ids = {f.name: upload(client, f) for f in files}
             if not args.no_wait:

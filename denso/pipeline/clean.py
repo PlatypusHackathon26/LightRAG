@@ -47,6 +47,8 @@ JOINABLE_LANGS = {"en", "de", "fr", "es", "it", "pt", "ro", "pl", "nl", "sv", "d
 CJK_LANGS = {"zh-cn", "zh-tw", "ja", "ko"}
 
 HTML_COMMENT = re.compile(r"^\s*<!--.*-->\s*$")
+IMAGE_PLACEHOLDER = "<!-- image -->"
+IMG_LINE = "\x00IMG\x00"  # marks an image description inlined by inline_captions(); never cleaned
 BULLET_GT = re.compile(r"^(\s*)(?:[-*+]|\d+[.)])\s*>\s*")
 BULLET_PREFIX = re.compile(r"^\s*(?:(?:[-*+]|\d+[.)])\s+)?(?:>\s*)?")
 TRAILING_PUNCT = re.compile(r"^(.*?)([.,;:!?)\]]*)$")
@@ -197,7 +199,7 @@ def likely_split(table_md: str) -> bool:
 
 def with_page_column(table_md: str, page: int) -> str:
     lines = table_md.split("\n")
-    out = [lines[0].replace("| ", f"| Trang | ", 1), lines[1].replace("|", "|---|", 1)]
+    out = [lines[0].replace("| ", "| Trang | ", 1), lines[1].replace("|", "|---|", 1)]
     out += [line.replace("| ", f"| {page} | ", 1) for line in lines[2:]]
     return "\n".join(out)
 
@@ -231,7 +233,8 @@ def clean_page(
 ) -> tuple[list[str], list[dict], PageReport]:
     """Clean one page. `emitted` collects boilerplate lines already kept once in this document."""
     emitted = set() if emitted is None else emitted
-    lang = detect_lang(raw)
+    # Inlined image descriptions are English model output: keep them out of the page language.
+    lang = detect_lang("\n".join(x for x in raw.split("\n") if not x.strip().startswith(IMG_LINE)))
     report = PageReport(page=number, language=lang)
     blocks: list[str] = []
     tables: list[dict] = []
@@ -254,6 +257,9 @@ def clean_page(
                 tables.append({"page": number, "markdown": table_md})
             continue
         i += 1
+        if stripped.startswith(IMG_LINE):
+            blocks.append(f"[Ảnh] {stripped[len(IMG_LINE):].strip()}")
+            continue
         if stripped in boilerplate:
             if stripped in emitted:
                 report.dropped.append(f"boilerplate: {stripped}")
@@ -346,6 +352,55 @@ def load_tiers() -> dict:
     return {k: v for k, v in data.items() if not k.startswith("_")}
 
 
+def compact_caption(text: str, limit: int = 600) -> str:
+    """One-line form of a vision-model description: no repeated lines, bullets joined."""
+    seen, parts = set(), []
+    for line in text.splitlines():
+        line = line.strip().lstrip("*-• ").strip().strip('"')
+        if line and line.lower() not in seen:
+            seen.add(line.lower())
+            parts.append(line.rstrip(":"))
+    out = "; ".join(parts)
+    return out if len(out) <= limit else out[:limit].rsplit(" ", 1)[0] + " …"
+
+
+def load_captions(doc_dir: Path) -> dict[int, list[str]]:
+    """page -> image descriptions in PDF order, from ocr_images.py (empty when it has not run)."""
+    texts_path, order_path = doc_dir / "image_text.json", doc_dir / "image_order.json"
+    if not (texts_path.exists() and order_path.exists()):
+        return {}
+    texts = json.loads(texts_path.read_text(encoding="utf-8"))
+    out: dict[int, list[str]] = {}
+    for page, keys in json.loads(order_path.read_text(encoding="utf-8")).items():
+        captions = []
+        for k in keys:
+            t = (texts.get(k) or {}).get("text", "").strip()
+            if t and not re.fullmatch(r"\W*no text\W*", t, re.IGNORECASE) and len(t) >= 15:
+                captions.append(compact_caption(t))
+        if captions:
+            out[int(page)] = captions
+    return out
+
+
+def inline_captions(raw: str, captions: list[str]) -> str:
+    """Put image descriptions where Docling left the pictures.
+
+    One description per `<!-- image -->` placeholder, in order, when the counts match (the
+    brochure's shelf-life section: three placeholders, three oil cans). Otherwise - icons were
+    filtered out, or a picture was not extracted - every description goes to the end of the
+    page, so a description is never attached to the wrong section.
+    """
+    if not captions:
+        return raw
+    lines = raw.split("\n")
+    slots = [i for i, line in enumerate(lines) if IMAGE_PLACEHOLDER in line]
+    if len(slots) == len(captions):
+        for i, caption in zip(slots, captions):
+            lines[i] = IMG_LINE + caption
+        return "\n".join(lines)
+    return raw + "\n\n" + "\n".join(IMG_LINE + c for c in captions)
+
+
 def load_pages(doc_dir: Path) -> tuple[list[str], bool, int]:
     """Return (raw pages, complete?, raw char count).
 
@@ -389,7 +444,9 @@ def process(doc_dir: Path, out_root: Path, tiers: dict | None = None) -> dict | 
     if not complete and (tier is None or len(pages_raw) < tier["knowledge_pages"][1]):
         return None  # nothing publishable until more ranges are parsed
     pages_raw = [html.unescape(p) for p in pages_raw]
-    boilerplate = repeated_lines(pages_raw)
+    boilerplate = repeated_lines(pages_raw)  # before inlining: descriptions repeat with their images
+    captions = load_captions(doc_dir)
+    pages_raw = [inline_captions(p, captions.get(n, [])) for n, p in enumerate(pages_raw, 1)]
     emitted: set[str] = set()
 
     md_parts: list[str] = []
