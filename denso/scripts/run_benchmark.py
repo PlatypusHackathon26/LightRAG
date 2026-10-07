@@ -3,7 +3,7 @@
 For every question and mode it records the answer, the referenced files and the
 latency, then scores two things:
   * source_hit - at least one ground-truth citation file appears in references
-  * judge      - a local Ollama LLM grades the answer vs the ground truth:
+  * judge      - an LLM (OpenAI-compatible, default qwen-3.8-27b via the proxy) grades it:
                  1.0 correct, 0.5 partially correct, 0.0 wrong
                  (abstention questions are correct when the answer declines)
 
@@ -12,6 +12,9 @@ resumes where it stopped.
 
 Usage:
     python denso/scripts/run_benchmark.py --server http://127.0.0.1:9621 --name level_1 --modes naive mix
+
+It stops (exit 3) before a free-tier model runs out of daily tokens, and when
+the answering LLM returned nothing, so failures are never scored as 0.
 """
 
 from __future__ import annotations
@@ -19,6 +22,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import sys
 import time
 import unicodedata
 from collections import defaultdict
@@ -65,30 +69,47 @@ def query(client: httpx.Client, question: str, mode: str) -> dict:
         "answer": body.get("response", ""),
         "references": [ref.get("file_path", "") for ref in body.get("references") or []],
         "latency_s": round(time.time() - t0, 1),
+        "llm_generated": body.get("llm_generated", True),
     }
 
 
-def judge(ollama: httpx.Client, model: str, q: dict, answer: str) -> dict:
+class BudgetExhausted(RuntimeError):
+    pass
+
+
+def check_budget(proxy: httpx.Client | None, models: list[str], need: int) -> None:
+    """Stop before a model's free daily quota runs out (proxy /budget), instead of scoring failures."""
+    if proxy is None:
+        return
+    b = proxy.get("/budget").json()
+    for m in models:
+        left = b["budget_per_model"] - b["by_model"].get(m, 0)
+        if left < need:
+            raise BudgetExhausted(f"{m}: only {left} tokens left today (UTC {b['day']}), need ~{need}")
+
+
+def judge(client: httpx.Client, model: str, q: dict, answer: str, reasoning: str | None) -> dict:
     prompt = JUDGE_PROMPT.format(
         question=q["question"],
         truth=q["ground_truth_answer"],
         answerable=q.get("answerable_from_documents", True),
         answer=answer,
     )
-    r = ollama.post(
-        "/api/chat",
-        json={
-            "model": model,
-            "messages": [{"role": "user", "content": prompt}],
-            "format": "json",
-            "think": False,
-            "stream": False,
-            "options": {"temperature": 0, "num_ctx": 8192},
-        },
-    )
+    body = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "response_format": {"type": "json_object"},
+        "temperature": 0,
+        "max_completion_tokens": 512,
+    }
+    if reasoning:
+        body["reasoning_effort"] = reasoning
+    r = client.post("/chat/completions", json=body)
+    if r.status_code == 429 and "budget" in r.text:
+        raise BudgetExhausted(f"judge model {model}: daily token budget spent")
     r.raise_for_status()
     try:
-        verdict = json.loads(r.json()["message"]["content"])
+        verdict = json.loads(r.json()["choices"][0]["message"]["content"])
         score = float(verdict.get("score", 0))
         if score not in (0.0, 0.5, 1.0):
             score = 0.0
@@ -121,6 +142,15 @@ def summarize(questions: list[dict], results: dict, modes: list[str]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def stop(message: str, results: dict, out_json: Path) -> None:
+    done = len(results)
+    print(f"\nSTOPPED: {message}\n{done} result(s) are saved in {out_json}; re-running the same command resumes.")
+    if "budget" in message:
+        print("To continue today: put a new key in .env (EXTRACT_LLM_BINDING_API_KEY), restart the proxy with "
+              "--fresh-key, then re-run this command.")
+    sys.exit(3)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--name", required=True, help="Label for the result files, e.g. level_1 or level_1_rerank")
@@ -129,10 +159,18 @@ def main() -> None:
     ap.add_argument("--out", type=Path, default=DEFAULT_OUT)
     ap.add_argument("--server", default="http://127.0.0.1:9621")
     ap.add_argument("--api-key", default=None)
-    ap.add_argument("--ollama", default="http://localhost:11434")
-    ap.add_argument("--judge-model", default="qwen3:8b")
+    ap.add_argument("--judge-base", default="http://127.0.0.1:8899/v1", help="OpenAI-compatible endpoint for the judge")
+    ap.add_argument("--judge-model", default="qwen-3.8-27b")
+    ap.add_argument("--judge-reasoning", default="none", help="reasoning_effort for the judge ('' = omit)")
+    ap.add_argument("--proxy", default="http://127.0.0.1:8899", help="llm_rate_proxy base for /budget ('' = no check)")
+    ap.add_argument("--answer-model", default="gpt-oss-120b", help="Model LightRAG's QUERY/KEYWORD roles use (budget check)")
+    ap.add_argument("--tokens-per-question", type=int, default=25000, help="Budget reserve per question")
     ap.add_argument("--ids", type=int, nargs="*", help="Only run these question ids")
     args = ap.parse_args()
+    # The /query route substitutes this when the answering LLM returned nothing
+    # (timeout, 429, spent budget). PROMPTS["fail_response"] is different: it is
+    # LightRAG's deliberate refusal when retrieval finds nothing, a valid answer.
+    empty_llm_placeholder = "No relevant context found for the query."
 
     questions = json.loads(args.bench.read_text(encoding="utf-8"))
     if args.ids:
@@ -142,20 +180,34 @@ def main() -> None:
     results: dict = json.loads(out_json.read_text(encoding="utf-8")) if out_json.exists() else {}
 
     headers = {"X-API-Key": args.api_key} if args.api_key else {}
+    proxy = httpx.Client(base_url=args.proxy, timeout=30) if args.proxy else None
     with (
         httpx.Client(base_url=args.server, headers=headers, timeout=1800) as client,
-        httpx.Client(base_url=args.ollama, timeout=900) as ollama,
+        httpx.Client(base_url=args.judge_base, timeout=600) as judge_client,
     ):
         for mode in args.modes:
             for q in questions:
                 key = f"{mode}:{q['id']}"
                 if key in results:
                     continue
+                try:
+                    check_budget(proxy, [args.answer_model], args.tokens_per_question)
+                    check_budget(proxy, [args.judge_model], 3000)
+                except BudgetExhausted as exc:
+                    stop(f"Free-tier budget exhausted: {exc}.", results, out_json)
                 res = query(client, q["question"], mode)
+                if res["answer"].strip() == empty_llm_placeholder:
+                    # The LLM call failed or returned nothing: never score it as a wrong answer.
+                    stop(f"[{mode}] Q{q['id']}: the answering LLM returned nothing "
+                         f"({res['latency_s']}s). Check denso/logs/llm_proxy.jsonl and the server log; "
+                         "the question is not saved and will be retried on the next run.", results, out_json)
                 cited = {norm_name(c["file"]) for c in q.get("citations", [])}
                 got = {norm_name(f) for f in res["references"]}
                 res["source_hit"] = bool(cited & got) if cited else None
-                res["judge"] = judge(ollama, args.judge_model, q, res["answer"])
+                try:
+                    res["judge"] = judge(judge_client, args.judge_model, q, res["answer"], args.judge_reasoning or None)
+                except BudgetExhausted as exc:
+                    stop(f"Free-tier budget exhausted: {exc}.", results, out_json)
                 res["id"] = q["id"]
                 results[key] = res
                 out_json.write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8")

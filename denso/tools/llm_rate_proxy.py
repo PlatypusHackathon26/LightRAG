@@ -77,12 +77,20 @@ def build_app(args: argparse.Namespace) -> FastAPI:
     log_path.parent.mkdir(parents=True, exist_ok=True)
     state = {"day": datetime.now(timezone.utc).date().isoformat(), "tokens": 0, "calls": 0, "by_model": {}}
 
-    # Resume today's running total after a restart.
+    # Resume today's running total after a restart. A "fresh_key" marker (written
+    # by --fresh-key when the API key was replaced) resets the count from there on.
+    if args.fresh_key:
+        with log_path.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps({"event": "fresh_key", "day": state["day"],
+                                 "ts": datetime.now(timezone.utc).isoformat()}) + "\n")
     if log_path.exists():
         for line in log_path.read_text(encoding="utf-8").splitlines():
             try:
                 row = json.loads(line)
             except json.JSONDecodeError:
+                continue
+            if row.get("event") == "fresh_key" and row.get("day") == state["day"]:
+                state.update(tokens=0, calls=0, by_model={})
                 continue
             if row.get("day") == state["day"] and row.get("status") == 200:
                 state["tokens"] = max(state["tokens"], row.get("day_tokens", 0))
@@ -93,6 +101,14 @@ def build_app(args: argparse.Namespace) -> FastAPI:
     def log(row: dict) -> None:
         with log_path.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+    @app.get("/budget")
+    async def budget() -> dict:
+        """Today's (UTC) usage per model, so callers can stop before the quota runs out."""
+        today = datetime.now(timezone.utc).date().isoformat()
+        by_model = state["by_model"] if state["day"] == today else {}
+        return {"day": today, "budget_per_model": args.daily_token_budget, "by_model": by_model,
+                "fallback_model": args.fallback_model or None}
 
     @app.get("/v1/models")
     async def models() -> Response:
@@ -164,6 +180,7 @@ def main() -> None:
     ap.add_argument("--fallback-model", default="qwen-3.8-27b", help="Model to use once the requested one is spent ('' = none)")
     ap.add_argument("--fallback-reasoning", default="none", help="reasoning_effort for the fallback model ('' = keep)")
     ap.add_argument("--log", default=str(REPO / "denso" / "logs" / "llm_proxy.jsonl"))
+    ap.add_argument("--fresh-key", action="store_true", help="The API key was replaced: start today's budget from zero")
     args = ap.parse_args()
     uvicorn.run(build_app(args), host="127.0.0.1", port=args.port, log_level="warning")
 
