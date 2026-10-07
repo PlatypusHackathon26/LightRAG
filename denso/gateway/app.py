@@ -29,7 +29,6 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
 
 import httpx
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
@@ -146,7 +145,9 @@ class Settings:
     cors: list[str] = field(default_factory=lambda: ["http://localhost:5173"])
     ops_file: Path = HERE / "sample_ops.json"
     actions_log: Path = REPO / "denso" / "logs" / "actions.jsonl"
-    knowledge_mode: str = "mix"
+    # naive beat mix on the benchmark (100% vs 87% with denso_answer.md, half the latency):
+    # mix keeps only ~6 text chunks next to the entities, and the answers sit verbatim in tables.
+    knowledge_mode: str = "naive"
     lookup_mode: str = "naive"
 
     @classmethod
@@ -163,6 +164,7 @@ class Settings:
             guest_level=int(os.environ.get("DENSO_GUEST_LEVEL", "1")),
             api_key=os.environ.get("LIGHTRAG_API_KEY") or None,
             cors=[o.strip() for o in os.environ.get("DENSO_GATEWAY_CORS", "http://localhost:5173").split(",")],
+            knowledge_mode=os.environ.get("DENSO_KNOWLEDGE_MODE", "naive"),
         )
 
 

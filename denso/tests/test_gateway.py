@@ -110,7 +110,7 @@ def test_chat_uses_the_tokens_level_server(client):
     body = r.json()
     assert body["content"] == "Answer." and body["citations"][0]["pages"] == "2"
     sent = json.loads(calls[-1].content)
-    assert sent["mode"] == "mix" and sent["include_chunk_content"] is True
+    assert sent["mode"] == "naive" and sent["include_chunk_content"] is True
 
 
 def test_guest_gets_level_1_and_unknown_token_is_rejected(client):
@@ -180,7 +180,7 @@ def test_lookup_falls_back_to_knowledge_when_lookup_server_is_down(backend, tmp_
     tc = TestClient(create_app(settings, transport=httpx.MockTransport(handler)))
     r = tc.post("/agent/chat", json={"conversationId": "c9", "message": "Which DENSO spark plug fits a 2018 Toyota Corolla?"})
     assert r.status_code == 200 and r.json()["target"] == "knowledge"
-    assert calls[-1].url.host == "l1" and json.loads(calls[-1].content)["mode"] == "mix"
+    assert calls[-1].url.host == "l1" and json.loads(calls[-1].content)["mode"] == "naive"
 
 
 def test_empty_llm_answer_is_an_error_not_a_no_context_reply(tmp_path):
@@ -195,3 +195,10 @@ def test_empty_llm_answer_is_an_error_not_a_no_context_reply(tmp_path):
     tc = TestClient(create_app(settings, transport=httpx.MockTransport(handler)))
     r = tc.post("/agent/chat", json={"conversationId": "c", "message": "torque?"})
     assert r.status_code == 503 and "LLM returned nothing" in r.json()["detail"]
+
+
+def test_knowledge_mode_can_be_set_from_env(monkeypatch):
+    monkeypatch.setenv("DENSO_KNOWLEDGE_MODE", "mix")
+    assert Settings.from_env().knowledge_mode == "mix"
+    monkeypatch.delenv("DENSO_KNOWLEDGE_MODE")
+    assert Settings.from_env().knowledge_mode == "naive"

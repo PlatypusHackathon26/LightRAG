@@ -178,7 +178,7 @@ gọi tới; UI không bao giờ gọi LightRAG trực tiếp.
 
 | Endpoint | Nguồn |
 |---|---|
-| `POST /agent/chat` | LightRAG `/query` của server theo cấp quyền (`mix`); câu hỏi tra xe/mã ("fits a 2018 Toyota…", "cross reference", "lắp cho xe nào") → server tra cứu (`naive`). Trả `content`, `citations` (documentName, pages từ dấu trang, excerpt), `events` |
+| `POST /agent/chat` | LightRAG `/query` của server theo cấp quyền (`naive`, đổi bằng `DENSO_KNOWLEDGE_MODE`); câu hỏi tra xe/mã ("fits a 2018 Toyota…", "cross reference", "lắp cho xe nào") → server tra cứu (`naive`). Trả `content`, `citations` (documentName, pages từ dấu trang, excerpt), `events` |
 | `GET/POST /agent/documents` | danh sách tài liệu (KnowledgeDocument) / upload cộng dồn level N..3 (cần `can_upload`) |
 | `GET /agent/incidents`, `/agent/telemetry/{id}` | `gateway/sample_ops.json` (dữ liệu MẪU) |
 | `POST /agent/actions/{id}/approve|reject` | chỉ ghi `logs/actions.jsonl` – **không bao giờ gửi lệnh PLC** |

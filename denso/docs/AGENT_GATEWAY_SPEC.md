@@ -13,7 +13,7 @@ UI agentic (Vite :5173 / build trong /webui/agentic.html)
    ▼
 DENSO Agent Gateway (FastAPI :9700)  denso/gateway/app.py
    ├─ token → cấp quyền (users.json phía server)   ← UI KHÔNG tự chọn cấp quyền
-   ├─ câu hỏi kỹ thuật  → LightRAG level_N  (:9621/9622/9623, mode=mix)
+   ├─ câu hỏi kỹ thuật  → LightRAG level_N  (:9621/9622/9623, mode=naive; DENSO_KNOWLEDGE_MODE=mix để đổi)
    ├─ câu hỏi tra xe    → LightRAG lookup   (:9631, mode=naive; không có thì về level_N)
    ├─ sự cố / telemetry → denso/gateway/sample_ops.json (dữ liệu MẪU)
    └─ duyệt hành động   → chỉ ghi denso/logs/actions.jsonl, KHÔNG gửi lệnh PLC
@@ -76,7 +76,7 @@ Response `200` (khớp `AgentChatResponse` trong `src/api/agent.ts`):
   ],
   "events": [
     { "id": "ev-1a2b3c4d", "timestamp": "2026-10-07T05:00:00+00:00", "type": "knowledge_retrieved",
-      "label": "Retrieved 1 source document(s) (knowledge, mix, level 1)", "citations": [ "…như trên…" ] },
+      "label": "Retrieved 1 source document(s) (knowledge, naive, level 1)", "citations": [ "…như trên…" ] },
     { "id": "ev-5e6f7a8b", "timestamp": "2026-10-07T05:00:09+00:00", "type": "response_generated",
       "label": "Answer generated", "detail": "9.8 s" }
   ],
