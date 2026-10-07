@@ -40,6 +40,7 @@ from fastapi.responses import JSONResponse, Response
 
 REPO = Path(__file__).resolve().parents[2]
 RETRY_DELAY = re.compile(r'"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"')
+RETRYABLE_5XX = {500, 502, 503, 504}
 DAILY_QUOTA = re.compile(r"PerDay", re.IGNORECASE)
 
 
@@ -162,7 +163,23 @@ def build_app(args: argparse.Namespace) -> FastAPI:
         for attempt in range(1, args.retries + 1):
             await pacer.acquire(est)
             t0 = time.time()
-            r = await client.post("/chat/completions", json=body, headers={"Authorization": f"Bearer {key}"})
+            try:
+                r = await client.post("/chat/completions", json=body, headers={"Authorization": f"Bearer {key}"})
+            except httpx.TransportError as e:
+                # Flaky mobile link: a connect/read failure must not surface as a proxy 500.
+                wait = min(10 * attempt, 60)
+                log({"ts": datetime.now(timezone.utc).isoformat(), "status": "network_error", "attempt": attempt,
+                     "error": type(e).__name__, "wait": wait})
+                if attempt == args.retries:
+                    return JSONResponse({"error": {"message": f"upstream unreachable: {type(e).__name__}",
+                                                   "type": "network"}}, status_code=502)
+                await asyncio.sleep(wait)
+                continue
+            if r.status_code in RETRYABLE_5XX and attempt < args.retries:
+                wait = min(10 * attempt, 60)
+                log({"ts": datetime.now(timezone.utc).isoformat(), "status": r.status_code, "attempt": attempt, "wait": wait})
+                await asyncio.sleep(wait)
+                continue
             if r.status_code != 429:
                 break
             wait = rate_limit_wait(r.headers.get("retry-after"), r.text, args.max_wait)
