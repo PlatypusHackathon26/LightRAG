@@ -289,3 +289,15 @@ def test_slow_llm_gives_a_clear_timeout(tmp_path):
 
     r = _chat_with(handler, tmp_path, answer_timeout=1)
     assert r.status_code == 504 and "please ask again" in r.json()["detail"]
+
+
+def test_a_why_answer_without_figures_keeps_only_the_documents_it_draws_on():
+    refs = [{"reference_id": "1", "file_path": "brochure.md", "content": [
+                "Swollen rubber seals: the system was charged with the wrong refrigerant, or additives, "
+                "conditioners or flushing agents were used. Replace the affected components."]},
+            {"reference_id": "2", "file_path": "spark plug catalogue.md", "content": [
+                "Spark plug replacement: inspect the system and replace worn insulators regularly."]}]
+    answer = ("Rubber seals become swollen when the system was charged with the wrong refrigerant, or when "
+              "additives, conditioners or unsuitable flushing agents were used. Replace the affected components.")
+    assert [r["file_path"] for r in only_cited(refs, answer)] == ["brochure.md"]
+    assert len(only_cited(refs, "Gioăng bị phồng do dùng sai môi chất lạnh.")) == 2  # too few words: keep all

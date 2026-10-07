@@ -35,6 +35,8 @@ from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadF
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+import lookup as catalogue  # noqa: E402  (sibling module; app.py runs as a script)
+
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
 MAX_LEVEL = 3
@@ -135,6 +137,9 @@ BRACKET_CITATION = re.compile(r"\s*【\s*(\d+)[^】]*】")
 OTHER_BRACKET = re.compile(r"\s*【[^】]*】")
 CITED_ID = re.compile(r"\[(\d+(?:\s*,\s*\d+)*)\]")
 # Decimal figures (6.9, 10,8) or long part numbers (DND08250, 294009-2150): specific enough to locate a source.
+# Distinctive words (7+ letters) to match an answer with no figures to its sources; short words
+# ("system", "seal", "with") appear in every document. English only: the sources are English.
+CONTENT_WORD = re.compile(r"\b[A-Za-z][A-Za-z-]{6,}\b")
 ANSWER_FIGURE = re.compile(r"\b\d+[.,]\d+\b|\b[A-Z]{2,}\d{4,}\b|\b\d{5,}(?:-\d+)?\b")
 
 
@@ -169,13 +174,23 @@ def only_cited(references: list[dict], answer: str) -> list[dict]:
     kept = [r for r in references if str(r.get("reference_id")) in ids]
     if kept:
         return kept
+    def text(r: dict) -> str:
+        c = r.get("content") or ""
+        return (" ".join(c) if isinstance(c, list) else str(c)).replace(",", ".")
+
     # No [n] in the answer: keep the documents that contain the figures the answer quotes.
     figures = {f.replace(",", ".") for f in ANSWER_FIGURE.findall(CITED_ID.sub(" ", answer))}
     if figures:
-        def text(r: dict) -> str:
-            c = r.get("content") or ""
-            return (" ".join(c) if isinstance(c, list) else str(c)).replace(",", ".")
         kept = [r for r in references if any(f in text(r) for f in figures)]
+        if kept:
+            return kept
+    # No figures either (a "why" answer): keep the documents sharing most of the answer's
+    # distinctive words; a catalogue that only shares "system" and "seal" drops out.
+    words = {w.lower() for w in CONTENT_WORD.findall(answer)}
+    if len(words) >= 5 and len(references) > 1:
+        overlap = [(r, len(words & {w.lower() for w in CONTENT_WORD.findall(text(r))})) for r in references]
+        best = max(n for _, n in overlap)
+        kept = [r for r, n in overlap if n >= max(3, best * 0.5)]
     return kept or references
 
 
@@ -219,6 +234,10 @@ class Settings:
     # Seconds a chat waits for LightRAG (retrieval + LLM) before answering 504.
     answer_timeout: float = 150.0
     lookup_mode: str = "naive"
+    # Keyword search over the lookup catalogues (gateway/lookup.py); empty = LightRAG lookup server only.
+    lookup_files: list[Path] = field(default_factory=list)
+    lookup_llm_base: str = "http://127.0.0.1:8899/v1"   # OpenAI-compatible; the proxy adds the API key
+    lookup_llm_model: str = "nvidia/nemotron-3-super-120b-a12b"
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -237,6 +256,10 @@ class Settings:
             cors_regex=os.environ.get("DENSO_GATEWAY_CORS_REGEX") or None,
             knowledge_mode=os.environ.get("DENSO_KNOWLEDGE_MODE", "naive"),
             answer_timeout=float(os.environ.get("DENSO_ANSWER_TIMEOUT", "150")),
+            lookup_files=sorted(Path(os.environ.get("DENSO_LOOKUP_DIR", REPO / "denso" / "data" / "cleaned_md"))
+                                .glob("* - lookup.*.md")),
+            lookup_llm_base=os.environ.get("DENSO_LOOKUP_LLM_BASE", "http://127.0.0.1:8899/v1"),
+            lookup_llm_model=os.environ.get("DENSO_LOOKUP_LLM_MODEL", "nvidia/nemotron-3-super-120b-a12b"),
         )
 
 
@@ -270,6 +293,39 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
     app.add_middleware(CORSMiddleware, allow_origins=settings.cors, allow_origin_regex=settings.cors_regex,
                        allow_methods=["*"], allow_headers=["*"])
     history: dict[str, deque] = defaultdict(lambda: deque(maxlen=HISTORY_TURNS * 2))
+    lookup_rows = catalogue.load_rows(settings.lookup_files)
+
+    async def answer_from_rows(question: str, hits: list, past: list[dict]) -> tuple[str, list[dict]]:
+        """Ask the LLM with the keyword-matched catalogue rows; cite the rows it used."""
+        body = {
+            "model": settings.lookup_llm_model,
+            "temperature": 0,
+            "reasoning_effort": "low",
+            "max_tokens": 2000,
+            "messages": [{"role": "system", "content": catalogue.ANSWER_INSTRUCTIONS}, *past,
+                         {"role": "user", "content": f"Catalogue rows:\n{catalogue.rows_context(hits)}\n\nQuestion: {question}"}],
+        }
+        try:
+            r = await client.post(f"{settings.lookup_llm_base}/chat/completions", json=body)
+        except httpx.TimeoutException:
+            raise HTTPException(status_code=504, detail=f"the answering LLM did not reply within "
+                                                        f"{settings.answer_timeout:.0f} s (free API overloaded) - please ask again")
+        if r.status_code != 200:
+            raise HTTPException(status_code=503, detail=f"the answering LLM failed ({r.status_code}) - please ask again")
+        content = clean_answer((r.json().get("choices") or [{}])[0].get("message", {}).get("content") or "")
+        if not content:
+            raise HTTPException(status_code=503, detail="the answering LLM returned no answer - please ask again")
+        cited = {int(i) for m in CITED_ID.finditer(content) for i in re.findall(r"\d+", m.group(1))}
+        used = [row for i, (row, _) in enumerate(hits, 1) if i in cited] or [row for row, _ in hits]
+        citations = []
+        for source in dict.fromkeys(row.source for row in used):
+            rows = [row for row in used if row.source == source]
+            pages = sorted({row.page for row in rows})
+            shown = ", ".join(map(str, pages[:MAX_PAGES_SHOWN])) + (", …" if len(pages) > MAX_PAGES_SHOWN else "")
+            citations.append({"id": f"cit-{len(citations) + 1}", "documentId": display_name(source),
+                              "documentName": display_name(source), "pages": shown,
+                              "excerpt": rows[0].text.strip(" |")[:300]})
+        return content, citations
 
     def current_user(authorization: str | None = Header(default=None)) -> User:
         token = (authorization or "").removeprefix("Bearer ").strip()
@@ -310,6 +366,20 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
     @app.post("/agent/chat")
     async def chat(req: ChatRequest, user: User = Depends(current_user)) -> dict:
         target = req.target or classify_target(req.message)
+        hits = catalogue.search(lookup_rows, req.message) if target == "lookup" and lookup_rows else []
+        if hits:
+            # Vehicle-application rows look alike to vector search; keyword matching finds the row.
+            content, citations = await answer_from_rows(req.message, hits, list(history[req.conversationId]))
+            history[req.conversationId].extend(
+                [{"role": "user", "content": req.message}, {"role": "assistant", "content": content}])
+            now = datetime.now(timezone.utc).isoformat()
+            return {"content": content, "citations": citations, "target": "lookup", "llmGenerated": True,
+                    "events": [
+                        {"id": f"ev-{uuid.uuid4().hex[:8]}", "timestamp": now, "type": "knowledge_retrieved",
+                         "label": f"Matched {len(hits)} catalogue row(s) (lookup, keyword, level {user.level})",
+                         "citations": citations},
+                        {"id": f"ev-{uuid.uuid4().hex[:8]}", "timestamp": now, "type": "response_generated",
+                         "label": "Answer generated"}]}
         if target == "lookup" and settings.lookup_server:
             url, mode = settings.lookup_server, settings.lookup_mode
         else:

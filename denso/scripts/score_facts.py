@@ -36,7 +36,7 @@ NUMBER = re.compile(r"(?<![\w.,/])\d+(?:/\d+|(?:[.,]\d+)*)(?![\w/])")
 GLUED_UNIT = re.compile(r"(\d)(cc|mm|cm3|cm³|ml|nm|km|kpa|mpa|kg|°c)\b", re.IGNORECASE)
 LIST_MARKER = re.compile(r"(?:(?<=\s)|^)(?:\d+|[a-z])\)")
 REFUSAL = re.compile(
-    r"not (?:enough|sufficient)|(?:do not|don\'t|does not|doesn\'t) have (?:enough|sufficient)|insufficient|no (?:information|data|figure|value|km)|"
+    r"not (?:enough|sufficient)|(?:do not|don[\'’]t|does not|doesn[\'’]t) have (?:enough|sufficient)|insufficient|no (?:information|data|figure|value|km)|"
     r"does(?: not|n't) (?:specify|state|provide|list|mention|include|give)|"
     r"(?:is|are) not (?:specified|stated|provided|listed|mentioned|available|given)|"
     r"not (?:specified|stated|provided|listed|mentioned) in|cannot (?:be )?(?:determine|found|answer)|"

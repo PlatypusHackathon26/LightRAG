@@ -9,13 +9,16 @@
 # off three times). The API key is read from .env by the proxy (-KeyVar), never printed.
 #
 #   powershell -ExecutionPolicy Bypass -File denso\scripts\serve_chat.ps1
-#   ... -Upstream https://api.cerebras.ai/v1 -KeyVar EXTRACT_LLM_BINDING_API_KEY -Model gpt-oss-120b -Rpm 4
+#   ... -Upstream https://api.cerebras.ai/v1 -KeyVar EXTRACT_LLM_BINDING_API_KEY -Model gpt-oss-120b -Rpm 4 -Tpm 28000 -DailyBudget 950000
 param(
     [string]$Upstream = "https://integrate.api.nvidia.com/v1",
     [string]$KeyVar = "NVIDIA_API_KEY",
     [string]$Model = "nvidia/nemotron-3-super-120b-a12b",
     [string]$Reasoning = "low",
     [int]$Rpm = 30,
+    # Cerebras free tier: -Rpm 4 -Tpm 28000 -DailyBudget 950000 (30K tokens/min, 1M tokens/day per model)
+    [int]$Tpm = 1000000,
+    [int]$DailyBudget = 20000000,
     # Hosted UI: every deployment URL of the Vercel project "light-rag" in team "charlotte-eb9d"
     # (light-rag-charlotte-eb9d.vercel.app, light-rag-git-<branch>-charlotte-eb9d.vercel.app, ...).
     [string]$CorsRegex = '^https://light-rag(-[a-z0-9-]+)?-charlotte-eb9d\.vercel\.app$',
@@ -56,7 +59,7 @@ catch { Start-Process "ollama" -ArgumentList "serve" -WindowStyle Hidden; Start-
 
 if (-not (Test-Port 8899)) {
     Start-Bg $py @("denso\tools\llm_rate_proxy.py", "--upstream", $Upstream, "--key-var", $KeyVar, "--rpm", "$Rpm",
-                   "--tpm", "1000000", "--daily-token-budget", "20000000", "--fallback-model", '""',
+                   "--tpm", "$Tpm", "--daily-token-budget", "$DailyBudget", "--fallback-model", '""',
                    "--log", "denso\logs\llm_proxy_$($KeyVar.ToLower()).jsonl") "llm_proxy"
     Wait-Url "http://127.0.0.1:8899/budget" | Out-Null
 }
@@ -87,6 +90,7 @@ if (-not (Test-Port 9700)) {
     $env:DENSO_LOOKUP_SERVER = "http://127.0.0.1:9631"
     $env:DENSO_GATEWAY_CORS = "http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173"
     $env:DENSO_GATEWAY_CORS_REGEX = $CorsRegex
+    $env:DENSO_LOOKUP_LLM_MODEL = $Model   # keyword-matched catalogue rows are answered by the same model
     Start-Bg $py @("denso\gateway\app.py") "gateway"
     Wait-Url "http://127.0.0.1:9700/agent/health" 20 | Out-Null
 }
