@@ -5,7 +5,32 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "pipeline"))
 
-from parse import access_level_for, page_ranges, write_atomic  # noqa: E402
+from parse import access_level_for, align_segments, page_ranges, write_atomic  # noqa: E402
+
+
+def _doc(body_pages, furniture_pages=()):
+    texts = [{"content_layer": "body", "prov": [{"page_no": p}]} for p in body_pages]
+    texts += [{"content_layer": "furniture", "prov": [{"page_no": p}]} for p in furniture_pages]
+    return {"texts": texts, "tables": [], "pictures": []}
+
+
+def test_blank_pages_do_not_shift_later_pages():
+    # Real case: Spark Plug pp.444-450 are blank "MEMO" pages; Docling's Markdown
+    # had 5 segments for 12 pages, and padding at the end put p.451 on p.444.
+    segs = ["p441", "p442", "p443", "p451", "p452"]
+    pages, warning = align_segments(segs, 441, 452, _doc([441, 442, 443, 451, 452], furniture_pages=range(441, 453)))
+    assert pages[0] == "p441" and pages[10] == "p451" and pages[11] == "p452"
+    assert pages[3:10] == [""] * 7
+    assert "aligned by page" in warning
+
+
+def test_full_range_is_unchanged():
+    assert align_segments(["a", "b"], 1, 2, None) == (["a", "b"], None)
+
+
+def test_unexplained_gap_is_padded_and_flagged():
+    pages, warning = align_segments(["a"], 1, 3, _doc([1, 2]))
+    assert pages == ["a", "", ""] and "may be off" in warning
 
 
 def test_page_ranges_cover_every_page_once():

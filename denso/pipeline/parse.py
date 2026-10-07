@@ -157,14 +157,49 @@ def parse_in_ranges(
             print(f"    pages {a}-{b}: ok in {time.time() - t0:.0f}s", flush=True)
             if args.cooldown and n < len(ranges):
                 time.sleep(args.cooldown)
-        md = md_file.read_text(encoding="utf-8")
-        pages = md.split(PAGE_BREAK)
-        expected = b - a + 1
-        if len(pages) < expected:
-            warnings.append(f"pages {a}-{b}: docling returned {len(pages)} of {expected} pages; padded at end")
-            pages += [""] * (expected - len(pages))
-        md_parts.append(PAGE_BREAK.join(pages[:expected]))
+        md_parts.append(merge_range(parts_dir, a, b, warnings))
     return PAGE_BREAK.join(md_parts), warnings
+
+
+def body_pages(doc_json: dict) -> list[int]:
+    """Pages that hold body content (not just headers/footers) in a DoclingDocument."""
+    items = doc_json.get("texts", []) + doc_json.get("tables", []) + doc_json.get("pictures", [])
+    return sorted({p["page_no"] for it in items if it.get("content_layer", "body") == "body" for p in it.get("prov", [])})
+
+
+def align_segments(segments: list[str], first: int, last: int, doc_json: dict | None) -> tuple[list[str], str | None]:
+    """Place Markdown page segments on the right page numbers.
+
+    Docling's Markdown export emits no page-break placeholder for pages without
+    body content (e.g. blank "MEMO" pages), so a range can come back with fewer
+    segments than pages. The DoclingDocument JSON says which pages have body
+    content; when its count matches the segments, map them one-to-one and leave
+    the other pages empty. Otherwise pad at the end and report it.
+    """
+    expected = last - first + 1
+    if len(segments) >= expected:
+        return segments[:expected], None
+    pages = [p for p in body_pages(doc_json or {}) if first <= p <= last]
+    if len(pages) == len(segments):
+        out = [""] * expected
+        for seg, p in zip(segments, pages):
+            out[p - first] = seg
+        empty = [p for p in range(first, last + 1) if p not in pages]
+        return out, f"pages {first}-{last}: no body content on {empty}; segments aligned by page"
+    return segments + [""] * (expected - len(segments)), (
+        f"pages {first}-{last}: docling returned {len(segments)} of {expected} pages and the JSON "
+        f"lists {len(pages)} body pages; padded at end - page numbers in this range may be off"
+    )
+
+
+def merge_range(parts_dir: Path, a: int, b: int, warnings: list[str]) -> str:
+    md = (parts_dir / f"p{a:04d}-{b:04d}.md").read_text(encoding="utf-8")
+    json_file = parts_dir / f"p{a:04d}-{b:04d}.json"
+    doc_json = json.loads(json_file.read_text(encoding="utf-8")) if json_file.exists() else None
+    pages, warning = align_segments(md.split(PAGE_BREAK), a, b, doc_json)
+    if warning:
+        warnings.append(warning)
+    return PAGE_BREAK.join(pages)
 
 
 def main() -> None:
@@ -177,7 +212,29 @@ def main() -> None:
     ap.add_argument("--chunk-pages", type=int, default=20, help="Pages per Docling request for long PDFs")
     ap.add_argument("--cooldown", type=float, default=0, help="Seconds to pause between page ranges")
     ap.add_argument("--force", action="store_true", help="Re-parse files that already have output")
+    ap.add_argument("--remerge", action="store_true", help="Rebuild docling.md from saved parts/ without calling Docling")
     args = ap.parse_args()
+
+    if args.remerge:
+        for path in collect(args.paths):
+            out_dir = args.out / path.stem
+            parts = sorted((out_dir / "parts").glob("p*-*.md")) if (out_dir / "parts").exists() else []
+            if not parts:
+                print(f"{path.name}: no parts/ to re-merge")
+                continue
+            warnings: list[str] = []
+            ranges = [tuple(int(x) for x in f.stem[1:].split("-")) for f in parts]
+            md = PAGE_BREAK.join(merge_range(out_dir / "parts", a, b, warnings) for a, b in ranges)
+            write_atomic(out_dir / "docling.md", md)
+            meta_file = out_dir / "meta.json"
+            if meta_file.exists():
+                meta = json.loads(meta_file.read_text(encoding="utf-8"))
+                meta["warnings"] = warnings
+                write_atomic(meta_file, json.dumps(meta, ensure_ascii=False, indent=2))
+            print(f"{path.name}: re-merged {len(ranges)} ranges, {md.count(PAGE_BREAK) + 1} pages")
+            for w in warnings:
+                print(f"    {w}")
+        return
 
     files = collect(args.paths)
     failed = 0
