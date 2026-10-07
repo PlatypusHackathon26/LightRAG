@@ -134,6 +134,7 @@ class FactorySimulator:
             self.dashboard_state,
             self.action_approval,
             on_decision=self._decide_action,
+            on_chat=self.brain.handle_user_query,
         )
 
         # Khởi chạy luồng telemetry riêng cho từng máy

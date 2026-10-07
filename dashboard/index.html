@@ -3,225 +3,562 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DENSO AI-IIoT Intelligent Monitoring</title>
-  <!-- Tailwind CSS CDN -->
+  <title>DENSO AI-IIoT · Intelligent Chat</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
       darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            brand: '#e60012',
-            darkbg: '#0f172a',
-            darkcard: '#1e293b'
-          }
-        }
-      }
+      theme: { extend: { colors: { brand: '#e60012', darkbg: '#0f172a', darkcard: '#1e293b' } } }
     }
   </script>
   <style>
+    *::-webkit-scrollbar { width: 8px; height: 8px; }
+    *::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    *::-webkit-scrollbar-track { background: transparent; }
     @keyframes pulse-red {
-      0%, 100% { border-color: rgba(239, 68, 68, 1); box-shadow: 0 0 15px rgba(239, 68, 68, 0.4); }
-      50% { border-color: rgba(239, 68, 68, 0.3); box-shadow: none; }
+      0%, 100% { border-color: rgba(239,68,68,.9); box-shadow: 0 0 12px rgba(239,68,68,.35); }
+      50% { border-color: rgba(239,68,68,.3); box-shadow: none; }
     }
-    .alert-glow { animation: pulse-red 1.5s infinite; }
+    .alert-glow { animation: pulse-red 1.6s infinite; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+    .msg-in { animation: fadeUp .18s ease-out; }
+    @keyframes blink { 0%, 80%, 100% { opacity: .2; } 40% { opacity: 1; } }
+    .dot { animation: blink 1.2s infinite; }
+    .dot:nth-child(2) { animation-delay: .2s; }
+    .dot:nth-child(3) { animation-delay: .4s; }
   </style>
 </head>
-<body class="bg-darkbg text-slate-100 font-sans min-h-screen flex flex-col">
+<body class="h-screen overflow-hidden bg-darkbg text-slate-100 flex flex-col">
 
-  <!-- Top Navbar -->
-  <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur px-6 py-3 flex items-center justify-between sticky top-0 z-50">
-    <div class="flex items-center space-x-3">
-      <div class="w-3.5 h-3.5 rounded-full bg-emerald-500 animate-ping"></div>
-      <h1 class="text-lg font-bold tracking-wider uppercase text-white flex items-center gap-2">
-        <span class="text-brand font-black text-xl">DENSO</span> AI-IIoT System 2026
-      </h1>
-      <span class="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded border border-slate-700">Autonomous Cell 01-03</span>
+  <!-- ===== HEADER ===== -->
+  <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur px-4 py-2.5 flex items-center justify-between shrink-0 z-40">
+    <div class="flex items-center gap-3">
+      <div class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></div>
+      <h1 class="text-base font-bold uppercase tracking-wider"><span class="text-brand font-black">DENSO</span> AI-Agent 2026</h1>
+      <span class="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded border border-slate-700">IIoT · RAG · HITL</span>
     </div>
-    <div class="flex items-center space-x-4 text-xs text-slate-400">
-      <div>Hệ thống: <span class="text-emerald-400 font-medium">SẴN SÀNG</span></div>
-      <div>Đồng hồ: <span id="clock" class="text-slate-200 font-mono">00:00:00</span></div>
+    <div class="flex items-center gap-4 text-xs text-slate-400">
+      <div>Hệ thống: <span class="text-emerald-400 font-medium">TRỰC TUYẾN</span></div>
+      <div class="font-mono text-slate-200" id="clock">00:00:00</div>
+      <button id="btn-open-upload"
+        class="flex items-center gap-1.5 bg-cyan-600 hover:bg-cyan-500 text-white font-semibold px-3 py-1.5 rounded-lg transition shadow-lg shadow-cyan-900/40">
+        📤 Upfile lên RAG
+      </button>
     </div>
   </header>
 
-  <!-- Main Content 3 Cột -->
-  <main class="flex-1 p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 max-w-7xl mx-auto w-full">
-
-    <!-- CỘT 1: 5 MÁY MÓC REAL-TIME (7 CỘT) -->
-    <section class="lg:col-span-7 flex flex-col space-y-4">
-      <div class="flex items-center justify-between border-b border-slate-800 pb-2">
-        <h2 class="text-sm font-semibold tracking-wider uppercase text-slate-400 flex items-center gap-2">
-          <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path></svg>
-          Giám sát Thiết bị Trực tiếp (Digital Twins)
-        </h2>
-        <span class="text-xs text-slate-500">Chu kỳ làm mới: 1.0s</span>
+  <!-- ===== BODY 3 CỘT ===== -->
+  <main class="flex-1 flex min-h-0">
+    <!-- CỘT TRÁI: DANH SÁCH HỘI THOẠI (USER / SYSTEM ALERT) -->
+    <aside class="w-64 xl:w-72 border-r border-slate-800 bg-slate-950/60 flex flex-col min-h-0 shrink-0">
+      <div class="p-3">
+        <button id="btn-new-chat"
+          class="w-full flex items-center justify-center gap-2 border border-slate-700 hover:border-slate-500 hover:bg-slate-800/60 rounded-xl py-2 text-sm text-slate-200 transition">
+          ＋ Cuộc trò chuyện mới
+        </button>
       </div>
-
-      <div id="machine-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <!-- Render 5 máy động tại đây -->
-      </div>
-    </section>
-
-    <!-- CỘT 2: AI AGENT COPILOT & HUMAN APPROVAL (5 CỘT) -->
-    <section class="lg:col-span-5 flex flex-col space-y-6">
-
-      <!-- PHẦN A: DUYỆT LỆNH RỦI RO CAO (HUMAN-IN-THE-LOOP) -->
-      <div class="bg-darkcard border border-amber-500/40 rounded-xl p-4 shadow-lg flex flex-col">
-        <div class="flex items-center justify-between pb-3 border-b border-slate-700/60">
-          <h2 class="text-sm font-bold tracking-wide uppercase text-amber-400 flex items-center gap-2">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-            Chốt Duyệt An Toàn (Approval Required)
-          </h2>
-          <span id="pending-count" class="bg-amber-500/20 text-amber-300 text-xs px-2 py-0.5 rounded-full font-bold">0</span>
-        </div>
-
-        <div id="pending-approvals-list" class="mt-3 space-y-3 max-h-48 overflow-y-auto">
-          <div class="text-xs text-slate-500 italic py-2 text-center">Không có hành động nào đang chờ phê duyệt.</div>
-        </div>
-      </div>
-
-      <!-- PHẦN B: TRỢ LÝ AI COPILOT & RAG CHAT -->
-      <div class="bg-darkcard border border-slate-800 rounded-xl p-4 shadow-lg flex-1 flex flex-col min-h-[380px]">
-        <div class="flex items-center justify-between pb-3 border-b border-slate-800">
-          <h2 class="text-sm font-bold tracking-wide uppercase text-slate-300 flex items-center gap-2">
-            <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
-            AI Agent Copilot (RAG Diagnostic)
-          </h2>
-          <span class="text-xs text-cyan-400 bg-cyan-950/60 px-2 py-0.5 rounded border border-cyan-800/40">Knowledge Graph Active</span>
-        </div>
-
-        <!-- Hộp tin nhắn -->
-        <div id="chat-box" class="flex-1 overflow-y-auto space-y-3 py-3 pr-1 text-xs">
-          <div class="bg-slate-800/60 p-2.5 rounded-lg border border-slate-700/50">
-            <span class="text-cyan-400 font-semibold">[AI Copilot]:</span>
-            <p class="text-slate-300 mt-1">Hệ thống giám sát RAG đã kích hoạt. Tôi sẽ liên tục phân tích biến thiên cảm biến và khuyến nghị quy trình xử lý theo cẩm nang thiết bị.</p>
+      <div class="flex-1 overflow-y-auto px-2 pb-4 space-y-4">
+        <div>
+          <div class="px-2 mb-1 flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-indigo-400">
+            👤 User chủ động <span id="user-count" class="bg-indigo-500/20 px-1.5 rounded-full">0</span>
           </div>
+          <div id="user-threads" class="space-y-1"></div>
+        </div>
+        <div>
+          <div class="px-2 mb-1 flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-amber-400">
+            ⚠ System Alert <span id="alert-thread-count" class="bg-amber-500/20 px-1.5 rounded-full">0</span>
+          </div>
+          <div id="system-threads" class="space-y-1"></div>
         </div>
       </div>
+    </aside>
 
+    <!-- CỘT GIỮA: CHAT CHÍNH -->
+    <section class="flex-1 min-w-0 flex flex-col bg-darkbg">
+      <div id="chat-title" class="px-6 py-3 border-b border-slate-800 text-sm font-semibold text-slate-300 shrink-0 truncate">
+        Cuộc trò chuyện mới
+      </div>
+
+      <div id="chat-messages" class="flex-1 overflow-y-auto px-4 md:px-8 py-5 space-y-4"></div>
+
+      <div class="px-4 md:px-8 pb-4 pt-2 border-t border-slate-800 shrink-0">
+        <div class="flex items-end gap-2 bg-slate-900 border border-slate-700 rounded-2xl px-4 py-2 focus-within:border-cyan-500 transition">
+          <textarea id="chat-input" rows="1" placeholder="Hỏi Agent về sự cố máy... (Enter gửi · Shift+Enter xuống dòng)"
+            class="flex-1 bg-transparent resize-none outline-none text-sm py-1.5 max-h-32 placeholder:text-slate-600"></textarea>
+          <button id="btn-send" disabled
+            class="bg-brand hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl w-9 h-9 flex items-center justify-center transition font-bold shrink-0">
+            ➤
+          </button>
+        </div>
+        <p class="text-[10px] text-slate-600 mt-1.5 text-center">
+          Agent trả lời theo cẩm nang RAG · Lệnh rủi ro cao cần kỹ sư duyệt ở cột phải
+        </p>
+      </div>
     </section>
+
+    <!-- CỘT PHẢI: MÁY MÓC REAL-TIME + CHỜ DUYỆT -->
+    <aside class="w-72 xl:w-80 border-l border-slate-800 bg-slate-950/60 flex flex-col min-h-0 shrink-0">
+      <div class="px-4 py-3 border-b border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+        🏭 Thiết bị thời gian thực
+        <span class="text-emerald-400 text-[10px] normal-case">● LIVE 1s</span>
+      </div>
+      <div id="machine-list" class="flex-1 overflow-y-auto p-3 space-y-2.5 min-h-0"></div>
+
+      <div class="px-4 py-2.5 border-t border-slate-800 text-[11px] font-bold uppercase tracking-wider text-amber-400 flex items-center justify-between shrink-0">
+        ⏳ Chờ duyệt HITL
+        <span id="pending-count" class="bg-amber-500/20 px-1.5 rounded-full text-amber-300">0</span>
+      </div>
+      <div id="pending-approvals" class="max-h-44 overflow-y-auto p-3 space-y-2 shrink-0"></div>
+    </aside>
 
   </main>
 
+  <!-- ===== MODAL UPLOAD RAG ===== -->
+  <div id="upload-modal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md p-5 shadow-2xl">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-sm font-bold uppercase tracking-wider text-cyan-400">📚 Nạp tri thức vào RAG</h3>
+        <button id="btn-close-upload" class="text-slate-500 hover:text-white text-lg leading-none" aria-label="Đóng">✕</button>
+      </div>
+
+      <label id="drop-zone" for="file-input"
+        class="block border-2 border-dashed border-slate-700 hover:border-cyan-500 rounded-xl p-6 text-center cursor-pointer transition">
+        <div class="text-3xl mb-2">⬆️</div>
+        <p class="text-sm text-slate-300">Bấm để chọn file (PDF, MD, TXT, CSV...)</p>
+        <p class="text-[11px] text-slate-500 mt-1">File được lưu vào thư mục knowledge_uploads/</p>
+        <input type="file" id="file-input" class="hidden" multiple>
+      </label>
+
+      <div id="file-preview" class="mt-3 text-xs text-slate-400 hidden"></div>
+      <button id="btn-do-upload" disabled
+        class="mt-4 w-full bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-2 rounded-xl transition text-sm">
+        Tải lên RAG
+      </button>
+      <div id="upload-status" class="mt-2 text-xs text-emerald-400 hidden"></div>
+
+      <div class="mt-4">
+        <div class="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">Kho tri thức đã nạp</div>
+        <div id="upload-list" class="space-y-1.5 max-h-40 overflow-y-auto text-xs"></div>
+      </div>
+    </div>
+  </div>
+
   <script>
-    // Hàm gọi quyết định APPROVE / REJECT
-    async function makeDecision(actionId, decision) {
-      try {
-        const res = await fetch('/api/decision', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action_id: actionId, decision: decision })
-        });
-        const data = await res.json();
-        fetchState(); // Refresh ngay
-      } catch (err) {
-        console.error("Lỗi khi gửi quyết định:", err);
-      }
+  // ================= TIỆN ÍCH =================
+  const $ = (id) => document.getElementById(id);
+  function esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => (
+      { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+    ));
+  }
+  const sig = (x) => JSON.stringify(x);
+
+  // ================= TRẠNG THÁI CLIENT =================
+  let activeSessionId = null;   // null = chưa chọn thread (màn hình chào)
+  let sending = false;
+  let echo = null;              // {session_id, text} — hiển thị tạm khi chờ reply
+  let lastData = null;          // snapshot server gần nhất
+  let prev = {};                // signature các vùng render trước đó
+  const machineEls = new Map(); // machine_id -> refs card (update tại chỗ)
+
+  // ================= LẤY DỮ LIỆU =================
+  async function fetchState() {
+    try {
+      const res = await fetch('/api/state');
+      lastData = await res.json();
+      render(lastData);
+    } catch (err) {
+      console.error('Không kết nối được server:', err);
+    }
+  }
+
+  function render(data) {
+    $('clock').textContent = data.server_time || '--:--:--';
+    renderSidebar(data.conversations || []);
+    renderChat(data.conversations || []);
+    renderMachines(data.machines || []);
+    renderApprovals(data.pending_approvals || []);
+    renderUploads(data.uploads || []);
+  }
+
+  // ================= CỘT TRÁI: DANH SÁCH THREAD =================
+  function threadItemHtml(c) {
+    const active = c.session_id === activeSessionId;
+    const badge = c.category === 'system_alert'
+      ? '<span class="text-[9px] bg-amber-500/20 text-amber-300 px-1 rounded">ALERT</span>'
+      : '';
+    return `
+      <button onclick="setActive('${esc(c.session_id)}')"
+        class="w-full text-left px-2.5 py-2 rounded-lg text-xs transition border ${active
+          ? 'bg-slate-800 border-cyan-600/60 text-white'
+          : 'bg-transparent border-transparent hover:bg-slate-800/60 text-slate-300'}">
+        <div class="flex items-center justify-between gap-2">
+          <span class="font-medium truncate">${esc(c.title)}</span>${badge}
+        </div>
+        <div class="text-[10px] text-slate-500 mt-0.5">${esc(c.updated_at || '')}</div>
+      </button>`;
+  }
+
+  function renderSidebar(convs) {
+    const s = sig(convs.map(c => [c.session_id, c.category, c.title, c.updated_at, c.messages.length]));
+    if (prev.sidebarSig === s) return;
+    prev.sidebarSig = s;
+
+    const users = convs.filter(c => c.category === 'user');
+    const systems = convs.filter(c => c.category === 'system_alert');
+    $('user-count').textContent = users.length;
+    $('alert-thread-count').textContent = systems.length;
+
+    $('user-threads').innerHTML = users.length
+      ? users.map(threadItemHtml).join('')
+      : '<div class="text-[11px] text-slate-600 italic px-2">Chưa có cuộc trò chuyện</div>';
+    $('system-threads').innerHTML = systems.length
+      ? systems.map(threadItemHtml).join('')
+      : '<div class="text-[11px] text-slate-600 italic px-2">Chưa có cảnh báo</div>';
+  }
+
+  function setActive(id) {
+    activeSessionId = id;
+    echo = null;
+    prev.sidebarSig = null; // buộc render lại highlight
+    prev.chatSig = null;
+    render(lastData || { conversations: [] });
+    $('chat-input').focus();
+  }
+
+  // ================= CỘT GIỮA: KHUNG CHAT =================
+  function bubbleHtml(m) {
+    const time = esc(m.time || '');
+    if (m.role === 'user') {
+      return `
+        <div class="flex justify-end msg-in">
+          <div class="max-w-[75%] bg-indigo-600/90 text-white rounded-2xl rounded-br-md px-4 py-2.5 text-sm whitespace-pre-line break-words">${esc(m.text)}</div>
+        </div>`;
+    }
+    if (m.role === 'system') {
+      return `
+        <div class="flex msg-in">
+          <div class="max-w-[85%] bg-red-950/50 border border-red-700/60 text-red-100 rounded-2xl rounded-tl-md px-4 py-2.5 text-sm whitespace-pre-line break-words">
+            <div class="text-[10px] font-bold text-red-400 mb-1">⚠ ${esc(m.source || 'SYSTEM')} · ${time}</div>
+            ${esc(m.text)}
+          </div>
+        </div>`;
+    }
+    return `
+      <div class="flex gap-3 msg-in">
+        <div class="w-7 h-7 rounded-full bg-cyan-600 flex items-center justify-center text-sm shrink-0 mt-0.5">✦</div>
+        <div class="max-w-[85%]">
+          <div class="text-[10px] font-bold text-cyan-400 mb-1">${esc(m.source || 'AI_AGENT')} · ${time}</div>
+          <div class="bg-slate-800/80 border border-slate-700/70 text-slate-100 rounded-2xl rounded-tl-md px-4 py-2.5 text-sm whitespace-pre-line break-words">${esc(m.text)}</div>
+        </div>
+      </div>`;
+  }
+
+  function renderChat(convs) {
+    const active = convs.find(c => c.session_id === activeSessionId) || null;
+    const chatSigStr = sig({
+      id: activeSessionId,
+      msgs: active ? active.messages : null,
+      echo: echo ? echo.text : null,
+      typing: sending,
+    });
+    if (prev.chatSig === chatSigStr) return;
+
+    const box = $('chat-messages');
+    const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+    prev.chatSig = chatSigStr;
+    $('chat-title').textContent = active ? active.title : 'Cuộc trò chuyện mới';
+
+    if (!active && !echo) {
+      box.innerHTML = `
+        <div class="h-full flex flex-col items-center justify-center text-center space-y-3 opacity-90">
+          <div class="text-5xl">🏭</div>
+          <h2 class="text-lg font-bold text-slate-200">DENSO Smart Maintenance Agent</h2>
+          <p class="text-sm text-slate-400 max-w-md">Chọn một cuộc trò chuyện bên trái, hỏi trực tiếp Agent về sự cố máy,
+            hoặc chờ hệ thống tạo thread <span class="text-amber-400">System Alert</span> khi phát hiện bất thường.</p>
+        </div>`;
+      return;
     }
 
-    // Polling lấy dữ liệu live mỗi 1 giây
-    async function fetchState() {
-      try {
-        const res = await fetch('/api/state');
-        const state = await res.json();
+    let html = '';
+    if (active) html += active.messages.map(bubbleHtml).join('');
+    if (echo && (!active || active.session_id === echo.session_id || echo.session_id === null)) {
+      html += bubbleHtml({ role: 'user', text: echo.text, time: '' });
+    }
+    if (sending) {
+      html += `
+        <div class="flex gap-3 msg-in">
+          <div class="w-7 h-7 rounded-full bg-cyan-600 flex items-center justify-center text-sm shrink-0 mt-0.5">✦</div>
+          <div class="bg-slate-800/80 border border-slate-700/70 rounded-2xl rounded-tl-md px-4 py-3 flex items-center gap-1.5">
+            <span class="dot w-1.5 h-1.5 rounded-full bg-cyan-400 inline-block"></span>
+            <span class="dot w-1.5 h-1.5 rounded-full bg-cyan-400 inline-block"></span>
+            <span class="dot w-1.5 h-1.5 rounded-full bg-cyan-400 inline-block"></span>
+          </div>
+        </div>`;
+    }
+    box.innerHTML = html;
 
-        document.getElementById('clock').innerText = state.server_time;
+    // Chỉ auto-scroll khi user đang ở gần đáy (hoặc vừa gửi tin của mình)
+    if (atBottom || echo) box.scrollTop = box.scrollHeight;
+  }
 
-        // 1. CẬP NHẬT GRID MÁY MÓC
-        const grid = document.getElementById('machine-grid');
-        grid.innerHTML = '';
-        state.machines.forEach(m => {
-          const isAlert = m.label === 'alert';
-          const cardClass = isAlert ? 'border-red-500 alert-glow bg-red-950/20' : 'border-slate-800 bg-darkcard';
-          const badgeClass = isAlert ? 'bg-red-500/20 text-red-400 border border-red-500/40' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40';
+  // ================= CỘT PHẢI: MÁY MÓC (UPDATE TẠI CHỖ) =================
+  function createMachineCard(m) {
+    const root = document.createElement('div');
+    root.className = 'rounded-xl border border-slate-800 bg-darkcard p-3 transition-all';
+    root.innerHTML = `
+      <div class="flex items-center justify-between">
+        <div>
+          <div class="font-bold text-xs text-white machine-id"></div>
+          <div class="text-[10px] text-slate-500 machine-model"></div>
+        </div>
+        <span class="machine-badge text-[9px] uppercase font-bold px-1.5 py-0.5 rounded"></span>
+      </div>
+      <div class="machine-rows mt-2 space-y-1 text-[11px]"></div>
+      <div class="mt-2 pt-1.5 border-t border-slate-800/80 text-[10px] text-slate-500 machine-loc"></div>`;
+    const refs = {
+      root,
+      badge: root.querySelector('.machine-badge'),
+      rows: root.querySelector('.machine-rows'),
+      rowMap: {},
+    };
+    $('machine-list').appendChild(root);
+    return refs;
+  }
 
-          let telemetryHtml = '';
-          const p = m.telemetry || {};
-          for (const [k, v] of Object.entries(p)) {
-            if (typeof v === 'number') {
-              telemetryHtml += `<div class="flex justify-between py-0.5 border-b border-slate-800/60"><span class="text-slate-400">${k}:</span><span class="font-mono font-medium text-slate-200">${v}</span></div>`;
-            }
-          }
+  function updateMachineCard(refs, m) {
+    const isAlert = m.label === 'alert';
+    refs.root.className = 'rounded-xl p-3 transition-all border ' +
+      (isAlert ? 'border-red-500 alert-glow bg-red-950/20' : 'border-slate-800 bg-darkcard');
+    refs.root.querySelector('.machine-id').textContent = m.machine_id;
+    refs.root.querySelector('.machine-model').textContent = m.model || '';
+    refs.root.querySelector('.machine-loc').textContent = `Vị trí: ${m.location || '?'}`;
 
-          grid.innerHTML += `
-            <div class="border rounded-xl p-4 flex flex-col justify-between transition-all duration-300 ${cardClass}">
-              <div>
-                <div class="flex items-start justify-between">
-                  <div>
-                    <h3 class="font-bold text-sm text-white">${m.machine_id}</h3>
-                    <p class="text-[11px] text-slate-400">${m.model}</p>
-                  </div>
-                  <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded ${badgeClass}">${m.label}</span>
-                </div>
-                <div class="mt-3 text-xs space-y-1">
-                  ${telemetryHtml || '<div class="text-slate-600 italic">Đang đồng bộ cảm biến...</div>'}
-                </div>
-              </div>
-              <div class="mt-3 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-500">
-                <span>Vị trí: ${m.location}</span>
-                <span>Trạng thái: ${p.Controller_Execution || 'IDLE'}</span>
-              </div>
-            </div>
-          `;
-        });
+    refs.badge.textContent = isAlert ? 'ALERT' : (m.status || 'ONLINE');
+    refs.badge.className = 'machine-badge text-[9px] uppercase font-bold px-1.5 py-0.5 rounded ' +
+      (isAlert ? 'bg-red-500/20 text-red-400 border border-red-500/40'
+               : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40');
 
-        // 2. CẬP NHẬT DANH SÁCH DUYỆT (HUMAN APPROVAL)
-        const pendingBox = document.getElementById('pending-approvals-list');
-        const pendingCount = document.getElementById('pending-count');
-        const pendingList = state.pending_approvals || [];
-        pendingCount.innerText = pendingList.length;
-
-        if (pendingList.length === 0) {
-          pendingBox.innerHTML = '<div class="text-xs text-slate-500 italic py-2 text-center">Không có hành động nào đang chờ phê duyệt.</div>';
-        } else {
-          pendingBox.innerHTML = '';
-          pendingList.forEach(item => {
-            pendingBox.innerHTML += `
-              <div class="bg-slate-800/90 border border-amber-500/50 rounded-lg p-2.5 text-xs flex flex-col space-y-2">
-                <div class="flex justify-between items-start">
-                  <span class="font-bold text-amber-300">[${item.machine_id}] Lệnh: ${item.command}</span>
-                  <span class="text-[10px] text-slate-400">${item.created_at}</span>
-                </div>
-                <p class="text-slate-300 text-[11px]">${item.reason}</p>
-                <div class="flex gap-2 pt-1">
-                  <button onclick="makeDecision('${item.approval_id}', 'APPROVE')" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-1 rounded transition text-[11px]">
-                    ✔ Duyệt Thực Thi
-                  </button>
-                  <button onclick="makeDecision('${item.approval_id}', 'REJECT')" class="flex-1 bg-rose-700 hover:bg-rose-600 text-white font-semibold py-1 rounded transition text-[11px]">
-                    ✖ Từ Chối
-                  </button>
-                </div>
-              </div>
-            `;
-          });
-        }
-
-        // 3. CẬP NHẬT HỘP CHAT
-        const chatBox = document.getElementById('chat-box');
-        if (state.chat_history && state.chat_history.length > 0) {
-          chatBox.innerHTML = '';
-          state.chat_history.forEach(c => {
-            chatBox.innerHTML += `
-              <div class="bg-slate-800/70 p-2 rounded-lg border border-slate-700/50 mb-2">
-                <div class="flex justify-between items-center text-[10px] text-cyan-400 mb-0.5">
-                  <span class="font-bold">[${c.source}] ${c.machine_id ? '-> ' + c.machine_id : ''}</span>
-                  <span class="text-slate-400">${c.timestamp}</span>
-                </div>
-                <div class="text-slate-200 text-xs leading-relaxed whitespace-pre-line">${c.text}</div>
-              </div>
-            `;
-          });
-          chatBox.scrollTop = chatBox.scrollHeight;
-        }
-
-      } catch (err) {
-        console.error("Lỗi đồng bộ Dashboard:", err);
+    // Cập nhật từng hàng cảm biến tại chỗ (không rebuild thẻ)
+    const p = m.telemetry || {};
+    const seen = new Set();
+    for (const [k, v] of Object.entries(p)) {
+      if (typeof v !== 'number') continue;
+      seen.add(k);
+      let row = refs.rowMap[k];
+      if (!row) {
+        const div = document.createElement('div');
+        div.className = 'flex justify-between py-0.5 border-b border-slate-800/60';
+        div.innerHTML = `<span class="text-slate-400 truncate pr-2"></span><span class="font-mono font-medium text-slate-200 shrink-0"></span>`;
+        div.firstChild.textContent = k;
+        refs.rows.appendChild(div);
+        row = { span: div.lastChild };
+        refs.rowMap[k] = row;
+      }
+      row.span.textContent = Number.isInteger(v) ? v : v.toFixed(2);
+    }
+    for (const k of Object.keys(refs.rowMap)) {
+      if (!seen.has(k)) {
+        refs.rowMap[k].span.closest('div').remove();
+        delete refs.rowMap[k];
       }
     }
+  }
 
-    setInterval(fetchState, 1000);
-    fetchState();
+  function renderMachines(machines) {
+    for (const m of machines) {
+      let refs = machineEls.get(m.machine_id);
+      if (!refs) {
+        refs = createMachineCard(m);
+        machineEls.set(m.machine_id, refs);
+      }
+      updateMachineCard(refs, m);
+    }
+  }
+
+  // ================= CỘT PHẢI: CHỜ DUYỆT HITL =================
+  function renderApprovals(pending) {
+    const s = sig(pending);
+    if (prev.approvalSig === s) return;
+    prev.approvalSig = s;
+
+    $('pending-count').textContent = pending.length;
+    const box = $('pending-approvals');
+    if (!pending.length) {
+      box.innerHTML = '<div class="text-[11px] text-slate-600 italic text-center py-2">Không có lệnh nào chờ duyệt.</div>';
+      return;
+    }
+    box.innerHTML = pending.map(item => `
+      <div class="bg-slate-800/90 border border-amber-500/50 rounded-lg p-2.5 text-xs space-y-2">
+        <div class="flex justify-between items-start gap-2">
+          <span class="font-bold text-amber-300">[${esc(item.machine_id)}] ${esc(item.command)}</span>
+          <span class="text-[10px] text-slate-400 shrink-0">${esc(item.created_at)}</span>
+        </div>
+        <p class="text-slate-300 text-[11px]">${esc(item.reason)}</p>
+        <div class="flex gap-2">
+          <button onclick="makeDecision('${esc(item.approval_id)}','APPROVE')"
+            class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-1 rounded transition text-[11px]">✔ Duyệt</button>
+          <button onclick="makeDecision('${esc(item.approval_id)}','REJECT')"
+            class="flex-1 bg-rose-700 hover:bg-rose-600 text-white font-semibold py-1 rounded transition text-[11px]">✖ Từ chối</button>
+        </div>
+      </div>`).join('');
+  }
+
+  async function makeDecision(actionId, decision) {
+    if (decision === 'APPROVE' &&
+        !confirm('⚠ XÁC NHẬN thực thi lệnh nguy hiểm này xuống máy?')) return;
+    try {
+      await fetch('/api/decision', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action_id: actionId, decision }),
+      });
+      await fetchState();
+    } catch (err) { console.error('Lỗi khi gửi quyết định:', err); }
+  }
+
+  // ================= UPLOAD LÊN RAG =================
+  function renderUploads(uploads) {
+    const s = sig(uploads);
+    if (prev.uploadSig === s) return;
+    prev.uploadSig = s;
+
+    const box = $('upload-list');
+    if (!uploads.length) {
+      box.innerHTML = '<div class="text-slate-600 italic">Chưa có file tri thức nào.</div>';
+      return;
+    }
+    box.innerHTML = [...uploads].reverse().map(u => `
+      <div class="flex items-center justify-between bg-slate-800/70 rounded-lg px-2.5 py-1.5">
+        <span class="truncate text-slate-300">📄 ${esc(u.filename)}</span>
+        <span class="text-slate-500 shrink-0 ml-2">${u.size} B · ${esc(u.time)}</span>
+      </div>`).join('');
+  }
+
+  let selectedFiles = [];
+
+  function openUploadModal() {
+    $('upload-modal').classList.remove('hidden');
+    renderUploads(lastData?.uploads || []);
+  }
+  function closeUploadModal() { $('upload-modal').classList.add('hidden'); }
+
+  function onFileSelected(files) {
+    selectedFiles = [...files];
+    const prev_ = $('file-preview');
+    const btn = $('btn-do-upload');
+    if (selectedFiles.length) {
+      prev_.textContent = 'Đã chọn: ' + selectedFiles.map(f => f.name).join(', ');
+      prev_.classList.remove('hidden');
+      btn.disabled = false;
+    } else {
+      prev_.classList.add('hidden');
+      btn.disabled = true;
+    }
+  }
+
+  async function uploadFiles() {
+    if (!selectedFiles.length) return;
+    const btn = $('btn-do-upload');
+    const status = $('upload-status');
+    btn.disabled = true;
+    btn.textContent = 'Đang tải lên...';
+    try {
+      const fd = new FormData();
+      selectedFiles.forEach(f => fd.append('file', f));
+      const res = await fetch('/api/upload', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (data.status === 'OK') {
+        status.textContent = `✔ Đã nạp ${data.files.length} file vào kho RAG`;
+        status.className = 'mt-2 text-xs text-emerald-400';
+        onFileSelected([]);
+        $('file-input').value = '';
+      } else {
+        status.textContent = '✖ ' + (data.error || 'Upload thất bại');
+        status.className = 'mt-2 text-xs text-red-400';
+      }
+    } catch (err) {
+      status.textContent = '✖ Lỗi kết nối server';
+      status.className = 'mt-2 text-xs text-red-400';
+    }
+    status.classList.remove('hidden');
+    btn.textContent = 'Tải lên RAG';
+    btn.disabled = !selectedFiles.length;
+    await fetchState();
+  }
+
+  // ================= GỬI TIN NHẮN =================
+  async function sendMessage() {
+    const input = $('chat-input');
+    const text = input.value.trim();
+    if (!text || sending) return;
+
+    sending = true;
+    echo = { session_id: activeSessionId, text };
+    input.value = '';
+    $('btn-send').disabled = true;
+    if (lastData) render(lastData); // render ngay echo + typing
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: activeSessionId, text }),
+      });
+      const data = await res.json();
+      if (res.ok && data.session_id) {
+        activeSessionId = data.session_id; // thread mới (nếu có) -> chọn luôn
+      } else {
+        console.error('Chat lỗi:', data.error || res.status);
+      }
+    } catch (err) {
+      console.error('Lỗi gửi chat:', err);
+      input.value = text; // khôi phục để user gửi lại
+    }
+
+    sending = false;
+    echo = null;
+    prev.sidebarSig = null;
+    prev.chatSig = null;
+    await fetchState();
+    input.focus();
+  }
+
+  function autoSendGuard() {
+    $('btn-send').disabled = sending || !$('chat-input').value.trim();
+  }
+
+  // ================= GẮN SỰ KIỆN =================
+  $('btn-send').addEventListener('click', sendMessage);
+  $('chat-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+  $('chat-input').addEventListener('input', autoSendGuard);
+
+  $('btn-new-chat').addEventListener('click', () => {
+    activeSessionId = null;
+    echo = null;
+    prev.sidebarSig = null;
+    prev.chatSig = null;
+    if (lastData) render(lastData);
+    $('chat-input').focus();
+  });
+
+  $('btn-open-upload').addEventListener('click', openUploadModal);
+  $('btn-close-upload').addEventListener('click', closeUploadModal);
+  $('upload-modal').addEventListener('click', (e) => {
+    if (e.target === $('upload-modal')) closeUploadModal();
+  });
+  $('file-input').addEventListener('change', (e) => onFileSelected(e.target.files));
+  $('btn-do-upload').addEventListener('click', uploadFiles);
+
+  // ================= KHỞI ĐỘNG =================
+  setInterval(fetchState, 1000);
+  fetchState();
+
   </script>
 </body>
 </html>

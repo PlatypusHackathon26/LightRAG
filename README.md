@@ -62,9 +62,14 @@ Chạy từ thư mục gốc dự án:
 python main.py
 ```
 
-Mở `http://localhost:8000` trong trình duyệt. Dashboard tự cập nhật telemetry, xu hướng các mẫu gần nhất, cảnh báo/chẩn đoán agent và các lệnh đang chờ kỹ sư phê duyệt. Chọn **Duyệt lệnh** để gửi lệnh đến simulator hoặc **Từ chối** để giữ máy không nhận lệnh đó. Ticket và thông báo bảo trì được tạo khi agent xử lý cảnh báo, không phụ thuộc quyết định PLC.
+Mở `http://localhost:8000` trong trình duyệt. Giao diện kiểu Chat-GPT 3 cột:
 
-Lệnh đã đề xuất không tự hết hạn. Nếu dashboard được tải lại, trạng thái được giữ trong bộ nhớ đến khi simulator tắt.
+- **Cột trái** — danh sách hội thoại chia 2 nhóm: **User chủ động** (bạn hỏi Agent) và **System Alert** (hệ thống tự tạo thread khi máy phát hiện bất thường, kèm tóm tắt anomaly + khuyến nghị RAG).
+- **Cột giữa** — khung chat chính: gửi tin nhắn (Enter gửi, Shift+Enter xuống dòng), Agent trả lời theo cẩm nang RAG.
+- **Cột phải** — trạng thái 5 máy thời gian thực (cập nhật mỗi 1s, viền đỏ nhấp nháy khi alert) và danh sách lệnh **Chờ duyệt HITL** (bấm **Duyệt** để gửi lệnh xuống simulator, **Từ chối** để bỏ — lệnh duyệt có bước xác nhận).
+- **Nút 📤 Upfile lên RAG** (góc trên phải) — mở modal upload file (PDF/MD/TXT...) vào thư mục `knowledge_uploads/`, danh sách file đã nạp hiển thị ngay trong modal.
+
+Ticket và thông báo bảo trì được tạo khi agent xử lý cảnh báo, không phụ thuộc quyết định PLC. Lệnh đã đề xuất không tự hết hạn; trạng thái giữ trong bộ nhớ đến khi simulator tắt.
 
 Có thể đổi cổng hoặc chu kỳ gửi telemetry:
 
@@ -72,9 +77,9 @@ Có thể đổi cổng hoặc chu kỳ gửi telemetry:
 python main.py --port 8080 --interval 0.5
 ```
 
-Đây là dashboard mô phỏng cục bộ, không kết nối PLC thật và chỉ sử dụng thư viện Python chuẩn. Nút phê duyệt chỉ gửi lệnh tới máy mô phỏng; không dùng server này như giao diện điều khiển sản xuất.
+Đây là dashboard mô phỏng cục bộ, không kết nối PLC thật và chỉ sử dụng thư viện Python chuẩn (stdlib). Nút phê duyệt chỉ gửi lệnh tới máy mô phỏng; không dùng server này như giao diện điều khiển sản xuất.
 
-Chạy kiểm thử luồng phê duyệt:
+Chạy kiểm thử (bao gồm test luồng phê duyệt, chat API và upload API):
 
 ```powershell
 python -m unittest discover -s tests -v

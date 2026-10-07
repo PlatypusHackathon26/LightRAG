@@ -79,3 +79,17 @@ class AgentBrain:
                 # Bắn ra EventBus để action_approval hoặc actuator_dispatcher tiếp nhận
                 self.event_bus.publish(command_event)
                 logger.info(f"[Brain] Đã đẩy lệnh '{act.get('command')}' vào Bus cho máy {machine_id}")
+
+    def handle_user_query(self, query_text: str) -> str:
+        """Xử lý tin nhắn do user chủ động gửi từ ô chat trên Dashboard.
+
+        Hiện tại RAG là bản giả lập (rag_engine.query) — khi nào ghép LightRAG
+        thật thì chỉ cần thay phần bên trong.
+        """
+        text = (query_text or "").strip()
+        if not text:
+            return "Vui lòng nhập nội dung cần tra cứu."
+
+        logger.info(f"[Brain] User truy vấn: {text[:80]}")
+        advice = self.rag.query(text)
+        return advice
