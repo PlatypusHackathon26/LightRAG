@@ -259,3 +259,33 @@ def test_a_chunk_crossing_a_language_boundary_keeps_only_its_first_language():
 def test_long_page_lists_are_cut():
     chunks = [f"--- [Trang {p} | ngôn ngữ: en] ---\nrow" for p in range(1, 15)]
     assert pages_from_chunks(chunks) == "1, 2, 3, 4, 5, 6, …"
+
+
+@pytest.mark.parametrize("raw, expected", [
+    ("<think>We need to find the plug. Let's search.</think>\nUse SC20HR11 [1].", "Use SC20HR11 [1]."),
+    ("Let me check the table.</think>Use SC20HR11 [1].", "Use SC20HR11 [1]."),       # orphan closing tag
+    ("Use SC20HR11 [1].\n<think>We need to double check", "Use SC20HR11 [1]."),       # unclosed, cut off
+    ("<think>We need to find DENSO spark plug for Toyota Corolla", ""),               # only reasoning (seen live)
+])
+def test_model_reasoning_never_reaches_the_user(raw, expected):
+    assert clean_answer(raw) == expected
+
+
+def _chat_with(handler, tmp_path, **kw):
+    settings = Settings(level_servers=SERVERS, users={}, actions_log=tmp_path / "a.jsonl", ops_file=tmp_path / "n.json", **kw)
+    tc = TestClient(create_app(settings, transport=httpx.MockTransport(handler)))
+    return tc.post("/agent/chat", json={"conversationId": "c", "message": "torque?"})
+
+
+def test_reasoning_only_answer_is_an_error(tmp_path):
+    r = _chat_with(lambda req: httpx.Response(200, json={"response": "<think>We need to find the torque", "references": []}),
+                   tmp_path)
+    assert r.status_code == 503 and "only its reasoning" in r.json()["detail"]
+
+
+def test_slow_llm_gives_a_clear_timeout(tmp_path):
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ReadTimeout("no answer", request=request)
+
+    r = _chat_with(handler, tmp_path, answer_timeout=1)
+    assert r.status_code == 504 and "please ask again" in r.json()["detail"]

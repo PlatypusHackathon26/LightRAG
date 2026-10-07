@@ -138,9 +138,23 @@ CITED_ID = re.compile(r"\[(\d+(?:\s*,\s*\d+)*)\]")
 ANSWER_FIGURE = re.compile(r"\b\d+[.,]\d+\b|\b[A-Z]{2,}\d{4,}\b|\b\d{5,}(?:-\d+)?\b")
 
 
+def strip_reasoning(answer: str) -> str:
+    """Drop the model's scratch reasoning (<think>...</think>) that must never reach the user.
+
+    Nemotron sometimes emits it inside the content: as a closed block, as an unclosed
+    <think> (cut off, nothing usable after it), or as a stray </think> after leading notes.
+    """
+    text = re.sub(r"<think>.*?</think>", "", answer, flags=re.DOTALL)
+    if "</think>" in text:          # notes before an orphan closing tag
+        text = text.rsplit("</think>", 1)[1]
+    if "<think>" in text:           # unclosed: everything after it is reasoning
+        text = text.split("<think>", 1)[0]
+    return text.strip()
+
+
 def clean_answer(answer: str) -> str:
-    """Strip the references block and normalise model-specific citation markers to [n]."""
-    text = strip_reference_section(answer)
+    """Strip reasoning and the references block; normalise model-specific citation markers to [n]."""
+    text = strip_reference_section(strip_reasoning(answer))
     text = BRACKET_CITATION.sub(lambda m: f" [{m.group(1)}]", text)
     return OTHER_BRACKET.sub("", text)
 
@@ -202,6 +216,8 @@ class Settings:
     # naive beat mix on the benchmark (100% vs 87% with denso_answer.md, half the latency):
     # mix keeps only ~6 text chunks next to the entities, and the answers sit verbatim in tables.
     knowledge_mode: str = "naive"
+    # Seconds a chat waits for LightRAG (retrieval + LLM) before answering 504.
+    answer_timeout: float = 150.0
     lookup_mode: str = "naive"
 
     @classmethod
@@ -220,6 +236,7 @@ class Settings:
             cors=[o.strip() for o in os.environ.get("DENSO_GATEWAY_CORS", "http://localhost:5173").split(",")],
             cors_regex=os.environ.get("DENSO_GATEWAY_CORS_REGEX") or None,
             knowledge_mode=os.environ.get("DENSO_KNOWLEDGE_MODE", "naive"),
+            answer_timeout=float(os.environ.get("DENSO_ANSWER_TIMEOUT", "150")),
         )
 
 
@@ -240,7 +257,9 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
     if len(settings.level_servers) != MAX_LEVEL:
         raise ValueError(f"need {MAX_LEVEL} level servers, got {len(settings.level_servers)}")
     headers = {"X-API-Key": settings.api_key} if settings.api_key else {}
-    client = httpx.AsyncClient(timeout=httpx.Timeout(900, connect=10), headers=headers, transport=transport)
+    # A user waiting in the chat gets a clear 504 instead of a spinner for up to 15 minutes.
+    client = httpx.AsyncClient(timeout=httpx.Timeout(settings.answer_timeout, connect=10), headers=headers,
+                               transport=transport)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
@@ -305,6 +324,9 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
         }
         try:
             r = await client.post(f"{url}/query", json=payload)
+        except httpx.TimeoutException:
+            raise HTTPException(status_code=504, detail=f"the answering LLM did not reply within "
+                                                        f"{settings.answer_timeout:.0f} s (free API overloaded) - please ask again")
         except httpx.ConnectError:
             if target != "lookup":
                 raise HTTPException(status_code=503, detail=f"LightRAG level_{user.level} server is not running")
@@ -320,6 +342,10 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
             raise HTTPException(status_code=503, detail="the answering LLM returned nothing (quota, rate limit or "
                                                        "timeout) - see denso/logs/llm_proxy.jsonl and the server log")
         content = clean_answer(body.get("response", ""))
+        if not content:
+            # Only reasoning came back (cut off before the answer): an LLM failure, not an empty answer.
+            raise HTTPException(status_code=503, detail="the answering LLM returned only its reasoning, no answer "
+                                                        "- please ask again")
         citations = to_citations(only_cited(body.get("references") or [], content))
         history[req.conversationId].extend(
             [{"role": "user", "content": req.message}, {"role": "assistant", "content": content}]

@@ -92,7 +92,7 @@ def build_app(args: argparse.Namespace) -> FastAPI:
         raise SystemExit(f"{args.key_var} is not set in {REPO / '.env'}")
     app = FastAPI()
     pacer = Pacer(args.rpm, args.tpm)
-    client = httpx.AsyncClient(base_url=args.upstream.rstrip("/"), timeout=httpx.Timeout(600, connect=20))
+    client = httpx.AsyncClient(base_url=args.upstream.rstrip("/"), timeout=httpx.Timeout(args.read_timeout, connect=20))
     log_path = Path(args.log)
     log_path.parent.mkdir(parents=True, exist_ok=True)
     state = {"day": datetime.now(timezone.utc).date().isoformat(), "tokens": 0, "calls": 0, "by_model": {}}
@@ -233,6 +233,9 @@ def main() -> None:
     ap.add_argument("--fallback-reasoning", default="none", help="reasoning_effort for the fallback model ('' = keep)")
     ap.add_argument("--log", default=str(REPO / "denso" / "logs" / "llm_proxy.jsonl"))
     ap.add_argument("--fresh-key", action="store_true", help="The API key was replaced: start today's budget from zero")
+    ap.add_argument("--read-timeout", type=float, default=120,
+                    help="Seconds to wait for one upstream reply before retrying (a hung free endpoint "
+                         "otherwise held a chat for 10 minutes)")
     ap.add_argument("--max-wait", type=float, default=300,
                     help="A 429 asking to wait longer than this (s) means the upstream quota is spent")
     args = ap.parse_args()

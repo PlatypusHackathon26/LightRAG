@@ -54,6 +54,7 @@ LANGUAGE_NAMES = re.compile(r"\b(" + "|".join(sorted(map(re.escape, LANGUAGE_COD
 MULTI_LANGUAGE = re.compile(r"\b(multilingual|translations?|language versions?|other languages?)\b|"
                             r"ngôn ngữ (khác|nào)|đa ngôn ngữ", re.IGNORECASE)
 LANG_BOOST = 1.0
+FALLBACK_LANG = "en"
 
 
 def question_language(query: str) -> str | None:
@@ -87,6 +88,10 @@ def rank(query: str, documents: list[str]) -> list[tuple[int, float]]:
     lang = question_language(query)
     if is_cross_lingual(query, lang):
         lang = None
+    elif lang and not any(lang in chunk_languages(d) for d in documents):
+        # No section in the question's language (a Vietnamese question over English/multilingual
+        # manuals): prefer English, the manuals' source language, over its translations.
+        lang = FALLBACK_LANG
     scored = []
     for i, doc in enumerate(documents):
         score = 1.0 - i / n

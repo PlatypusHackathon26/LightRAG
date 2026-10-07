@@ -48,3 +48,17 @@ def test_endpoint_is_cohere_compatible():
     body = r.json()
     assert r.status_code == 200 and body["results"] == [{"index": 1, "relevance_score": body["results"][0]["relevance_score"]}]
     assert 0.0 <= body["results"][0]["relevance_score"] <= 1.0
+
+
+def test_question_language_absent_from_the_manuals_prefers_english():
+    # Seen live: a Vietnamese question quoted the Romanian and Russian sections and
+    # cited their pages, because no chunk was tagged "vi".
+    docs = [RU, DE, EN]
+    order = [i for i, _ in rank("Mô-men xoắn siết bu-lông SCV trên bơm Common Rail diesel là bao nhiêu?", docs)]
+    assert order == [2, 0, 1]
+
+
+def test_cross_lingual_vietnamese_question_still_keeps_vector_order():
+    docs = [RU, DE, EN]
+    order = [i for i, _ in rank("Mô-men xoắn trong phần tiếng Nga là bao nhiêu?", docs)]
+    assert order == [0, 1, 2]
