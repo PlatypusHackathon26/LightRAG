@@ -1,0 +1,27 @@
+{
+  "_comment": "SYNTHETIC operational data for the demo (no real plant data). Shapes follow lightrag_webui/src/features/agentic/types/agentic.ts. Replace with a real OT data source later.",
+  "incidents": [
+    {
+      "id": "INC-DEMO-01",
+      "conversationId": "conv-inc-demo-01",
+      "device": "A/C compressor test bench 01",
+      "alarm": "Compressor discharge pressure high",
+      "severity": "high",
+      "status": "active",
+      "timestamp": "2026-10-07T08:00:00Z",
+      "tags": ["demo", "ac-compressor"]
+    }
+  ],
+  "telemetry": {
+    "INC-DEMO-01": {
+      "deviceId": "bench-01",
+      "deviceName": "A/C compressor test bench 01",
+      "timestamp": "2026-10-07T08:00:00Z",
+      "points": [
+        {"key": "discharge_pressure", "label": "Discharge pressure", "value": 2.9, "unit": "MPa", "threshold": 2.5, "isAnomalous": true, "trend": "up"},
+        {"key": "oil_temp", "label": "Oil temperature", "value": 78, "unit": "°C", "threshold": 90, "isAnomalous": false, "trend": "stable"}
+      ],
+      "predictionHorizonMin": 30
+    }
+  }
+}

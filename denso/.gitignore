@@ -1,2 +1,3 @@
-# Runtime logs (server, proxy usage, parse/ingest/benchmark runs)
 logs/
+# Gateway tokens are secrets: commit users.example.json only
+gateway/users.json

@@ -162,3 +162,27 @@ dùng để so sánh tương đối giữa các mode, không phải điểm tuy�
   `MAX_PARALLEL_INSERT=1` trong `.env`.
 - Catalogue vài trăm trang (Spark Plug, Wiper, AC Components) rất lâu trên CPU;
   nên thử với các tài liệu nhỏ trước.
+
+## Agent Gateway (backend cho UI agentic)
+
+`denso/gateway/app.py` (FastAPI, cổng 9700) là backend mà `lightrag_webui/src/api/agent.ts`
+gọi tới; UI không bao giờ gọi LightRAG trực tiếp.
+
+| Endpoint | Nguồn |
+|---|---|
+| `POST /agent/chat` | LightRAG `/query` của server theo cấp quyền (`mix`); câu hỏi tra xe/mã ("fits a 2018 Toyota…", "cross reference", "lắp cho xe nào") → server tra cứu (`naive`). Trả `content`, `citations` (documentName, pages từ dấu trang, excerpt), `events` |
+| `GET/POST /agent/documents` | danh sách tài liệu (KnowledgeDocument) / upload cộng dồn level N..3 (cần `can_upload`) |
+| `GET /agent/incidents`, `/agent/telemetry/{id}` | `gateway/sample_ops.json` (dữ liệu MẪU) |
+| `POST /agent/actions/{id}/approve|reject` | chỉ ghi `logs/actions.jsonl` – **không bao giờ gửi lệnh PLC** |
+| `GET /agent/health` | trạng thái các server LightRAG |
+
+Cấp quyền lấy từ `Authorization: Bearer <token>` tra trong `gateway/users.json`
+(gitignored; mẫu ở `users.example.json`); không có token → `DENSO_GUEST_LEVEL`.
+Client không thể tự chọn cấp quyền.
+
+```powershell
+$env:PYTHONIOENCODING="utf-8"; .venv\Scripts\python denso\gateway\app.py
+```
+
+Phía UI cần: thêm `/agent` vào `VITE_API_ENDPOINTS` (proxy dev tới :9700) và cho
+`agenticStore.ts` gọi `api/agent.ts` thay vì mock.
