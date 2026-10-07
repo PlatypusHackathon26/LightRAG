@@ -62,3 +62,10 @@ def test_units_are_not_codes():
     # Regression: "120 cm³ - 50 cm³ = 70 cm³" (Q25) produced a bogus "cm3" code fact.
     codes, numbers = extract("120 cm³ - 50 cm³ = 70 cm³")
     assert codes == set() and numbers == {120.0, 50.0, 70.0}
+
+
+def test_refusal_with_have_enough():
+    # Nemotron declines with "I do not have enough information to answer." (Q30, level_1_nvidia).
+    from score_facts import REFUSAL
+    assert REFUSAL.search("I do not have enough information to answer.")
+    assert REFUSAL.search("The documents don't have sufficient data.")
