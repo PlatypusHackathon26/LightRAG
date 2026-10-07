@@ -187,6 +187,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--upstream", default="https://api.cerebras.ai/v1")
     ap.add_argument("--key-var", default="EXTRACT_LLM_BINDING_API_KEY")
+    ap.add_argument("--host", default="127.0.0.1", help="0.0.0.0 inside a container only")
     ap.add_argument("--port", type=int, default=8899)
     ap.add_argument("--rpm", type=int, default=4, help="Request starts per minute (Cerebras free: 5)")
     ap.add_argument("--tpm", type=int, default=28000, help="Estimated tokens per minute (Cerebras free: 30K uncached)")
@@ -199,7 +200,7 @@ def main() -> None:
     ap.add_argument("--max-wait", type=float, default=300,
                     help="A 429 asking to wait longer than this (s) means the upstream quota is spent")
     args = ap.parse_args()
-    uvicorn.run(build_app(args), host="127.0.0.1", port=args.port, log_level="warning")
+    uvicorn.run(build_app(args), host=args.host, port=args.port, log_level="warning")
 
 
 if __name__ == "__main__":

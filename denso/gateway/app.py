@@ -235,13 +235,21 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
         else:
             target, url, mode = "knowledge", settings.level_servers[user.level - 1], settings.knowledge_mode
         past = list(history[req.conversationId])
-        r = await client.post(f"{url}/query", json={
+        payload = {
             "query": req.message,
             "mode": mode,
             "include_references": True,
             "include_chunk_content": True,
             "conversation_history": past or None,
-        })
+        }
+        try:
+            r = await client.post(f"{url}/query", json=payload)
+        except httpx.ConnectError:
+            if target != "lookup":
+                raise HTTPException(status_code=503, detail=f"LightRAG level_{user.level} server is not running")
+            # Lookup server not deployed (compose profile off): answer from the knowledge tier.
+            target, url, mode = "knowledge", settings.level_servers[user.level - 1], settings.knowledge_mode
+            r = await client.post(f"{url}/query", json={**payload, "mode": mode})
         if r.status_code != 200:
             raise HTTPException(status_code=502, detail=f"LightRAG {target} server returned {r.status_code}")
         body = r.json()
@@ -332,7 +340,8 @@ def main() -> None:
     import uvicorn
 
     port = int(os.environ.get("DENSO_GATEWAY_PORT", "9700"))
-    uvicorn.run(create_app(Settings.from_env()), host="127.0.0.1", port=port, log_level="info")
+    host = os.environ.get("DENSO_GATEWAY_HOST", "127.0.0.1")  # 0.0.0.0 inside a container only
+    uvicorn.run(create_app(Settings.from_env()), host=host, port=port, log_level="info")
 
 
 if __name__ == "__main__":

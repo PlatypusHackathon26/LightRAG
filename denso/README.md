@@ -209,3 +209,29 @@ $env:WORKSPACE="level_1"; $env:PORT="9621"; $env:PYTHONIOENCODING="utf-8"; .venv
 
 Thí nghiệm prompt (`USER_PROMPT_PREFIX_FILE=denso_answer.md`) ảnh hưởng mọi mode nên
 chạy riêng với tên khác, cả naive lẫn mix.
+
+## Chạy bằng Docker
+
+`denso/docker-compose.yml` (chạy từ thư mục gốc repo). Image LightRAG build từ
+`Dockerfile` gốc (đã có WebUI, gồm trang agentic); pipeline/gateway/proxy dùng
+`denso/Dockerfile`. Dữ liệu nằm trên host: `rag_storage/` (index có sẵn được dùng lại),
+`denso/data`, `denso/results`, `denso/logs`. Mọi cổng chỉ bind `127.0.0.1`.
+
+```powershell
+Copy-Item env.example .env; Get-Content denso\env.denso | Add-Content .env   # cấu hình host
+Copy-Item denso\compose.env.example denso\compose.env                        # override cho container
+docker compose -f denso/docker-compose.yml --profile proxy up -d             # LightRAG level_1 + gateway + proxy
+```
+
+| Profile | Thêm gì |
+|---|---|
+| (mặc định) | `lightrag-level1` :9621, `gateway` :9700 |
+| `proxy` | rate proxy free-tier (cần khi EXTRACT/QUERY/KEYWORD dùng API – xem `compose.env`) |
+| `parse` | `docling` :5001 + job `pipeline` (parse/clean/check_evidence) |
+| `rerank` | Infinity + bge-reranker-v2-m3 :7997 (CPU, chậm ~5 s/chunk) |
+| `lookup` | server tầng tra cứu :9631 |
+| `levels` | server level_2 :9622, level_3 :9623 |
+| `local-llm` | Ollama CPU trong container (máy không có Ollama trên host) |
+
+`.env` giữ giá trị chạy trực tiếp trên máy (localhost); `compose.env` chỉ ghi đè tên
+service/đường dẫn container (đúng quy ước AGENTS.md).

@@ -1,0 +1,10 @@
+# Dependencies of the denso/ side services when run outside the LightRAG venv
+# (denso/Dockerfile). Versions are lower bounds matching the tested venv.
+httpx>=0.28
+fastapi>=0.115
+uvicorn>=0.30
+python-multipart>=0.0.9   # gateway document upload (Form/File)
+python-dotenv>=1.0        # rate proxy reads the API key from .env
+pypdf>=5.0                # parse.py page counts
+langdetect>=1.0.9         # clean.py page language
+wordfreq>=3.1             # clean.py OCR word joining

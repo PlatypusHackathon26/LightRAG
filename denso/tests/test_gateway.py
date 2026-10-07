@@ -165,3 +165,19 @@ def test_approval_is_logged_and_never_executed(client):
     ack = tc.post("/agent/actions/act-1/approve").json()["ack"]
     row = json.loads(settings.actions_log.read_text(encoding="utf-8").splitlines()[-1])
     assert row["action"] == "act-1" and row["ack"] == ack and row["executed"] is False
+
+
+def test_lookup_falls_back_to_knowledge_when_lookup_server_is_down(backend, tmp_path):
+    calls, transport = backend
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "lookup":
+            raise httpx.ConnectError("lookup profile not running", request=request)
+        return transport.handle_request(request)
+
+    settings = Settings(level_servers=SERVERS, lookup_server="http://lookup", users={},
+                        actions_log=tmp_path / "a.jsonl", ops_file=tmp_path / "none.json")
+    tc = TestClient(create_app(settings, transport=httpx.MockTransport(handler)))
+    r = tc.post("/agent/chat", json={"conversationId": "c9", "message": "Which DENSO spark plug fits a 2018 Toyota Corolla?"})
+    assert r.status_code == 200 and r.json()["target"] == "knowledge"
+    assert calls[-1].url.host == "l1" and json.loads(calls[-1].content)["mode"] == "mix"

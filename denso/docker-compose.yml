@@ -1,0 +1,155 @@
+# DENSO A3 RAG stack. Run from the repository root:
+#   cp env.example .env && cat denso/env.denso >> .env          (host config, see denso/README.md)
+#   cp denso/compose.env.example denso/compose.env              (container overrides)
+#   docker compose -f denso/docker-compose.yml up -d            (core: LightRAG level_1 + gateway)
+# Optional profiles (combine with --profile X):
+#   parse      docling-serve + `pipeline` job image for parse/clean
+#   proxy      free-tier API rate proxy (EXTRACT/QUERY/KEYWORD roles)
+#   rerank     Infinity + bge-reranker-v2-m3 on CPU
+#   lookup     lookup-tier LightRAG server (vector-only catalogue tables)
+#   levels     level_2 / level_3 servers (cumulative access levels)
+#   local-llm  CPU Ollama container, for machines without a host Ollama
+# Data stays on the host: rag_storage/, denso/data, denso/results, denso/logs.
+# Every port is bound to 127.0.0.1; only the gateway (9700) is meant for the UI.
+
+x-lightrag: &lightrag
+  image: denso/lightrag:local
+  build:
+    context: ..
+    dockerfile: Dockerfile
+  env_file:
+    - ../.env
+    - ./compose.env
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+  restart: unless-stopped
+  volumes: &lightrag-volumes
+    - ../rag_storage:/app/data/rag_storage
+    - ../inputs:/app/data/inputs
+    - ./prompts:/app/data/prompts:ro
+
+x-denso: &denso
+  image: denso/services:local
+  build:
+    context: ..
+    dockerfile: denso/Dockerfile
+  volumes:
+    - ../denso:/app/denso
+    - ../.env:/app/.env:ro
+  working_dir: /app
+
+services:
+  lightrag-level1:
+    <<: *lightrag
+    container_name: denso-lightrag-level1
+    environment:
+      WORKSPACE: level_1
+    ports:
+      - "127.0.0.1:9621:9621"
+
+  gateway:
+    <<: *denso
+    container_name: denso-gateway
+    command: ["python", "denso/gateway/app.py"]
+    environment:
+      DENSO_GATEWAY_HOST: 0.0.0.0
+      DENSO_LEVEL_SERVERS: http://lightrag-level1:9621,http://lightrag-level2:9621,http://lightrag-level3:9621
+      DENSO_LOOKUP_SERVER: http://lightrag-lookup:9621
+      DENSO_GATEWAY_CORS: http://localhost:5173,http://127.0.0.1:9621
+    ports:
+      - "127.0.0.1:9700:9700"
+    depends_on:
+      - lightrag-level1
+    restart: unless-stopped
+
+  lightrag-level2:
+    <<: *lightrag
+    profiles: ["levels"]
+    container_name: denso-lightrag-level2
+    environment:
+      WORKSPACE: level_2
+    ports:
+      - "127.0.0.1:9622:9621"
+
+  lightrag-level3:
+    <<: *lightrag
+    profiles: ["levels"]
+    container_name: denso-lightrag-level3
+    environment:
+      WORKSPACE: level_3
+    ports:
+      - "127.0.0.1:9623:9621"
+
+  lightrag-lookup:
+    <<: *lightrag
+    profiles: ["lookup"]
+    container_name: denso-lightrag-lookup
+    environment:
+      WORKSPACE: level_1_lookup
+    ports:
+      - "127.0.0.1:9631:9621"
+
+  proxy:
+    <<: *denso
+    profiles: ["proxy"]
+    container_name: denso-proxy
+    command: ["python", "denso/tools/llm_rate_proxy.py", "--host", "0.0.0.0", "--fallback-model", ""]
+    ports:
+      - "127.0.0.1:8899:8899"
+    restart: unless-stopped
+
+  pipeline:
+    <<: *denso
+    profiles: ["parse"]
+    container_name: denso-pipeline
+    # One-off jobs, e.g.:
+    #   docker compose -f denso/docker-compose.yml --profile parse run --rm pipeline \
+    #     python denso/pipeline/parse.py --docling http://docling:5001 denso/data/raw
+    #   ... run --rm pipeline python denso/pipeline/clean.py
+    command: ["python", "denso/pipeline/check_evidence.py"]
+
+  docling:
+    profiles: ["parse"]
+    image: ghcr.io/docling-project/docling-serve-cpu:latest
+    container_name: denso-docling
+    environment:
+      DOCLING_SERVE_ENG_LOC_NUM_WORKERS: "1"
+      DOCLING_SERVE_MAX_SYNC_WAIT: "3600"
+    ports:
+      - "127.0.0.1:5001:5001"
+    mem_limit: 6g
+    cpus: 6
+    restart: unless-stopped
+
+  reranker:
+    profiles: ["rerank"]
+    image: michaelf34/infinity:latest-cpu
+    container_name: denso-reranker
+    command: ["v2", "--model-id", "BAAI/bge-reranker-v2-m3", "--engine", "torch", "--device", "cpu",
+              "--batch-size", "8", "--no-bettertransformer", "--port", "7997"]
+    environment:
+      DO_NOT_TRACK: "1"
+    ports:
+      - "127.0.0.1:7997:7997"
+    volumes:
+      - infinity-cache:/app/.cache
+    mem_limit: 6g
+    cpus: 4
+    restart: unless-stopped
+
+  ollama:
+    profiles: ["local-llm"]
+    image: ollama/ollama:latest
+    container_name: denso-ollama
+    environment:
+      OLLAMA_FLASH_ATTENTION: "1"
+      OLLAMA_KV_CACHE_TYPE: q8_0
+    ports:
+      - "127.0.0.1:11435:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+    restart: unless-stopped
+
+volumes:
+  infinity-cache:
+  ollama-models:

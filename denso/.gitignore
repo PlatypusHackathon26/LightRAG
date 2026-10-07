@@ -1,3 +1,5 @@
 logs/
 # Gateway tokens are secrets: commit users.example.json only
 gateway/users.json
+# Container-side overrides (copy of compose.env.example)
+compose.env
