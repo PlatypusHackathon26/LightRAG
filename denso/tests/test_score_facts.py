@@ -56,3 +56,9 @@ def test_abstention_needs_a_refusal():
     truth = "Không đủ thông tin trong bộ tài liệu được cung cấp."
     assert score_answer(q(truth, False), "The catalogue does not specify a km interval for Iridium Racing.")["score"] == 1.0
     assert score_answer(q(truth, False), "Replace Iridium Racing plugs every 10,000 km.")["score"] == 0.0
+
+
+def test_units_are_not_codes():
+    # Regression: "120 cm³ - 50 cm³ = 70 cm³" (Q25) produced a bogus "cm3" code fact.
+    codes, numbers = extract("120 cm³ - 50 cm³ = 70 cm³")
+    assert codes == set() and numbers == {120.0, 50.0, 70.0}

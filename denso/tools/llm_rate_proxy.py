@@ -92,6 +92,9 @@ def build_app(args: argparse.Namespace) -> FastAPI:
             if row.get("event") == "fresh_key" and row.get("day") == state["day"]:
                 state.update(tokens=0, calls=0, by_model={})
                 continue
+            if row.get("event") == "upstream_quota_spent" and row.get("day") == state["day"]:
+                state["by_model"][row.get("model")] = args.daily_token_budget
+                continue
             if row.get("day") == state["day"] and row.get("status") == 200:
                 state["tokens"] = max(state["tokens"], row.get("day_tokens", 0))
                 state["calls"] += 1
@@ -145,6 +148,18 @@ def build_app(args: argparse.Namespace) -> FastAPI:
                 break
             wait = float(r.headers.get("retry-after") or 20)
             log({"ts": datetime.now(timezone.utc).isoformat(), "status": 429, "attempt": attempt, "wait": wait})
+            if wait > args.max_wait:
+                # A long Retry-After (Cerebras sends 86400 s) means the upstream quota is spent,
+                # whatever our own counter says: mark the model spent and fail fast instead of
+                # sleeping for a day while every client times out.
+                state["by_model"][body.get("model")] = args.daily_token_budget
+                log({"ts": datetime.now(timezone.utc).isoformat(), "event": "upstream_quota_spent",
+                     "model": body.get("model"), "retry_after": wait, "day": state["day"]})
+                return JSONResponse(
+                    {"error": {"message": f"upstream daily quota spent for {body.get('model')} "
+                                          f"(Retry-After {wait:.0f}s); daily token budget spent", "type": "budget"}},
+                    status_code=429,
+                )
             await asyncio.sleep(wait)
         usage = {}
         if r.status_code == 200:
@@ -181,6 +196,8 @@ def main() -> None:
     ap.add_argument("--fallback-reasoning", default="none", help="reasoning_effort for the fallback model ('' = keep)")
     ap.add_argument("--log", default=str(REPO / "denso" / "logs" / "llm_proxy.jsonl"))
     ap.add_argument("--fresh-key", action="store_true", help="The API key was replaced: start today's budget from zero")
+    ap.add_argument("--max-wait", type=float, default=300,
+                    help="A 429 asking to wait longer than this (s) means the upstream quota is spent")
     args = ap.parse_args()
     uvicorn.run(build_app(args), host="127.0.0.1", port=args.port, log_level="warning")
 

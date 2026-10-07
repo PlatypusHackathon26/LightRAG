@@ -45,6 +45,8 @@ def main() -> None:
     ap.add_argument("--name", required=True, help="Label for the result files")
     ap.add_argument("--mode", default="naive", help="naive needs no LLM; other modes spend keyword-extraction tokens")
     ap.add_argument("--top-k", type=int, default=max(KS))
+    ap.add_argument("--max-total-tokens", type=int, default=None,
+                    help="Override the server's MAX_TOTAL_TOKENS; by default measure exactly what the LLM gets")
     ap.add_argument("--min-recall", type=float, default=0.6, help="Evidence token recall needed inside one chunk")
     ap.add_argument("--bench", type=Path, default=DEFAULT_BENCH)
     ap.add_argument("--out", type=Path, default=DEFAULT_OUT)
@@ -54,7 +56,10 @@ def main() -> None:
     rows = []
     with httpx.Client(base_url=args.server, timeout=300) as client:
         for q in questions:
-            r = client.post("/query/data", json={"query": q["question"], "mode": args.mode, "chunk_top_k": args.top_k})
+            payload = {"query": q["question"], "mode": args.mode, "chunk_top_k": args.top_k}
+            if args.max_total_tokens:
+                payload["max_total_tokens"] = args.max_total_tokens
+            r = client.post("/query/data", json=payload)
             r.raise_for_status()
             chunks = (r.json().get("data") or {}).get("chunks") or []
             ranks = [first_hit(chunks, c, args.min_recall) for c in q["citations"]]
@@ -64,13 +69,17 @@ def main() -> None:
                 "best": min(found) if found else None,  # any citation retrieved
                 "all": max(ranks) if found and len(found) == len(ranks) else None,  # every citation retrieved
                 "top3_files": [c.get("file_path", "")[:45] for c in chunks[:3]],
+                "returned": len(chunks),
             })
             print(f"Q{q['id']:<2} ranks={ranks}", flush=True)
 
     def rate(key: str, k: int, subset: list[dict]) -> float:
         return sum(1 for x in subset if x[key] is not None and x[key] <= k) / len(subset)
 
+    returned = sorted(x["returned"] for x in rows)
     lines = [f"# Retrieval evaluation ({args.name}, mode={args.mode}, min evidence recall {args.min_recall:.0%})", "",
+             f"Chunks actually returned per question: min {returned[0]}, median {returned[len(returned) // 2]}, "
+             f"max {returned[-1]} (requested {args.top_k}; the token budget caps it, so hit@k beyond that equals the cap).", "",
              "| | " + " | ".join(f"hit@{k}" for k in KS) + " |", "|---|" + "---|" * len(KS)]
     lines.append("| any citation | " + " | ".join(f"{rate('best', k, rows):.0%}" for k in KS) + " |")
     lines.append("| all citations | " + " | ".join(f"{rate('all', k, rows):.0%}" for k in KS) + " |")

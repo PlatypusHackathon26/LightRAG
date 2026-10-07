@@ -1,0 +1,24 @@
+# Local reranker for LightRAG: Infinity serving BAAI/bge-reranker-v2-m3 on CPU.
+# Infinity's /rerank endpoint is Cohere-compatible, so LightRAG uses
+#   RERANK_BINDING=cohere
+#   RERANK_BINDING_HOST=http://localhost:7997/rerank
+#   RERANK_MODEL=BAAI/bge-reranker-v2-m3
+# Start: docker compose -f denso/reranker/docker-compose.yml up -d
+# The model (~2.3 GB) is downloaded on first start into the named volume.
+services:
+  reranker:
+    image: michaelf34/infinity:latest-cpu
+    container_name: denso-reranker
+    command: ["v2", "--model-id", "BAAI/bge-reranker-v2-m3", "--engine", "torch", "--device", "cpu", "--batch-size", "8", "--no-bettertransformer", "--port", "7997"]  # torch: no ONNX export exists; small batch: warm-up with 32x512 tokens crashed on CPU
+    environment:
+      DO_NOT_TRACK: "1"   # Infinity sends anonymized telemetry unless this is set
+    ports:
+      - "127.0.0.1:7997:7997"
+    volumes:
+      - infinity-cache:/app/.cache
+    restart: unless-stopped
+    mem_limit: 6g
+    cpus: 4
+
+volumes:
+  infinity-cache:

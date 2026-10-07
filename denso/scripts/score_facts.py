@@ -59,6 +59,8 @@ def parse_number(tok: str) -> float | None:
         return None
 
 
+# Units that look like codes after normalisation (cm³ -> cm3): never facts on their own.
+UNIT_TOKENS = {"cm3", "cm2", "mm2", "mm3", "m2", "m3", "km2", "co2"}
 DASHES = re.compile(r"[‐-―−﹘﹣－]")
 
 
@@ -79,7 +81,7 @@ def norm_code(code: str) -> str:
 def extract(text: str) -> tuple[set[str], set[float]]:
     """Return (codes, numbers) mentioned in text. Numbers inside codes are not counted twice."""
     text = GLUED_UNIT.sub(r"\1 \2", LIST_MARKER.sub(" ", normalize(text)))
-    codes ={norm_code(m.group(0)) for m in CODE.finditer(text)}
+    codes = {norm_code(m.group(0)) for m in CODE.finditer(text)} - UNIT_TOKENS
     stripped = CODE.sub(" ", text)
     numbers = {n for m in NUMBER.finditer(stripped) if (n := parse_number(m.group(0))) is not None}
     return codes, numbers
@@ -112,17 +114,27 @@ def main() -> None:
     ap.add_argument("--name", required=True, help="Benchmark run label (results/benchmark_<name>.json)")
     ap.add_argument("--bench", type=Path, default=DEFAULT_BENCH)
     ap.add_argument("--out", type=Path, default=DEFAULT_OUT)
+    ap.add_argument("--all", action="store_true", help="Score every result, not only questions answered in all modes")
     args = ap.parse_args()
 
     questions = {q["id"]: q for q in json.loads(args.bench.read_text(encoding="utf-8"))}
     results = json.loads((args.out / f"benchmark_{args.name}.json").read_text(encoding="utf-8"))
+    modes_of: dict[str, set] = defaultdict(set)
+    for key in results:
+        mode, qid = key.split(":")
+        modes_of[qid].add(mode)
+    all_modes = set().union(*modes_of.values()) if modes_of else set()
+    paired = {qid for qid, ms in modes_of.items() if ms == all_modes}
     per_mode: dict[str, list[tuple[dict, dict]]] = defaultdict(list)
     for key, res in results.items():
+        if not args.all and key.split(":")[1] not in paired:
+            continue
         mode, qid = key.split(":")
         q = questions[int(qid)]
         per_mode[mode].append((q, score_answer(q, res["answer"])))
 
-    lines = [f"# Fact-based scores ({args.name})", "",
+    scope = "all results" if args.all else f"{len(paired)} questions answered in every mode"
+    lines = [f"# Fact-based scores ({args.name}; {scope})", "",
              "| Mode | Fact recall | All facts present | Abstention correct | Scored (facts/abst./prose) |",
              "|---|---|---|---|---|"]
     detail = ["", "## Missing facts", ""]
@@ -131,10 +143,10 @@ def main() -> None:
         facts = [s for _, s in rows if s["kind"] == "facts"]
         abst = [s for _, s in rows if s["kind"] == "abstention"]
         prose = [s for _, s in rows if s["kind"] == "prose"]
-        recall = sum(s["score"] for s in facts) / len(facts) if facts else 0.0
-        full = sum(s["score"] == 1.0 for s in facts) / len(facts) if facts else 0.0
-        abst_ok = sum(s["score"] for s in abst) / len(abst) if abst else 0.0
-        lines.append(f"| {mode} | {recall:.0%} | {full:.0%} | {abst_ok:.0%} | {len(facts)}/{len(abst)}/{len(prose)} |")
+        def pct(vals: list[float]) -> str:
+            return f"{sum(vals) / len(vals):.0%}" if vals else "-"
+        lines.append(f"| {mode} | {pct([s['score'] for s in facts])} | {pct([float(s['score'] == 1.0) for s in facts])} "
+                     f"| {pct([s['score'] for s in abst])} | {len(facts)}/{len(abst)}/{len(prose)} |")
         for q, s in sorted(rows, key=lambda r: r[0]["id"]):
             if s["score"] is not None:
                 by_cat[q["category"]][mode].append(s["score"])
