@@ -181,3 +181,17 @@ def test_lookup_falls_back_to_knowledge_when_lookup_server_is_down(backend, tmp_
     r = tc.post("/agent/chat", json={"conversationId": "c9", "message": "Which DENSO spark plug fits a 2018 Toyota Corolla?"})
     assert r.status_code == 200 and r.json()["target"] == "knowledge"
     assert calls[-1].url.host == "l1" and json.loads(calls[-1].content)["mode"] == "mix"
+
+
+def test_empty_llm_answer_is_an_error_not_a_no_context_reply(tmp_path):
+    # Regression (seen live): with the API quota spent, LightRAG answered the
+    # placeholder "No relevant context found for the query." and the UI showed it
+    # as if the documents had no answer.
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"response": "No relevant context found for the query.",
+                                         "references": [], "llm_generated": False})
+
+    settings = Settings(level_servers=SERVERS, users={}, actions_log=tmp_path / "a.jsonl", ops_file=tmp_path / "n.json")
+    tc = TestClient(create_app(settings, transport=httpx.MockTransport(handler)))
+    r = tc.post("/agent/chat", json={"conversationId": "c", "message": "torque?"})
+    assert r.status_code == 503 and "LLM returned nothing" in r.json()["detail"]

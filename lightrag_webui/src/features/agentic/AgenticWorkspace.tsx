@@ -1,12 +1,21 @@
+import { useEffect } from 'react'
 import AgentTopBar from './components/AgentTopBar'
 import IncidentSidebar from './components/IncidentSidebar'
 import ChatWorkspace from './components/ChatWorkspace'
 import KnowledgeHubDrawer from './components/KnowledgeHubDrawer'
 import { useLiveTelemetry } from './hooks/useLiveTelemetry'
+import { useAgenticStore } from './stores/agenticStore'
+import { agentClient } from '@/api/agent'
 
 export default function AgenticWorkspace() {
   // Drive live telemetry updates
   useLiveTelemetry()
+
+  // Live mode: replace the mock documents/incidents with the Agent Gateway's.
+  const loadLiveData = useAgenticStore((s) => s.loadLiveData)
+  useEffect(() => {
+    void loadLiveData({ documents: agentClient.fetchDocuments, incidents: agentClient.fetchIncidents })
+  }, [loadLiveData])
 
   return (
     <div

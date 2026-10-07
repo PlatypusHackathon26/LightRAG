@@ -33,6 +33,14 @@ interface ImportMetaEnv {
   /** When `true`, the Industrial Agentic Copilot runs in full demo/mock mode
    *  without any backend connection. Default: `true` in dev. */
   readonly VITE_DEMO_MODE?: string
+
+  /** `true`: the agentic UI calls the DENSO Agent Gateway instead of mocks
+   *  (see src/features/agentic/agentConfig.ts). Default: mocks. */
+  readonly VITE_AGENT_LIVE?: string
+  /** Agent Gateway origin, e.g. `http://127.0.0.1:9700`; empty = same origin. */
+  readonly VITE_AGENT_BASE_URL?: string
+  /** Dev/demo bearer token for the gateway (ships in the bundle - never a real secret). */
+  readonly VITE_AGENT_TOKEN?: string
 }
 
 interface ImportMeta {

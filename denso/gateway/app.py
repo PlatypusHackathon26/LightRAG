@@ -53,6 +53,9 @@ LOOKUP_QUESTION = re.compile(
     r"\bxe nào\b|\blắp (cho|được)\b|\bdùng cho xe\b",
     re.IGNORECASE,
 )
+# Placeholder the LightRAG /query route returns when the LLM produced no text. Not the same
+# as PROMPTS["fail_response"], which is a deliberate refusal when retrieval finds nothing.
+EMPTY_LLM_PLACEHOLDER = "No relevant context found for the query."
 # LightRAG doc_status -> UI DocumentIndexStatus
 STATUS_MAP = {
     "pending": "uploading",
@@ -253,6 +256,11 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
         if r.status_code != 200:
             raise HTTPException(status_code=502, detail=f"LightRAG {target} server returned {r.status_code}")
         body = r.json()
+        if body.get("response", "").strip() == EMPTY_LLM_PLACEHOLDER:
+            # LightRAG substitutes this when the answering LLM returned nothing (timeout,
+            # 429, spent quota). Passing it on would read as "the documents have no answer".
+            raise HTTPException(status_code=503, detail="the answering LLM returned nothing (quota, rate limit or "
+                                                       "timeout) - see denso/logs/llm_proxy.jsonl and the server log")
         content = strip_reference_section(body.get("response", ""))
         citations = to_citations(body.get("references") or [])
         history[req.conversationId].extend(

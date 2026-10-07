@@ -1,46 +1,30 @@
 /**
  * Agent Gateway API adapter.
  *
- * Phase 1: All calls are routed through the mock service when VITE_DEMO_MODE=true.
- * Phase 2: Replace mock implementations with real fetch/axios calls to the Agent Gateway.
+ * Mock mode (default): every call resolves from the local mock data.
+ * Live mode (VITE_AGENT_LIVE=true, see features/agentic/agentConfig.ts): calls the
+ * DENSO Agent Gateway (denso/gateway/app.py), which fronts the LightRAG servers.
  *
- * Agent Gateway endpoints (for Phase 2):
+ * Agent Gateway endpoints:
  *   GET  /agent/incidents
  *   GET  /agent/incidents/{id}
  *   POST /agent/chat
+ *   GET  /agent/documents
  *   POST /agent/actions/{id}/approve
  *   POST /agent/actions/{id}/reject
  *   GET  /agent/telemetry/{deviceId}
- *
- * LightRAG endpoints (already implemented in /api/lightrag.ts):
- *   GET/POST /documents*
- *   POST     /query
- *   POST     /query/stream
- *   GET      /track_status/{track_id}
  */
 
-import type { Incident, TelemetrySnapshot } from '../features/agentic/types/agentic'
+import type {
+  AgentEvent,
+  Citation,
+  Incident,
+  KnowledgeDocument,
+  TelemetrySnapshot,
+} from '../features/agentic/types/agentic'
 import { mockIncidents, mockTelemetry } from '../features/agentic/mock/incidents'
-
-const IS_DEMO = import.meta.env.VITE_DEMO_MODE !== 'false'
-
-// ─── Incident endpoints ────────────────────────────────────────────────────────
-
-export async function fetchIncidents(): Promise<Incident[]> {
-  if (IS_DEMO) return Promise.resolve([...mockIncidents])
-  const res = await fetch('/agent/incidents')
-  if (!res.ok) throw new Error(`fetchIncidents failed: ${res.status}`)
-  return res.json()
-}
-
-export async function fetchIncident(id: string): Promise<Incident | undefined> {
-  if (IS_DEMO) return Promise.resolve(mockIncidents.find((i: Incident) => i.id === id))
-  const res = await fetch(`/agent/incidents/${id}`)
-  if (!res.ok) throw new Error(`fetchIncident failed: ${res.status}`)
-  return res.json()
-}
-
-// ─── Chat endpoint ─────────────────────────────────────────────────────────────
+import { mockDocuments } from '../features/agentic/mock/knowledge'
+import { agentConfig, type AgentConfig } from '../features/agentic/agentConfig'
 
 export interface AgentChatRequest {
   conversationId: string
@@ -49,45 +33,111 @@ export interface AgentChatRequest {
 
 export interface AgentChatResponse {
   content: string
-  citations?: { documentId: string; documentName: string; pages?: string }[]
+  citations?: Citation[]
+  /** Live only: retrieval / generation trace for AgentActivityTrace. */
+  events?: AgentEvent[]
+  /** Live only: which LightRAG tier answered ("knowledge" | "lookup"). */
+  target?: string
+  /** Live only: false when LightRAG answered without the LLM (e.g. nothing retrieved). */
+  llmGenerated?: boolean
 }
 
-export async function postAgentChat(req: AgentChatRequest): Promise<AgentChatResponse> {
-  if (IS_DEMO) {
-    // Mock: echo back a canned response (real logic is in ChatWorkspace.tsx)
-    return Promise.resolve({
-      content: `[DEMO] Received: "${req.message}"`,
-    })
+export class AgentApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number
+  ) {
+    super(message)
+    this.name = 'AgentApiError'
   }
-  const res = await fetch('/agent/chat', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(req),
+}
+
+type FetchLike = (input: string, init?: RequestInit) => Promise<Response>
+
+/** Build an agent client; tests pass their own config and fetch. */
+export function createAgentClient(config: AgentConfig, fetchImpl: FetchLike = (i, init) => fetch(i, init)) {
+  const headers = (extra?: Record<string, string>): Record<string, string> => ({
+    ...(config.token ? { Authorization: `Bearer ${config.token}` } : {}),
+    ...extra,
   })
-  if (!res.ok) throw new Error(`postAgentChat failed: ${res.status}`)
-  return res.json()
+
+  async function request<T>(path: string, init?: RequestInit): Promise<T> {
+    const res = await fetchImpl(`${config.baseUrl}${path}`, {
+      ...init,
+      headers: headers(init?.body ? { 'Content-Type': 'application/json' } : undefined),
+    })
+    if (!res.ok) {
+      let detail = ''
+      try {
+        detail = (await res.json())?.detail ?? ''
+      } catch {
+        /* non-JSON error body */
+      }
+      throw new AgentApiError(`${init?.method ?? 'GET'} ${path} failed: ${res.status}${detail ? ` - ${detail}` : ''}`, res.status)
+    }
+    return res.json() as Promise<T>
+  }
+
+  return {
+    live: config.live,
+
+    fetchIncidents(): Promise<Incident[]> {
+      if (!config.live) return Promise.resolve([...mockIncidents])
+      return request<Incident[]>('/agent/incidents')
+    },
+
+    async fetchIncident(id: string): Promise<Incident | undefined> {
+      if (!config.live) return mockIncidents.find((i: Incident) => i.id === id)
+      try {
+        return await request<Incident>(`/agent/incidents/${encodeURIComponent(id)}`)
+      } catch (e) {
+        if (e instanceof AgentApiError && e.status === 404) return undefined
+        throw e
+      }
+    },
+
+    postAgentChat(req: AgentChatRequest): Promise<AgentChatResponse> {
+      if (!config.live) {
+        // Mock: echo back a canned response (the demo replies live in ChatWorkspace.tsx)
+        return Promise.resolve({ content: `[DEMO] Received: "${req.message}"` })
+      }
+      return request<AgentChatResponse>('/agent/chat', { method: 'POST', body: JSON.stringify(req) })
+    },
+
+    fetchDocuments(): Promise<KnowledgeDocument[]> {
+      if (!config.live) return Promise.resolve([...mockDocuments])
+      return request<KnowledgeDocument[]>('/agent/documents')
+    },
+
+    approveAction(actionId: string): Promise<{ ack: string }> {
+      if (!config.live) return Promise.resolve({ ack: 'ACK 200' })
+      return request<{ ack: string }>(`/agent/actions/${encodeURIComponent(actionId)}/approve`, { method: 'POST' })
+    },
+
+    async rejectAction(actionId: string): Promise<void> {
+      if (!config.live) return
+      await request(`/agent/actions/${encodeURIComponent(actionId)}/reject`, { method: 'POST' })
+    },
+
+    async fetchTelemetry(incidentId: string): Promise<TelemetrySnapshot | undefined> {
+      if (!config.live) return mockTelemetry[incidentId]
+      try {
+        return await request<TelemetrySnapshot>(`/agent/telemetry/${encodeURIComponent(incidentId)}`)
+      } catch (e) {
+        if (e instanceof AgentApiError && e.status === 404) return undefined
+        throw e
+      }
+    },
+  }
 }
 
-// ─── Action approval / rejection ──────────────────────────────────────────────
+export const agentClient = createAgentClient(agentConfig)
 
-export async function approveAction(actionId: string): Promise<{ ack: string }> {
-  if (IS_DEMO) return Promise.resolve({ ack: 'ACK 200' })
-  const res = await fetch(`/agent/actions/${actionId}/approve`, { method: 'POST' })
-  if (!res.ok) throw new Error(`approveAction failed: ${res.status}`)
-  return res.json()
-}
-
-export async function rejectAction(actionId: string): Promise<void> {
-  if (IS_DEMO) return Promise.resolve()
-  const res = await fetch(`/agent/actions/${actionId}/reject`, { method: 'POST' })
-  if (!res.ok) throw new Error(`rejectAction failed: ${res.status}`)
-}
-
-// ─── Telemetry ─────────────────────────────────────────────────────────────────
-
-export async function fetchTelemetry(incidentId: string): Promise<TelemetrySnapshot | undefined> {
-  if (IS_DEMO) return Promise.resolve(mockTelemetry[incidentId])
-  const res = await fetch(`/agent/telemetry/${incidentId}`)
-  if (!res.ok) throw new Error(`fetchTelemetry failed: ${res.status}`)
-  return res.json()
-}
+// Named exports kept for existing callers.
+export const fetchIncidents = () => agentClient.fetchIncidents()
+export const fetchIncident = (id: string) => agentClient.fetchIncident(id)
+export const postAgentChat = (req: AgentChatRequest) => agentClient.postAgentChat(req)
+export const fetchDocuments = () => agentClient.fetchDocuments()
+export const approveAction = (actionId: string) => agentClient.approveAction(actionId)
+export const rejectAction = (actionId: string) => agentClient.rejectAction(actionId)
+export const fetchTelemetry = (incidentId: string) => agentClient.fetchTelemetry(incidentId)

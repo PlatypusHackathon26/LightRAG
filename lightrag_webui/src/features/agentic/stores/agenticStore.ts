@@ -2,7 +2,9 @@ import { create } from 'zustand'
 import { mockDocuments } from '../mock/knowledge'
 import { mockIncidents } from '../mock/incidents'
 import { mockConversations } from '../mock/conversations'
+import { agentConfig } from '../agentConfig'
 import type {
+  AgentEvent,
   AgentState,
   ActionExecutionStatus,
   Incident,
@@ -15,9 +17,31 @@ import type {
 
 const DEMO_MODE = import.meta.env.VITE_DEMO_MODE !== 'false'
 
+// Live mode (VITE_AGENT_LIVE=true): start from one empty Q&A session; documents and
+// incidents are loaded from the Agent Gateway by loadLiveData() instead of the mocks.
+export const LIVE_CONVERSATION_ID = 'CONV-LIVE'
+const liveConversation = (): Conversation => ({
+  id: LIVE_CONVERSATION_ID,
+  type: 'manual',
+  title: 'Hỏi đáp tài liệu kỹ thuật DENSO',
+  timestamp: new Date().toISOString(),
+  messages: [],
+  agentState: 'idle',
+  agentEvents: [],
+})
+
+const clock = (iso?: string): string =>
+  (iso ? new Date(iso) : new Date()).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+
 interface AgenticStore {
   // ── Identity ───────────────────────────────────────────────────────────────
   isDemoMode: boolean
+  /** True when VITE_AGENT_LIVE=true: data comes from the Agent Gateway. */
+  isLive: boolean
+  liveError: string | null
+  setLiveError: (message: string | null) => void
+  /** Live mode: load documents and incidents from the gateway (no-op with mocks). */
+  loadLiveData: (load: { documents: () => Promise<KnowledgeDocument[]>; incidents: () => Promise<Incident[]> }) => Promise<void>
 
   // ── Sidebar ────────────────────────────────────────────────────────────────
   sidebarFilter: SidebarFilter
@@ -32,6 +56,8 @@ interface AgenticStore {
   addUserMessage: (conversationId: string, content: string) => void
   addAssistantMessage: (conversationId: string, content: string, citations?: ChatMessage['citations']) => void
   setAgentState: (conversationId: string, state: AgentState) => void
+  /** Append gateway trace events (ISO timestamps are shown as local clock time). */
+  addAgentEvents: (conversationId: string, events: AgentEvent[]) => void
 
   // ── Incidents ──────────────────────────────────────────────────────────────
   incidents: Incident[]
@@ -60,13 +86,25 @@ interface AgenticStore {
 
 export const useAgenticStore = create<AgenticStore>((set, get) => ({
   isDemoMode: DEMO_MODE,
+  isLive: agentConfig.live,
+  liveError: null,
+  setLiveError: (message) => set({ liveError: message }),
+  loadLiveData: async (load) => {
+    if (!get().isLive) return
+    try {
+      const [documents, incidents] = await Promise.all([load.documents(), load.incidents()])
+      set({ documents, incidents, liveError: null })
+    } catch (e) {
+      set({ liveError: e instanceof Error ? e.message : String(e) })
+    }
+  },
 
   // ── Sidebar ────────────────────────────────────────────────────────────────
   sidebarFilter: 'all',
   setSidebarFilter: (f) => set({ sidebarFilter: f }),
 
   // ── Active conversation ────────────────────────────────────────────────────
-  activeConversationId: 'CONV-001',
+  activeConversationId: agentConfig.live ? LIVE_CONVERSATION_ID : 'CONV-001',
   setActiveConversationId: (id) => {
     set({ activeConversationId: id })
     // Sync activeIncident
@@ -80,7 +118,7 @@ export const useAgenticStore = create<AgenticStore>((set, get) => ({
   },
 
   // ── Conversations ──────────────────────────────────────────────────────────
-  conversations: mockConversations,
+  conversations: agentConfig.live ? [liveConversation()] : mockConversations,
   addUserMessage: (conversationId, content) => {
     const now = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
     const msg: ChatMessage = {
@@ -117,10 +155,18 @@ export const useAgenticStore = create<AgenticStore>((set, get) => ({
       ),
     }))
   },
+  addAgentEvents: (conversationId, events) => {
+    const shown = events.map((e) => ({ ...e, timestamp: clock(e.timestamp) }))
+    set((s) => ({
+      conversations: s.conversations.map((c) =>
+        c.id === conversationId ? { ...c, agentEvents: [...c.agentEvents, ...shown] } : c
+      ),
+    }))
+  },
 
   // ── Incidents ──────────────────────────────────────────────────────────────
-  incidents: mockIncidents,
-  activeIncident: mockIncidents.find((i) => i.id === 'INC-001') ?? null,
+  incidents: agentConfig.live ? [] : mockIncidents,
+  activeIncident: agentConfig.live ? null : (mockIncidents.find((i) => i.id === 'INC-001') ?? null),
 
   // ── HITL ───────────────────────────────────────────────────────────────────
   actionExecutions: {
@@ -208,7 +254,7 @@ export const useAgenticStore = create<AgenticStore>((set, get) => ({
   // ── Knowledge Hub ──────────────────────────────────────────────────────────
   knowledgeDrawerOpen: false,
   setKnowledgeDrawerOpen: (open) => set({ knowledgeDrawerOpen: open }),
-  documents: mockDocuments,
+  documents: agentConfig.live ? [] : mockDocuments,
   addDocument: (doc) => set((s) => ({ documents: [doc, ...s.documents] })),
   updateDocumentStatus: (id, status, progress) => {
     set((s) => ({

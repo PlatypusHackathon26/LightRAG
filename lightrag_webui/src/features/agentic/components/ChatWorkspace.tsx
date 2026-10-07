@@ -6,6 +6,7 @@ import HITLActionCard from './HITLActionCard'
 import TelemetryStrip from './TelemetryStrip'
 import AgentComposer from './AgentComposer'
 import { MessageSquareIcon, AlertTriangleIcon } from 'lucide-react'
+import { agentClient } from '@/api/agent'
 
 // Simulated agent responses for demo mode
 const DEMO_RESPONSES = [
@@ -42,8 +43,12 @@ export default function ChatWorkspace() {
     activeConversationId,
     conversations,
     incidents,
+    isLive,
+    liveError,
     addUserMessage,
     addAssistantMessage,
+    addAgentEvents,
+    setAgentState,
   } = useAgenticStore()
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -57,6 +62,24 @@ export default function ChatWorkspace() {
   const handleSend = (content: string) => {
     if (!activeConversationId) return
     addUserMessage(activeConversationId, content)
+
+    if (isLive) {
+      const conversationId = activeConversationId
+      setAgentState(conversationId, 'investigating')
+      agentClient
+        .postAgentChat({ conversationId, message: content })
+        .then((res) => {
+          addAssistantMessage(conversationId, res.content, res.citations)
+          if (res.events?.length) addAgentEvents(conversationId, res.events)
+          setAgentState(conversationId, 'idle')
+        })
+        .catch((e: unknown) => {
+          const detail = e instanceof Error ? e.message : String(e)
+          addAssistantMessage(conversationId, `⚠️ Agent Gateway báo lỗi: ${detail}`)
+          setAgentState(conversationId, 'idle')
+        })
+      return
+    }
 
     // Simulate agent response after delay
     const lower = content.toLowerCase()
@@ -125,6 +148,12 @@ export default function ChatWorkspace() {
           </div>
         </div>
       </div>
+
+      {isLive && liveError && (
+        <div className="px-4 py-1.5 shrink-0" style={{ fontSize: 12, background: '#FEF2F2', color: '#B91C1C', borderBottom: '1px solid #FECACA' }}>
+          Agent Gateway: {liveError}
+        </div>
+      )}
 
       {/* Telemetry strip */}
       {incident?.telemetry && <TelemetryStrip telemetry={incident.telemetry} />}
