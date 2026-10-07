@@ -17,6 +17,7 @@ from app import (  # noqa: E402
     create_app,
     display_name,
     only_cited,
+    pages_from_chunks,
     strip_reference_section,
     to_citations,
 )
@@ -38,7 +39,7 @@ def test_citations_carry_pages_and_excerpt():
                     "--- [Trang 20 | ngôn ngữ: ru] ---\n\nУстановить болты"],
     }]
     (c,) = to_citations(refs)
-    assert c["pages"] == "4, 20"
+    assert c["pages"] == "4"  # the Russian translation (p.20) is not where the answer was read
     assert c["documentName"] == "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ)"
     assert c["excerpt"].startswith("Fit the bolts and tighten them with 6.9 to 10.8")
 
@@ -218,6 +219,13 @@ def test_only_cited_references_are_kept():
     assert len(only_cited(refs, "No markers at all.")) == 2  # nothing cited: keep everything
 
 
+def test_without_markers_the_quoted_figures_pick_the_source():
+    refs = [{"reference_id": "1", "file_path": "catalogue.md", "content": ["SC20HR11 1.6L 2009-2012"]},
+            {"reference_id": "2", "file_path": "guide.md", "content": ["tighten with 6,9 to 10,8 Nm"]}]
+    assert [r["file_path"] for r in only_cited(refs, "Tighten to 6.9 - 10.8 Nm.")] == ["guide.md"]
+    assert len(only_cited(refs, "Tighten to 99.9 Nm.")) == 2  # figure found nowhere: keep everything
+
+
 def test_cors_regex_allows_every_deployment_of_the_vercel_project(tmp_path):
     settings = Settings(level_servers=SERVERS, users={}, actions_log=tmp_path / "a.jsonl", ops_file=tmp_path / "x.json",
                         cors_regex=r"^https://denso-copilot(-[a-z0-9-]+)?\.vercel\.app$")
@@ -231,3 +239,23 @@ def test_cors_regex_allows_every_deployment_of_the_vercel_project(tmp_path):
     assert allowed("https://denso-copilot-git-feat-rag-backend-team.vercel.app")
     assert not allowed("https://evil-copilot.vercel.app")
     assert allowed("http://localhost:5173")  # the explicit list still applies
+
+
+def test_pages_follow_the_language_of_the_best_chunk():
+    # A multilingual guide: the best-ranked chunk is English, so only English pages count.
+    chunks = ["--- [Trang 4 | ngôn ngữ: en] ---\nTighten to 6.9 Nm",
+              "--- [Trang 20 | ngôn ngữ: ru] ---\nЗатянуть 6,9 Н-м",
+              "--- [Trang 5 | ngôn ngữ: en] ---\nUse guide pins",
+              "--- [Trang 6 | ngôn ngữ: de] ---\nAnziehen 6,9 Nm"]
+    assert pages_from_chunks(chunks) == "4, 5"
+
+
+def test_a_chunk_crossing_a_language_boundary_keeps_only_its_first_language():
+    chunk = ("--- [Trang 4 | ngôn ngữ: en] ---\nTighten to 6.9 Nm\n"
+             "--- [Trang 5 | ngôn ngữ: de] ---\nAnziehen\n--- [Trang 2 | ngôn ngữ: mixed] ---\nNotes")
+    assert pages_from_chunks([chunk]) == "2, 4"
+
+
+def test_long_page_lists_are_cut():
+    chunks = [f"--- [Trang {p} | ngôn ngữ: en] ---\nrow" for p in range(1, 15)]
+    assert pages_from_chunks(chunks) == "1, 2, 3, 4, 5, 6, …"

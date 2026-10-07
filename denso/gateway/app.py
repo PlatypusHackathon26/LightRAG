@@ -78,8 +78,25 @@ def display_name(file_path: str) -> str:
     return LOOKUP_HINT.sub("", name).strip()
 
 
+CHUNK_LANG = re.compile(r"--- \[Trang \d+ \| ngôn ngữ: ([a-z-]+)\] ---")
+PAGE_LANG = re.compile(r"--- \[Trang (\d+)(?: \| ngôn ngữ: ([a-z-]+))?[^\]]*\] ---")
+MAX_PAGES_SHOWN = 6
+
+
 def pages_from_chunks(chunks: list[str]) -> str | None:
-    pages = sorted({int(p) for c in chunks for p in PAGE_MARK.findall(c)})
+    """Pages of the chunks in the language of the best-ranked chunk.
+
+    A multilingual guide repeats each section once per language, so the context holds
+    the same paragraph from many pages; listing all of them ("Pages 1-20") is noise.
+    The language reranker ranks the question's language first, so the first chunk's
+    language is the one the answer was read from.
+    """
+    first_lang = next((m.group(1) for c in chunks for m in [CHUNK_LANG.search(c)] if m), None)
+    marks = [(int(p), lang) for c in chunks for p, lang in PAGE_LANG.findall(c)]
+    # A chunk can run across a language boundary (en p.4 -> de p.5): filter page by page.
+    pages = sorted({p for p, lang in marks if not first_lang or lang in (first_lang, "mixed", "")})
+    if len(pages) > MAX_PAGES_SHOWN:
+        return ", ".join(map(str, pages[:MAX_PAGES_SHOWN])) + ", …"
     return ", ".join(map(str, pages)) or None
 
 
@@ -117,6 +134,8 @@ def strip_reference_section(answer: str) -> str:
 BRACKET_CITATION = re.compile(r"\s*【\s*(\d+)[^】]*】")
 OTHER_BRACKET = re.compile(r"\s*【[^】]*】")
 CITED_ID = re.compile(r"\[(\d+(?:\s*,\s*\d+)*)\]")
+# Decimal figures (6.9, 10,8) or long part numbers (DND08250, 294009-2150): specific enough to locate a source.
+ANSWER_FIGURE = re.compile(r"\b\d+[.,]\d+\b|\b[A-Z]{2,}\d{4,}\b|\b\d{5,}(?:-\d+)?\b")
 
 
 def clean_answer(answer: str) -> str:
@@ -134,6 +153,15 @@ def only_cited(references: list[dict], answer: str) -> list[dict]:
     """
     ids = {i for m in CITED_ID.finditer(answer) for i in re.findall(r"\d+", m.group(1))}
     kept = [r for r in references if str(r.get("reference_id")) in ids]
+    if kept:
+        return kept
+    # No [n] in the answer: keep the documents that contain the figures the answer quotes.
+    figures = {f.replace(",", ".") for f in ANSWER_FIGURE.findall(CITED_ID.sub(" ", answer))}
+    if figures:
+        def text(r: dict) -> str:
+            c = r.get("content") or ""
+            return (" ".join(c) if isinstance(c, list) else str(c)).replace(",", ".")
+        kept = [r for r in references if any(f in text(r) for f in figures)]
     return kept or references
 
 

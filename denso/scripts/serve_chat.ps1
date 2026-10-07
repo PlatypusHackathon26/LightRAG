@@ -16,8 +16,10 @@ param(
     [string]$Model = "nvidia/nemotron-3-super-120b-a12b",
     [string]$Reasoning = "low",
     [int]$Rpm = 30,
-    # Hosted UI (Vercel project "denso-copilot", any deployment URL of it) may call the gateway.
-    [string]$CorsRegex = '^https://denso-copilot(-[a-z0-9-]+)?\.vercel\.app$',
+    # Hosted UI: every deployment URL of the Vercel project "light-rag" in team "charlotte-eb9d"
+    # (light-rag-charlotte-eb9d.vercel.app, light-rag-git-<branch>-charlotte-eb9d.vercel.app, ...).
+    [string]$CorsRegex = '^https://light-rag(-[a-z0-9-]+)?-charlotte-eb9d\.vercel\.app$',
+    [string]$DemoSite = "https://light-rag-git-feat-rag-backend-charlotte-eb9d.vercel.app",
     [switch]$Restart,
     [switch]$WithUI,
     # Expose the gateway through a Cloudflare quick tunnel (public URL, guest = level 1) for the hosted demo.
@@ -116,5 +118,5 @@ if ($Tunnel) {
     if (-not $url) { throw "tunnel did not report a URL; see $logs\tunnel.err.log" }
     foreach ($i in 1..30) { try { Invoke-RestMethod "$url/agent/health" -TimeoutSec 10 | Out-Null; break } catch { Start-Sleep 3 } }
     "tunnel     $url  (public; anyone with it can ask level-1 questions)"
-    "demo link  https://denso-copilot.vercel.app/?gateway=$url"
+    "demo link  $DemoSite/?gateway=$url"
 }
