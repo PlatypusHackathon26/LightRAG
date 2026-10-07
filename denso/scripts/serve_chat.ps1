@@ -16,8 +16,12 @@ param(
     [string]$Model = "nvidia/nemotron-3-super-120b-a12b",
     [string]$Reasoning = "low",
     [int]$Rpm = 30,
+    # Hosted UI (Vercel project "denso-copilot", any deployment URL of it) may call the gateway.
+    [string]$CorsRegex = '^https://denso-copilot(-[a-z0-9-]+)?\.vercel\.app$',
     [switch]$Restart,
-    [switch]$WithUI
+    [switch]$WithUI,
+    # Expose the gateway through a Cloudflare quick tunnel (public URL, guest = level 1) for the hosted demo.
+    [switch]$Tunnel
 )
 $ErrorActionPreference = "Stop"
 $repo = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
@@ -34,7 +38,8 @@ function Stop-Port([int]$Port) {
     }
 }
 function Wait-Url([string]$Url, [int]$Tries = 60) {
-    foreach ($i in 1..$Tries) { try { return Invoke-RestMethod $Url -TimeoutSec 3 } catch { Start-Sleep 3 } }
+    # 15 s: the gateway's /agent/health probes level_2/3 too, and a refused localhost connect costs ~2 s on Windows.
+    foreach ($i in 1..$Tries) { try { return Invoke-RestMethod $Url -TimeoutSec 15 } catch { Start-Sleep 3 } }
     throw "not reachable: $Url"
 }
 function Start-Bg([string]$Exe, [string[]]$ArgList, [string]$Log) {
@@ -78,7 +83,8 @@ Wait-Url "http://127.0.0.1:9631/health" | Out-Null
 if (-not (Test-Port 9700)) {
     $env:DENSO_LEVEL_SERVERS = "http://127.0.0.1:9621,http://127.0.0.1:9622,http://127.0.0.1:9623"
     $env:DENSO_LOOKUP_SERVER = "http://127.0.0.1:9631"
-    $env:DENSO_GATEWAY_CORS = "http://localhost:5173,http://127.0.0.1:5173"
+    $env:DENSO_GATEWAY_CORS = "http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173"
+    $env:DENSO_GATEWAY_CORS_REGEX = $CorsRegex
     Start-Bg $py @("denso\gateway\app.py") "gateway"
     Wait-Url "http://127.0.0.1:9700/agent/health" 20 | Out-Null
 }
@@ -92,4 +98,23 @@ if ($WithUI -and -not (Test-Port 5173)) {
     Start-Process @p
     Wait-Url "http://localhost:5173" 30 | Out-Null  # Vite listens on ::1 only, not 127.0.0.1
     "ui         :5173"
+}
+
+if ($Tunnel) {
+    # A quick tunnel gets a new random URL every start; the hosted UI takes it as ?gateway=<url>.
+    $cf = (Get-Command cloudflared -ErrorAction SilentlyContinue).Source
+    if (-not $cf) { $cf = "${env:ProgramFiles(x86)}\cloudflared\cloudflared.exe" }
+    Get-Process cloudflared -ErrorAction SilentlyContinue | Stop-Process -Force -Confirm:$false
+    Remove-Item "$logs\tunnel.err.log" -ErrorAction SilentlyContinue
+    Start-Bg $cf @("tunnel", "--no-autoupdate", "--url", "http://localhost:9700") "tunnel"
+    $url = $null
+    foreach ($i in 1..40) {
+        Start-Sleep 2
+        $m = Select-String -Path "$logs\tunnel.err.log" -Pattern 'https://[a-z0-9-]+\.trycloudflare\.com' -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($m) { $url = $m.Matches[0].Value; break }
+    }
+    if (-not $url) { throw "tunnel did not report a URL; see $logs\tunnel.err.log" }
+    foreach ($i in 1..30) { try { Invoke-RestMethod "$url/agent/health" -TimeoutSec 10 | Out-Null; break } catch { Start-Sleep 3 } }
+    "tunnel     $url  (public; anyone with it can ask level-1 questions)"
+    "demo link  https://denso-copilot.vercel.app/?gateway=$url"
 }

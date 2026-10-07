@@ -113,6 +113,30 @@ def strip_reference_section(answer: str) -> str:
     return re.split(r"\n#{2,4}\s*References\s*\n", answer, maxsplit=1)[0].rstrip()
 
 
+# Nemotron cites as 【2†L4-L5】 or 【1†file.md】 instead of LightRAG's [2].
+BRACKET_CITATION = re.compile(r"\s*【\s*(\d+)[^】]*】")
+OTHER_BRACKET = re.compile(r"\s*【[^】]*】")
+CITED_ID = re.compile(r"\[(\d+(?:\s*,\s*\d+)*)\]")
+
+
+def clean_answer(answer: str) -> str:
+    """Strip the references block and normalise model-specific citation markers to [n]."""
+    text = strip_reference_section(answer)
+    text = BRACKET_CITATION.sub(lambda m: f" [{m.group(1)}]", text)
+    return OTHER_BRACKET.sub("", text)
+
+
+def only_cited(references: list[dict], answer: str) -> list[dict]:
+    """Keep the references the answer cites; all of them when it cites none.
+
+    LightRAG returns every document that contributed a context chunk, which lists a
+    whole catalogue next to the one guide the answer came from.
+    """
+    ids = {i for m in CITED_ID.finditer(answer) for i in re.findall(r"\d+", m.group(1))}
+    kept = [r for r in references if str(r.get("reference_id")) in ids]
+    return kept or references
+
+
 def classify_target(message: str) -> str:
     return "lookup" if LOOKUP_QUESTION.search(message) else "knowledge"
 
@@ -143,6 +167,8 @@ class Settings:
     guest_level: int = 1
     api_key: str | None = None
     cors: list[str] = field(default_factory=lambda: ["http://localhost:5173"])
+    # Hosted UI whose URL changes per deployment, e.g. ^https://denso-copilot(-[a-z0-9-]+)?\.vercel\.app$
+    cors_regex: str | None = None
     ops_file: Path = HERE / "sample_ops.json"
     actions_log: Path = REPO / "denso" / "logs" / "actions.jsonl"
     # naive beat mix on the benchmark (100% vs 87% with denso_answer.md, half the latency):
@@ -164,6 +190,7 @@ class Settings:
             guest_level=int(os.environ.get("DENSO_GUEST_LEVEL", "1")),
             api_key=os.environ.get("LIGHTRAG_API_KEY") or None,
             cors=[o.strip() for o in os.environ.get("DENSO_GATEWAY_CORS", "http://localhost:5173").split(",")],
+            cors_regex=os.environ.get("DENSO_GATEWAY_CORS_REGEX") or None,
             knowledge_mode=os.environ.get("DENSO_KNOWLEDGE_MODE", "naive"),
         )
 
@@ -193,7 +220,8 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
         await client.aclose()
 
     app = FastAPI(title="DENSO Agent Gateway", lifespan=lifespan)
-    app.add_middleware(CORSMiddleware, allow_origins=settings.cors, allow_methods=["*"], allow_headers=["*"])
+    app.add_middleware(CORSMiddleware, allow_origins=settings.cors, allow_origin_regex=settings.cors_regex,
+                       allow_methods=["*"], allow_headers=["*"])
     history: dict[str, deque] = defaultdict(lambda: deque(maxlen=HISTORY_TURNS * 2))
 
     def current_user(authorization: str | None = Header(default=None)) -> User:
@@ -263,8 +291,8 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
             # 429, spent quota). Passing it on would read as "the documents have no answer".
             raise HTTPException(status_code=503, detail="the answering LLM returned nothing (quota, rate limit or "
                                                        "timeout) - see denso/logs/llm_proxy.jsonl and the server log")
-        content = strip_reference_section(body.get("response", ""))
-        citations = to_citations(body.get("references") or [])
+        content = clean_answer(body.get("response", ""))
+        citations = to_citations(only_cited(body.get("references") or [], content))
         history[req.conversationId].extend(
             [{"role": "user", "content": req.message}, {"role": "assistant", "content": content}]
         )

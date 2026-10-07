@@ -13,8 +13,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "gateway"))
 from app import (  # noqa: E402
     Settings,
     classify_target,
+    clean_answer,
     create_app,
     display_name,
+    only_cited,
     strip_reference_section,
     to_citations,
 )
@@ -202,3 +204,30 @@ def test_knowledge_mode_can_be_set_from_env(monkeypatch):
     assert Settings.from_env().knowledge_mode == "mix"
     monkeypatch.delenv("DENSO_KNOWLEDGE_MODE")
     assert Settings.from_env().knowledge_mode == "naive"
+
+
+def test_nemotron_citation_markers_become_plain_ids():
+    raw = "Tighten to **6.9 - 10.8 Nm**【2†L4-L5】 and check【file.md】.\n\n### References\n- [2] guide.md"
+    assert clean_answer(raw) == "Tighten to **6.9 - 10.8 Nm** [2] and check."
+
+
+def test_only_cited_references_are_kept():
+    refs = [{"reference_id": "1", "file_path": "catalogue.md"}, {"reference_id": "2", "file_path": "guide.md"}]
+    assert [r["file_path"] for r in only_cited(refs, "Torque is 6.9 Nm [2].")] == ["guide.md"]
+    assert [r["file_path"] for r in only_cited(refs, "See [1, 2].")] == ["catalogue.md", "guide.md"]
+    assert len(only_cited(refs, "No markers at all.")) == 2  # nothing cited: keep everything
+
+
+def test_cors_regex_allows_every_deployment_of_the_vercel_project(tmp_path):
+    settings = Settings(level_servers=SERVERS, users={}, actions_log=tmp_path / "a.jsonl", ops_file=tmp_path / "x.json",
+                        cors_regex=r"^https://denso-copilot(-[a-z0-9-]+)?\.vercel\.app$")
+    tc = TestClient(create_app(settings, transport=httpx.MockTransport(lambda r: httpx.Response(200, json={}))))
+
+    def allowed(origin: str) -> bool:
+        r = tc.options("/agent/chat", headers={"Origin": origin, "Access-Control-Request-Method": "POST"})
+        return r.headers.get("access-control-allow-origin") == origin
+
+    assert allowed("https://denso-copilot.vercel.app")
+    assert allowed("https://denso-copilot-git-feat-rag-backend-team.vercel.app")
+    assert not allowed("https://evil-copilot.vercel.app")
+    assert allowed("http://localhost:5173")  # the explicit list still applies
