@@ -92,6 +92,9 @@ def check_budget(proxy: httpx.Client | None, models: list[str], need: int) -> No
             raise BudgetExhausted(f"{m}: only {left} tokens left today (UTC {b['day']}), need ~{need}")
 
 
+UNPARSABLE = "judge returned unparsable output"
+
+
 def judge(client: httpx.Client, model: str, q: dict, answer: str, reasoning: str | None) -> dict:
     prompt = JUDGE_PROMPT.format(
         question=q["question"],
@@ -104,7 +107,8 @@ def judge(client: httpx.Client, model: str, q: dict, answer: str, reasoning: str
         "messages": [{"role": "user", "content": prompt}],
         "response_format": {"type": "json_object"},
         "temperature": 0,
-        "max_completion_tokens": 512,
+        # Reasoning judges (GLM, Nemotron) think before the JSON; 512 cut them off mid-answer.
+        "max_completion_tokens": 4096,
     }
     if reasoning:
         body["reasoning_effort"] = reasoning
@@ -113,13 +117,24 @@ def judge(client: httpx.Client, model: str, q: dict, answer: str, reasoning: str
         raise BudgetExhausted(f"judge model {model}: daily token budget spent")
     r.raise_for_status()
     try:
-        verdict = json.loads(r.json()["choices"][0]["message"]["content"])
+        verdict = parse_verdict(r.json()["choices"][0]["message"]["content"])
         score = float(verdict.get("score", 0))
         if score not in (0.0, 0.5, 1.0):
             score = 0.0
         return {"score": score, "reason": verdict.get("reason", "")}
     except (json.JSONDecodeError, KeyError, TypeError, ValueError):
-        return {"score": 0.0, "reason": "judge returned unparsable output"}
+        return {"score": 0.0, "reason": UNPARSABLE}
+
+
+def parse_verdict(text: str) -> dict:
+    """The judge's JSON verdict, tolerating code fences or text around it."""
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        start, end = text.find("{"), text.rfind("}")
+        if start < 0 or end <= start:
+            raise
+        return json.loads(text[start:end + 1])
 
 
 def summarize(questions: list[dict], results: dict, modes: list[str]) -> str:
@@ -170,6 +185,8 @@ def main() -> None:
     ap.add_argument("--answer-model", default="gpt-oss-120b", help="Model LightRAG's QUERY/KEYWORD roles use (budget check)")
     ap.add_argument("--tokens-per-question", type=int, default=25000, help="Budget reserve per question")
     ap.add_argument("--ids", type=int, nargs="*", help="Only run these question ids")
+    ap.add_argument("--rejudge-failed", action="store_true",
+                    help="Score again the saved answers whose verdict was unparsable (no answering-LLM calls)")
     ap.add_argument("--no-rerank", action="store_true",
                     help="Pin the baseline retrieval (no reranker, chunk_top_k=10) so results stay comparable "
                          "with level_1_knowledge whatever RERANK_BINDING / CHUNK_TOP_K the server has")
@@ -195,7 +212,14 @@ def main() -> None:
         for mode in args.modes:
             for q in questions:
                 key = f"{mode}:{q['id']}"
+                if key in results and not (args.rejudge_failed and results[key]["judge"]["reason"] == UNPARSABLE):
+                    continue
                 if key in results:
+                    # Only the verdict failed: score the saved answer again, do not re-ask the LLM.
+                    results[key]["judge"] = judge(judge_client, args.judge_model, q, results[key]["answer"],
+                                                  args.judge_reasoning or None)
+                    out_json.write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8")
+                    print(f"[{mode}] Q{q['id']:>2} rejudged={results[key]['judge']['score']:.1f}")
                     continue
                 try:
                     check_budget(proxy, [args.answer_model], args.tokens_per_question)

@@ -10,7 +10,7 @@ Two jobs:
    touching the user's own apps:
      < --unload-gb    unload every Ollama model (they reload on the next call);
                       if RAM is still that low on the next sample, terminate the
-                      Ollama runner (llama-server) - an unload request waits for
+                      Ollama runner (llama-server) holding >= --runner-min-gb - an unload request waits for
                       the request in flight, which is how the 2026-10-07 13:51
                       power-off happened with the unload already sent
      < --kill-gb      (two samples in a row) terminate resumable DENSO jobs
@@ -103,6 +103,8 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--interval", type=float, default=5.0)
     ap.add_argument("--unload-gb", type=float, default=2.0, help="Unload Ollama models below this much available RAM")
+    ap.add_argument("--runner-min-gb", type=float, default=2.0,
+                    help="Only terminate Ollama runners using at least this much RAM (an LLM, not bge-m3)")
     ap.add_argument("--kill-gb", type=float, default=0.8, help="Terminate DENSO jobs below this (2 samples in a row)")
     ap.add_argument("--kill", nargs="*", default=DEFAULT_KILL, help="Command-line substrings of killable jobs")
     ap.add_argument("--ollama", default="http://localhost:11434")
@@ -130,13 +132,18 @@ def main() -> None:
                 if action == "unload_ollama":
                     rec["unloaded"] = unload_ollama(args.ollama)
                 elif action == "kill_runner":
-                    runners = [p for p in psutil.process_iter(["name"]) if p.info["name"] in RUNNER_NAMES]
+                    # Only a runner holding a large model (an LLM); the 0.7 GB embedding model a
+                    # running benchmark needs is not what takes the machine down.
+                    runners = [p for p in psutil.process_iter(["name", "memory_info"])
+                               if p.info["name"] in RUNNER_NAMES and p.info["memory_info"]
+                               and p.info["memory_info"].rss >= args.runner_min_gb * GB]
                     for r in runners:
                         try:
                             r.terminate()
                         except psutil.Error:
                             pass
-                    rec["killed_runner"] = [r.pid for r in runners]
+                    if runners:
+                        rec["killed_runner"] = [r.pid for r in runners]
                 elif action == "kill_jobs":
                     jobs = matching_jobs(args.kill)
                     for j in jobs:
