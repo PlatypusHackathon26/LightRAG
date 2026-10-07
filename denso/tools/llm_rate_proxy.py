@@ -27,6 +27,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import re
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -38,6 +39,24 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, Response
 
 REPO = Path(__file__).resolve().parents[2]
+RETRY_DELAY = re.compile(r'"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"')
+DAILY_QUOTA = re.compile(r"PerDay", re.IGNORECASE)
+
+
+def rate_limit_wait(retry_after: str | None, body: str, max_wait: float) -> float:
+    """Seconds to wait after a 429; above max_wait means the daily quota is spent.
+
+    Cerebras sends a Retry-After header (86400 once the day is spent). Google AI
+    Studio sends neither: its error body names the violated quota
+    ("GenerateRequestsPerDayPerProjectPerModel-FreeTier") and a RetryInfo
+    "retryDelay": "39s". A per-day violation is treated as spent whatever the delay.
+    """
+    if DAILY_QUOTA.search(body):
+        return max(max_wait + 1, 86400.0)
+    if retry_after:
+        return float(retry_after)
+    m = RETRY_DELAY.search(body)
+    return float(m.group(1)) + 1 if m else 20.0
 
 
 class Pacer:
@@ -146,10 +165,10 @@ def build_app(args: argparse.Namespace) -> FastAPI:
             r = await client.post("/chat/completions", json=body, headers={"Authorization": f"Bearer {key}"})
             if r.status_code != 429:
                 break
-            wait = float(r.headers.get("retry-after") or 20)
+            wait = rate_limit_wait(r.headers.get("retry-after"), r.text, args.max_wait)
             log({"ts": datetime.now(timezone.utc).isoformat(), "status": 429, "attempt": attempt, "wait": wait})
             if wait > args.max_wait:
-                # A long Retry-After (Cerebras sends 86400 s) means the upstream quota is spent,
+                # A long Retry-After (Cerebras sends 86400 s, Google a per-day quota violation) means the upstream quota is spent,
                 # whatever our own counter says: mark the model spent and fail fast instead of
                 # sleeping for a day while every client times out.
                 state["by_model"][body.get("model")] = args.daily_token_budget
