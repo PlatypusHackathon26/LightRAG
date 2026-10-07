@@ -11,6 +11,8 @@ hit@k exactly like eval_retrieval.py:
   rerank       a cross-encoder (Infinity /rerank, Cohere-compatible) scores
                every candidate
   rerank+lang  rerank order, then language-matching chunks first
+  lang-pref    the deployed service (denso/tools/lang_rerank.py): like "lang",
+               but questions about another language keep the vector order
 
 Nothing on the LightRAG servers changes, so it can run next to a benchmark.
 
@@ -35,6 +37,9 @@ from langdetect import DetectorFactory, LangDetectException, detect
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 from eval_retrieval import first_hit  # noqa: E402
+
+sys.path.insert(0, str(ROOT / "tools"))
+import lang_rerank  # noqa: E402
 
 DetectorFactory.seed = 0
 DEFAULT_BENCH = ROOT / "data" / "evaluation" / "Benchmark_30_QA.json"
@@ -101,6 +106,8 @@ def main() -> None:
                     order = chunks
                 elif s == "lang":
                     order = by_language(chunks, lang)
+                elif s == "lang-pref":
+                    order = [chunks[i] for i, _ in lang_rerank.rank(q["question"], [c.get("content", "") for c in chunks])]
                 else:
                     cache_rr = cache_rr or rerank(rr, args.rerank_model, q["question"], chunks, args.max_chars)
                     order = by_language(cache_rr, lang) if s == "rerank+lang" else cache_rr
@@ -128,7 +135,7 @@ def main() -> None:
         lines.append(f"| {q['id']} | " + " | ".join(cells) + " |")
     report = "\n".join(lines) + "\n"
     args.out.mkdir(parents=True, exist_ok=True)
-    tag = "_".join(x.replace("+", "") for x in args.strategies)
+    tag = "_".join(x.replace("+", "").replace("-", "") for x in args.strategies)
     (args.out / f"rerank_{args.name}_{tag}.md").write_text(report, encoding="utf-8")
     print("\n" + report)
 

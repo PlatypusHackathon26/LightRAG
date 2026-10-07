@@ -45,6 +45,8 @@ foreach ($m in @("qwen3:8b", "bge-m3")) {
     if (-not ($models | Where-Object { $_ -like "$m*" })) { throw "Ollama model '$m' missing: run 'ollama pull $m'" }
 }
 
-Write-Host "[3/3] LightRAG server -> http://127.0.0.1:9621"
+Write-Host "[3/3] Language reranker (:7998) + LightRAG server -> http://127.0.0.1:9621"
+try { Invoke-RestMethod -Uri "http://127.0.0.1:7998/health" -TimeoutSec 3 | Out-Null }
+catch { Start-Process "$repo\.venv\Scripts\python.exe" -ArgumentList "$repo\denso\tools\lang_rerank.py" -WorkingDirectory $repo -WindowStyle Hidden }
 Set-Location $repo
 & "$repo\.venv\Scripts\lightrag-server.exe"

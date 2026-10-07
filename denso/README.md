@@ -202,13 +202,46 @@ Chạy lại mix công bằng (naive giữ nguyên trong `benchmark_level_1_budg
 .venv\Scripts\python denso\tools\llm_rate_proxy.py --fresh-key --fallback-model ""
 # 3. khởi động lại server level_1 để nhận MAX_ENTITY_TOKENS=3000 / MAX_RELATION_TOKENS=4000
 $env:WORKSPACE="level_1"; $env:PORT="9621"; $env:PYTHONIOENCODING="utf-8"; .venv\Scripts\lightrag-server.exe
-# 4. chỉ chạy mix (naive đã có sẵn trong file)
-.venv\Scripts\python denso\scripts\run_benchmark.py --name level_1_budgetfix --modes mix
+# 4. chỉ chạy mix (naive đã có sẵn trong file); --no-rerank giữ đúng cách truy xuất
+#    của lượt naive (không reranker, chunk_top_k=10) dù .env đã bật reranker
+.venv\Scripts\python denso\scripts\run_benchmark.py --name level_1_budgetfix --modes mix --no-rerank
 .venv\Scripts\python denso\scripts\score_facts.py --name level_1_budgetfix
 ```
 
+Đo hiệu quả reranker đầu-cuối: chạy cả hai mode **không** có `--no-rerank` với tên
+khác (ví dụ `level_1_langpref`) rồi so với `level_1_budgetfix`.
+
 Thí nghiệm prompt (`USER_PROMPT_PREFIX_FILE=denso_answer.md`) ảnh hưởng mọi mode nên
 chạy riêng với tên khác, cả naive lẫn mix.
+
+## Reranker ưu tiên ngôn ngữ
+
+Catalogue/hướng dẫn đa ngôn ngữ lặp cùng một mục bằng tối đa 17 thứ tiếng; embedding
+đa ngôn ngữ xếp bản dịch ngang bản gốc nên đẩy chunk đúng ngôn ngữ ra khỏi ngữ cảnh.
+`tools/lang_rerank.py` (endpoint `/rerank` kiểu Cohere, cổng 7998) giữ thứ tự vector
+nhưng đưa chunk có `ngôn ngữ: xx` trùng ngôn ngữ câu hỏi lên trước – trừ khi câu hỏi
+nhắc tới ngôn ngữ khác ("the Russian section", "tiếng Đức", "other languages"), khi
+đó giữ nguyên thứ tự. Không gọi LLM, không cần GPU, ~0 ms/câu.
+
+```powershell
+.venv\Scripts\python denso\tools\lang_rerank.py      # start.ps1 tự bật
+# .env: RERANK_BINDING=cohere, RERANK_MODEL=denso-lang-pref,
+#       RERANK_BINDING_HOST=http://127.0.0.1:7998/rerank, CHUNK_TOP_K=30
+```
+
+`CHUNK_TOP_K=30` là tập ứng viên để sắp xếp lại; `MAX_TOTAL_TOKENS` vẫn quyết định số
+chunk vào LLM (~10–12). Service tắt thì LightRAG giữ thứ tự vector (chỉ log cảnh báo).
+
+Kết quả trên 28 câu có đáp án (naive, đo trực tiếp qua `/query/data` của server):
+
+| | hit@1 | trích dẫn nằm trong ngữ cảnh | đủ mọi trích dẫn |
+|---|---|---|---|
+| không reranker (`chunk_top_k=10`) | 68% | 93% | 93% |
+| ưu tiên ngôn ngữ | 75% | 100% | 100% |
+
+Q6, Q20 từ ngoài ngữ cảnh lên hạng 7; câu hỏi chéo ngôn ngữ Q11/Q27/Q28 giữ nguyên.
+Cross-encoder bge-reranker-v2-m3 trên CPU chậm (~84 s/câu) và kém hơn ở hit@1 nên
+không dùng. So sánh offline: `scripts/eval_rerank.py --strategies baseline lang lang-pref`.
 
 ## Chạy bằng Docker
 

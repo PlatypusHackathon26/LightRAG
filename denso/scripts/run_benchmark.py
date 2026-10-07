@@ -57,11 +57,15 @@ def norm_name(name: str) -> str:
     return re.sub(r"[^a-z0-9]", "", stem.lower())
 
 
-def query(client: httpx.Client, question: str, mode: str) -> dict:
+# Retrieval the level_1_knowledge baseline ran with (before the language reranker).
+NO_RERANK = {"enable_rerank": False, "chunk_top_k": 10}
+
+
+def query(client: httpx.Client, question: str, mode: str, overrides: dict | None = None) -> dict:
     t0 = time.time()
     r = client.post(
         "/query",
-        json={"query": question, "mode": mode, "include_references": True},
+        json={"query": question, "mode": mode, "include_references": True, **(overrides or {})},
     )
     r.raise_for_status()
     body = r.json()
@@ -166,6 +170,9 @@ def main() -> None:
     ap.add_argument("--answer-model", default="gpt-oss-120b", help="Model LightRAG's QUERY/KEYWORD roles use (budget check)")
     ap.add_argument("--tokens-per-question", type=int, default=25000, help="Budget reserve per question")
     ap.add_argument("--ids", type=int, nargs="*", help="Only run these question ids")
+    ap.add_argument("--no-rerank", action="store_true",
+                    help="Pin the baseline retrieval (no reranker, chunk_top_k=10) so results stay comparable "
+                         "with level_1_knowledge whatever RERANK_BINDING / CHUNK_TOP_K the server has")
     args = ap.parse_args()
     # The /query route substitutes this when the answering LLM returned nothing
     # (timeout, 429, spent budget). PROMPTS["fail_response"] is different: it is
@@ -195,7 +202,7 @@ def main() -> None:
                     check_budget(proxy, [args.judge_model], 3000)
                 except BudgetExhausted as exc:
                     stop(f"Free-tier budget exhausted: {exc}.", results, out_json)
-                res = query(client, q["question"], mode)
+                res = query(client, q["question"], mode, NO_RERANK if args.no_rerank else None)
                 if res["answer"].strip() == empty_llm_placeholder:
                     # The LLM call failed or returned nothing: never score it as a wrong answer.
                     stop(f"[{mode}] Q{q['id']}: the answering LLM returned nothing "
