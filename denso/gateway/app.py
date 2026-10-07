@@ -238,6 +238,8 @@ class Settings:
     lookup_files: list[Path] = field(default_factory=list)
     lookup_llm_base: str = "http://127.0.0.1:8899/v1"   # OpenAI-compatible; the proxy adds the API key
     lookup_llm_model: str = "nvidia/nemotron-3-super-120b-a12b"
+    # Extra request fields, e.g. {"chat_template_kwargs": {"enable_thinking": false}} for Nemotron.
+    lookup_llm_extra_body: dict = field(default_factory=dict)
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -260,6 +262,7 @@ class Settings:
                                 .glob("* - lookup.*.md")),
             lookup_llm_base=os.environ.get("DENSO_LOOKUP_LLM_BASE", "http://127.0.0.1:8899/v1"),
             lookup_llm_model=os.environ.get("DENSO_LOOKUP_LLM_MODEL", "nvidia/nemotron-3-super-120b-a12b"),
+            lookup_llm_extra_body=json.loads(os.environ.get("DENSO_LOOKUP_LLM_EXTRA_BODY") or "{}"),
         )
 
 
@@ -298,6 +301,7 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
     async def answer_from_rows(question: str, hits: list, past: list[dict]) -> tuple[str, list[dict]]:
         """Ask the LLM with the keyword-matched catalogue rows; cite the rows it used."""
         body = {
+            **settings.lookup_llm_extra_body,
             "model": settings.lookup_llm_model,
             "temperature": 0,
             "reasoning_effort": "low",

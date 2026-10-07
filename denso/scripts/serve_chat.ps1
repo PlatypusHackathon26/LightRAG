@@ -15,6 +15,10 @@ param(
     [string]$KeyVar = "NVIDIA_API_KEY",
     [string]$Model = "nvidia/nemotron-3-super-120b-a12b",
     [string]$Reasoning = "low",
+    # NVIDIA Nemotron: thinking off. With it on, a long prompt often spent all 4096 tokens reasoning
+    # and returned no answer (benchmark Q30, a failed brochure ingest); off, answers take ~1 s.
+    # Empty for other upstreams (Cerebras rejects unknown parameters). 'none' sends nothing.
+    [string]$ExtraBody = "",
     [int]$Rpm = 30,
     # Cerebras free tier: -Rpm 4 -Tpm 28000 -DailyBudget 950000 (30K tokens/min, 1M tokens/day per model)
     [int]$Tpm = 1000000,
@@ -69,10 +73,13 @@ if (-not (Test-Port 7998)) { Start-Bg $py @("denso\tools\lang_rerank.py") "lang_
 "reranker   :7998"
 
 if ($Restart) { Stop-Port 9621; Stop-Port 9631; Stop-Port 9700; Start-Sleep 3 }
+if (-not $ExtraBody -and $Upstream -match 'nvidia') { $ExtraBody = '{"chat_template_kwargs": {"enable_thinking": false}}' }
+if ($ExtraBody -eq 'none') { $ExtraBody = '' }
 # EXTRACT too: a (re-)ingest through this server must not ask the proxy for a model its upstream lacks.
 foreach ($role in "QUERY", "KEYWORD", "EXTRACT") {
     Set-Item "env:${role}_LLM_MODEL" $Model
     Set-Item "env:${role}_OPENAI_LLM_REASONING_EFFORT" $Reasoning
+    if ($ExtraBody) { Set-Item "env:${role}_OPENAI_LLM_EXTRA_BODY" $ExtraBody } else { Remove-Item "env:${role}_OPENAI_LLM_EXTRA_BODY" -ErrorAction SilentlyContinue }
 }
 foreach ($srv in @(@{ Port = 9621; Workspace = "level_1"; Log = "server_level_1" },
                    @{ Port = 9631; Workspace = "level_1_lookup"; Log = "server_lookup" })) {
@@ -91,7 +98,8 @@ if (-not (Test-Port 9700)) {
     $env:DENSO_LOOKUP_SERVER = "http://127.0.0.1:9631"
     $env:DENSO_GATEWAY_CORS = "http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173"
     $env:DENSO_GATEWAY_CORS_REGEX = $CorsRegex
-    $env:DENSO_LOOKUP_LLM_MODEL = $Model   # keyword-matched catalogue rows are answered by the same model
+    $env:DENSO_LOOKUP_LLM_MODEL = $Model           # keyword-matched catalogue rows are answered by the same model
+    $env:DENSO_LOOKUP_LLM_EXTRA_BODY = $ExtraBody
     Start-Bg $py @("denso\gateway\app.py") "gateway"
     Wait-Url "http://127.0.0.1:9700/agent/health" 20 | Out-Null
 }

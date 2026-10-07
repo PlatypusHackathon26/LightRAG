@@ -67,7 +67,9 @@ def test_gateway_answers_lookup_questions_from_the_matched_rows(tmp_path):
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path.endswith("/chat/completions"):
-            seen["prompt"] = json.loads(request.content)["messages"][-1]["content"]
+            sent = json.loads(request.content)
+            seen["prompt"] = sent["messages"][-1]["content"]
+            seen["thinking"] = sent.get("chat_template_kwargs")
             return httpx.Response(200, json={"choices": [{"message": {"content":
                 "<think>check rows</think>The 1.3L Corolla (NRE180, 2012-2018) uses **SC20HR11** [1]."}}]})
         raise AssertionError(f"LightRAG must not be called: {request.url}")
@@ -75,7 +77,8 @@ def test_gateway_answers_lookup_questions_from_the_matched_rows(tmp_path):
     rows(tmp_path)
     settings = Settings(level_servers=["http://l1", "http://l2", "http://l3"], lookup_server="http://lookup", users={},
                         actions_log=tmp_path / "a.jsonl", ops_file=tmp_path / "n.json", lookup_llm_base="http://llm/v1",
-                        lookup_files=sorted(tmp_path.glob("* - lookup.*.md")))
+                        lookup_files=sorted(tmp_path.glob("* - lookup.*.md")),
+                        lookup_llm_extra_body={"chat_template_kwargs": {"enable_thinking": False}})
     tc = TestClient(create_app(settings, transport=httpx.MockTransport(handler)))
     r = tc.post("/agent/chat", json={"conversationId": "c", "message": "Bugi DENSO nào lắp cho Toyota Corolla 1.3L đời 2015?"})
     body = r.json()
@@ -84,6 +87,7 @@ def test_gateway_answers_lookup_questions_from_the_matched_rows(tmp_path):
     assert "NRE180" in seen["prompt"] and "page 139" in seen["prompt"]
     assert body["citations"][0]["pages"] == "139" and "Spark Plug" in body["citations"][0]["documentName"]
     assert "keyword" in body["events"][0]["label"]
+    assert seen["thinking"] == {"enable_thinking": False}  # extra body reaches the LLM request
 
 
 def test_gateway_falls_back_to_the_lookup_server_without_a_match(tmp_path):
