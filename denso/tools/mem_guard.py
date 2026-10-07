@@ -8,7 +8,11 @@ Two jobs:
    hard power-off.
 2. Brake. When available RAM drops it frees memory in escalating steps, never
    touching the user's own apps:
-     < --unload-gb    unload every Ollama model (they reload on the next call)
+     < --unload-gb    unload every Ollama model (they reload on the next call);
+                      if RAM is still that low on the next sample, terminate the
+                      Ollama runner (llama-server) - an unload request waits for
+                      the request in flight, which is how the 2026-10-07 13:51
+                      power-off happened with the unload already sent
      < --kill-gb      (two samples in a row) terminate resumable DENSO jobs
                       whose command line matches --kill (benchmark, ingest,
                       evals); every one of them resumes or can be re-run
@@ -32,6 +36,7 @@ import psutil
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_LOG = ROOT / "logs" / "mem_guard.jsonl"
 DEFAULT_KILL = ["run_benchmark.py", "eval_rerank.py", "eval_retrieval.py", "ingest.py", "live_check.py", "ollama_probe.py"]
+RUNNER_NAMES = {"llama-server.exe", "llama-server", "ollama_llama_server.exe"}
 GB = 1024 ** 3
 
 
@@ -50,6 +55,8 @@ def decide(available_gb: float, state: GuardState, unload_gb: float, kill_gb: fl
     if available_gb < unload_gb and now - state.unloaded_at >= unload_cooldown:
         actions.append("unload_ollama")
         state.unloaded_at = now
+    elif available_gb < unload_gb and state.unloaded_at:
+        actions.append("kill_runner")
     if state.low_streak >= 2:
         actions.append("kill_jobs")
         state.low_streak = 0
@@ -95,7 +102,7 @@ def top_processes(n: int = 5) -> list[list]:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--interval", type=float, default=5.0)
-    ap.add_argument("--unload-gb", type=float, default=1.5, help="Unload Ollama models below this much available RAM")
+    ap.add_argument("--unload-gb", type=float, default=2.0, help="Unload Ollama models below this much available RAM")
     ap.add_argument("--kill-gb", type=float, default=0.8, help="Terminate DENSO jobs below this (2 samples in a row)")
     ap.add_argument("--kill", nargs="*", default=DEFAULT_KILL, help="Command-line substrings of killable jobs")
     ap.add_argument("--ollama", default="http://localhost:11434")
@@ -122,6 +129,14 @@ def main() -> None:
             for action in decide(avail, state, args.unload_gb, args.kill_gb, now):
                 if action == "unload_ollama":
                     rec["unloaded"] = unload_ollama(args.ollama)
+                elif action == "kill_runner":
+                    runners = [p for p in psutil.process_iter(["name"]) if p.info["name"] in RUNNER_NAMES]
+                    for r in runners:
+                        try:
+                            r.terminate()
+                        except psutil.Error:
+                            pass
+                    rec["killed_runner"] = [r.pid for r in runners]
                 elif action == "kill_jobs":
                     jobs = matching_jobs(args.kill)
                     for j in jobs:
@@ -131,7 +146,7 @@ def main() -> None:
                             pass
                     rec["killed"] = [" ".join(j.cmdline()[-3:]) if j.is_running() else j.pid for j in jobs]
             # Full record (with the heaviest apps) every minute, and on every sample once RAM is tight.
-            if avail < args.unload_gb * 2 or "unloaded" in rec or "killed" in rec or now - last_full >= 60:
+            if avail < args.unload_gb * 2 or "unloaded" in rec or "killed" in rec or "killed_runner" in rec or now - last_full >= 60:
                 rec["top"] = top_processes()
                 write(rec)
                 last_full = now

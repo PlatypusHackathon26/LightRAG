@@ -19,8 +19,13 @@ def test_plenty_of_ram_does_nothing():
     assert run([6.0, 4.0, 2.0]) == [[], [], []]
 
 
-def test_unload_once_then_cooldown():
-    assert run([1.2, 1.2, 1.2]) == [["unload_ollama"], [], []]
+def test_unload_then_kill_runner_while_still_low():
+    # An unload waits for the request in flight; if RAM stays low the runner goes.
+    assert run([1.2, 1.2, 1.2]) == [["unload_ollama"], ["kill_runner"], ["kill_runner"]]
+
+
+def test_no_runner_kill_once_ram_recovers():
+    assert run([1.2, 3.0]) == [["unload_ollama"], []]
 
 
 def test_unload_again_after_cooldown():
@@ -29,7 +34,7 @@ def test_unload_again_after_cooldown():
 
 def test_kill_needs_two_low_samples_in_a_row():
     # A single dip (e.g. a short spike) must not kill a resumable job.
-    assert run([0.5, 2.0, 0.5])[2] == []
+    assert "kill_jobs" not in run([0.5, 2.0, 0.5])[2]
     assert "kill_jobs" in run([0.5, 0.5])[1]
 
 
