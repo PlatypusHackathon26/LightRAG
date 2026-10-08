@@ -1,25 +1,9 @@
-"""Local rate-limiting proxy for a free-tier OpenAI-compatible API (e.g. Cerebras).
+"""Rate-limiting proxy in front of a free-tier OpenAI-compatible API (NVIDIA, Cerebras).
 
-LightRAG retries a 429 only 3 times with a 4-10 s back-off, which is not
-enough against a 5 requests/minute free tier: chunks run out of retries and
-whole documents end up FAILED. This proxy sits between LightRAG and the API:
+Keeps under --rpm / --tpm, retries 429s, injects the API key from .env, logs every call and
+stops before the daily token budget is spent.
 
-  * spaces request starts to stay under --rpm and an estimated --tpm budget
-  * on 429 waits (Retry-After header, else 20 s) and retries, up to --retries
-  * injects the upstream API key from .env (EXTRACT_LLM_BINDING_API_KEY), so
-    LightRAG can send any placeholder key
-  * appends one JSON line per call to --log (tokens, status, running totals)
-  * tracks the daily token budget PER MODEL (free quotas are per model); once
-    the requested model's --daily-token-budget is spent it switches to
-    --fallback-model (with --fallback-reasoning), and refuses calls (HTTP 429)
-    only when the fallback is spent too, so the free quota is never exceeded
-
-Point the LightRAG EXTRACT role at it:
-    EXTRACT_LLM_BINDING=openai
-    EXTRACT_LLM_BINDING_HOST=http://127.0.0.1:8899/v1
-
-Run:
-    python denso/tools/llm_rate_proxy.py --upstream https://api.cerebras.ai/v1
+Run:  python denso/tools/llm_rate_proxy.py --upstream https://integrate.api.nvidia.com/v1
 """
 
 from __future__ import annotations

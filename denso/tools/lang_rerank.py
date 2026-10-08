@@ -1,26 +1,9 @@
-"""Query-language-aware "reranker" with a Cohere-compatible /rerank endpoint.
+"""Reranker that puts chunks in the question's language first (Cohere-compatible /rerank).
 
-The cleaned Markdown tags every page with "ngôn ngữ: xx". Multilingual manuals
-repeat the same section in up to 17 languages, and the multilingual embedding
-model ranks the translations about as high as the section in the question's
-language, crowding it out of the context (benchmark Q6). This service keeps
-LightRAG's vector order but moves chunks whose language matches the question
-to the front - EXCEPT when the question names another language ("the Russian
-section", "tiếng Đức"), where it keeps the vector order untouched (Q27/Q28).
+Order: question language > English > other translations; picture descriptions last. A question
+about named language sections ("the Russian section") boosts those languages instead.
 
-Offline on the 28 answerable benchmark questions (pool 30, eval_rerank.py
-strategy "lang-pref"): hit@1 68% -> 75%, hit@10 93% -> 100%, every citation in
-the top 10 93% -> 100%. Plain language preference without the cross-lingual
-exception pushed Q11/Q27/Q28 down to rank 19-30. The cross-encoder on CPU was
-slower (84 s per question) and worse at hit@1. See denso/results/rerank_*.md.
-
-LightRAG wiring (.env):
-    RERANK_BINDING=cohere
-    RERANK_BINDING_HOST=http://127.0.0.1:7998/rerank
-    RERANK_MODEL=denso-lang-pref
-    CHUNK_TOP_K=30        # candidate pool; MAX_TOTAL_TOKENS then keeps the best ~12
-
-Run:  python denso/tools/lang_rerank.py
+Run:  python denso/tools/lang_rerank.py      (.env: RERANK_BINDING_HOST=http://127.0.0.1:7998/rerank)
 """
 
 from __future__ import annotations

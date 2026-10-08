@@ -1,19 +1,7 @@
-"""Upload jobs: a raw file goes through the whole DENSO pipeline before it is searchable.
+"""Upload jobs: parse -> clean -> ingest -> (images), one job at a time.
 
-A file dropped in the Knowledge Hub used to be sent straight to LightRAG, which parsed the
-PDF itself: no Docling layout, no cleaning, no page markers - so its answers could not cite
-pages. A job runs the same steps as the 11 benchmark documents, one job at a time (Docling
-takes the whole CPU):
-
-    parsing    denso/pipeline/parse.py      Docling, resumable page ranges
-    chunking   denso/pipeline/clean.py      cleaning + "--- [Trang N | ngôn ngữ: xx] ---"
-    embedding  denso/scripts/ingest.py      vector-only upload to the level's servers
-    vectorized searchable, pages cited
-    images     denso/pipeline/ocr_images.py text inside images, then clean + ingest again
-
-The document is answerable after `embedding`; the image pass only adds to it. Each step
-is a subprocess, so a crash in one never takes the gateway down, and its log is kept in
-denso/logs/upload_<job>.log.
+Each step is a subprocess logged to denso/logs/upload_<job>.log. The document is answerable
+after ingest; the image pass only adds to it.
 """
 
 from __future__ import annotations

@@ -1,13 +1,4 @@
-"""Check that benchmark evidence survives parsing + cleaning, without any LLM.
-
-For every citation in the benchmark it looks up the cleaned Markdown of the
-cited file and measures how many evidence tokens appear on the cited page
-(and, as a fallback, anywhere in the document). A citation passes when token
-recall on the cited page is >= --threshold.
-
-A failing citation means the answer cannot be retrieved no matter how good the
-RAG layer is: either the parser lost it, a cleaning rule dropped it, or the page
-numbering is off.
+"""Check, without an LLM, that every benchmark citation's evidence survives parsing and cleaning.
 
 Usage:
     python denso/pipeline/check_evidence.py

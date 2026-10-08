@@ -1,21 +1,10 @@
-"""DENSO Agent Gateway: the backend the agentic UI calls (lightrag_webui/src/api/agent.ts).
+"""DENSO Agent Gateway: the backend of the agentic UI (lightrag_webui/src/api/agent.ts).
 
-The UI never talks to LightRAG directly. The gateway:
-  * resolves the caller's access level from a server-side token table
-    (users.json); a level sent by the client is never trusted
-  * routes knowledge questions to that level's LightRAG server (cumulative
-    workspaces level_1..level_3, one server each) and part-number / vehicle
-    lookups to the lookup server, then maps LightRAG references to the UI's
-    Citation shape (documentName, pages, excerpt)
-  * lists and uploads knowledge documents for the Knowledge Hub
-  * serves incidents / telemetry from a sample file and records HITL
-    approvals in a log only - it never sends a command to a PLC
+Resolves the caller's access level from users.json, sends questions to that level's LightRAG
+server, picks the citations the answer really uses, and runs document upload / delete jobs.
+It never sends a command to a PLC.
 
-Run:  python denso/gateway/app.py            (http://127.0.0.1:9700)
-Env:  DENSO_LEVEL_SERVERS="http://127.0.0.1:9621,http://127.0.0.1:9622,http://127.0.0.1:9623"
-      DENSO_LOOKUP_SERVER="http://127.0.0.1:9631"   (optional)
-      DENSO_GATEWAY_USERS=denso/gateway/users.json  DENSO_GUEST_LEVEL=1
-      DENSO_GATEWAY_CORS="http://localhost:5173"    LIGHTRAG_API_KEY (if the servers need it)
+Run:  python denso/gateway/app.py            (http://127.0.0.1:9700; settings: see Settings.from_env)
 """
 
 from __future__ import annotations

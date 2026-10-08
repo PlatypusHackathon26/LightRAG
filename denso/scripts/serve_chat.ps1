@@ -1,15 +1,8 @@
-# Start the chat backend the UI talks to, with the configuration the 2026-10-07
-# benchmark chose (naive + denso_answer.md, language reranker):
-#   LLM proxy (:8899) -> language reranker (:7998) -> LightRAG level_1 (:9621)
-#   -> LightRAG lookup tier (:9631) -> Agent Gateway (:9700) [-> Vite UI (:5173) with -WithUI]
-# Services already listening are left alone; -Restart restarts the LightRAG servers and the
-# gateway (needed after a .env change). No Docker / Docling: parsing is not needed to chat.
+# Start the chat backend: LLM proxy :8899, reranker :7998, LightRAG :9621 / lookup :9631,
+# gateway :9700 (+ Vite UI :5173 with -WithUI, Cloudflare tunnel with -Tunnel).
+# Running services are kept; -Restart restarts LightRAG and the gateway (after a .env change).
 #
-# The answering model runs through the API only (never a local LLM: it powered the laptop
-# off three times). The API key is read from .env by the proxy (-KeyVar), never printed.
-#
-#   powershell -ExecutionPolicy Bypass -File denso\scripts\serve_chat.ps1
-#   ... -Upstream https://api.cerebras.ai/v1 -KeyVar EXTRACT_LLM_BINDING_API_KEY -Model gpt-oss-120b -Rpm 4 -Tpm 28000 -DailyBudget 950000
+#   powershell -ExecutionPolicy Bypass -File denso\scripts\serve_chat.ps1 [-Restart] [-WithUI] [-Tunnel]
 param(
     [string]$Upstream = "https://integrate.api.nvidia.com/v1",
     [string]$KeyVar = "NVIDIA_API_KEY",

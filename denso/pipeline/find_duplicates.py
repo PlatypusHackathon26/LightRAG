@@ -1,11 +1,4 @@
-"""Find duplicated content in the cleaned Markdown (no LLM).
-
-Two signals, both within a document and across documents:
-  * exact duplicate paragraphs/table rows after normalisation (>= --min-chars)
-  * near-duplicate pages: Jaccard similarity of 8-word shingles >= --page-sim
-
-Duplicates waste qwen3 extraction time and crowd the retrieval top-k with
-copies of the same text. This script only reports; clean.py decides what to drop.
+"""Report duplicated paragraphs and near-duplicate pages in the cleaned Markdown.
 
 Usage:
     python denso/pipeline/find_duplicates.py

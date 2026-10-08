@@ -1,24 +1,9 @@
-"""Offline re-ranking experiment on top of LightRAG's naive retrieval (no LLM tokens).
+"""Compare reranking strategies offline on the benchmark (hit@k, no LLM tokens).
 
-For each answerable benchmark question it fetches a deep candidate pool from
-/query/data (naive), then re-orders it with several strategies and measures
-hit@k exactly like eval_retrieval.py:
-
-  baseline     LightRAG's own vector order
-  lang         stable re-order: chunks whose page language matches the
-               question's language first (the cleaned Markdown tags every page
-               with "ngôn ngữ: xx")
-  rerank       a cross-encoder (Infinity /rerank, Cohere-compatible) scores
-               every candidate
-  rerank+lang  rerank order, then language-matching chunks first
-  lang-pref    the deployed service (denso/tools/lang_rerank.py): like "lang",
-               but questions about another language keep the vector order
-
-Nothing on the LightRAG servers changes, so it can run next to a benchmark.
+Strategies: baseline (vector order), lang, rerank (cross-encoder), rerank+lang, lang-pref.
 
 Usage:
-    python denso/scripts/eval_rerank.py --name level_1_knowledge --strategies baseline lang
-    python denso/scripts/eval_rerank.py --name level_1_knowledge --reranker http://127.0.0.1:7997
+    python denso/scripts/eval_rerank.py --name level_1_knowledge --strategies baseline lang-pref
 """
 
 from __future__ import annotations

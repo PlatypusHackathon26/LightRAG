@@ -1,19 +1,10 @@
-"""Upload documents to LightRAG server(s) and wait until they are indexed.
+"""Upload cleaned documents to the LightRAG servers of their access level and wait for indexing.
 
-One LightRAG server instance serves exactly one workspace (set by WORKSPACE at
-start-up; the LIGHTRAG-WORKSPACE request header does NOT select storage). So
-access levels are separate server instances, cumulative by level:
-
-    level_1 server (default :9621)  public documents
-    level_2 server (default :9622)  level 1 + level 2 documents
-    level_3 server (default :9623)  everything
-
-A level-N document is uploaded to the servers of levels N..3. Override the
-URLs with DENSO_LEVEL_SERVERS="http://...:9621,http://...:9622,http://...:9623".
+One server per level, cumulative: a level-N document goes to the servers of levels N..3.
 
 Usage:
     python denso/scripts/ingest.py --level 1 denso/data/cleaned_md
-    python denso/scripts/ingest.py --server http://127.0.0.1:9621 some.md
+    python denso/scripts/ingest.py --server http://127.0.0.1:9621 --replace some.md
 """
 
 from __future__ import annotations

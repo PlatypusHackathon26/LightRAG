@@ -1,14 +1,4 @@
-"""LLM-free scoring of benchmark answers: do they contain the hard facts?
-
-For each answerable question, "facts" are the numbers (values, ranges, units
-stripped) and codes (part numbers, refrigerant / thread / model codes) found in
-the ground-truth answer. An answer scores the fraction of those facts it
-contains. Questions whose ground truth has no such facts (pure prose) are
-skipped here - the LLM judge covers them. Abstention questions score 1 when
-the answer declines instead of inventing a value.
-
-This complements the LLM judge: it cannot be fooled by fluent wording and it
-does not depend on the judge model.
+"""Score benchmark answers without an LLM: are the ground truth's numbers and codes in the answer?
 
 Usage:
     python denso/scripts/score_facts.py --name level_1_knowledge

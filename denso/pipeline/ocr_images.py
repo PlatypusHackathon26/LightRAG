@@ -1,24 +1,10 @@
-"""Step 2b - read the text inside images of the raw PDFs with a vision LLM.
+"""Step 2b - transcribe the text inside PDF images with a vision LLM (public documents only).
 
-Docling keeps a picture as `<!-- image -->`, so anything printed only in a picture is lost:
-the brochure's shelf-life section, for example, names ND-oil 8 / 11 / 12 only on photos of
-the cans, and the cleaned text then reads as if every ND-oil kept 36 months (benchmark Q29).
-
-For every knowledge-tier page (tiers.json) this extracts the embedded images, drops icons,
-duplicates and decorations repeated on many pages, and asks an OpenAI-compatible vision
-model (default NVIDIA NIM, key from .env) to say what the image shows and transcribe its
-text. Results are cached per image in <parsed>/<stem>/image_text.json, so a re-run (or a
-crash) never asks twice. The output is one vector-only document per source:
-
-    <out>/cleaned_md/<stem> - images.[native-P!].md
-
-with the usual "--- [Trang N | ngôn ngữ: xx] ---" markers and the page's section headings,
-so an answer built from a picture still cites the right page. Public (level 1) documents
-only: the images leave the machine.
+Writes "<stem> - images.[native-P!].md" with the usual page markers, so answers drawn from a
+picture still cite its page. Results are cached per image.
 
 Usage:
-    python denso/pipeline/ocr_images.py                      # every raw PDF
-    python denso/pipeline/ocr_images.py --docs "DENSO-AC_brochure_tips-and-tricks_EN"
+    python denso/pipeline/ocr_images.py [--docs "DENSO-AC_brochure_tips-and-tricks_EN"]
 """
 
 from __future__ import annotations

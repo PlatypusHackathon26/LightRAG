@@ -1,20 +1,10 @@
-"""Run the DENSO QA benchmark against a LightRAG server and compare query modes.
+"""Run the 30-question benchmark against a LightRAG server and score it.
 
-For every question and mode it records the answer, the referenced files and the
-latency, then scores two things:
-  * source_hit - at least one ground-truth citation file appears in references
-  * judge      - an LLM (OpenAI-compatible, default qwen-3.8-27b via the proxy) grades it:
-                 1.0 correct, 0.5 partially correct, 0.0 wrong
-                 (abstention questions are correct when the answer declines)
-
-Results are cached per (mode, id) in the output JSON, so an interrupted run
-resumes where it stopped.
+Scores: source_hit (a correct file is referenced) and an LLM judge (1 / 0.5 / 0). Results are
+cached per question, so an interrupted run resumes; it stops before the free quota runs out.
 
 Usage:
-    python denso/scripts/run_benchmark.py --server http://127.0.0.1:9621 --name level_1 --modes naive mix
-
-It stops (exit 3) before a free-tier model runs out of daily tokens, and when
-the answering LLM returned nothing, so failures are never scored as 0.
+    python denso/scripts/run_benchmark.py --server http://127.0.0.1:9621 --name level_1 --modes naive
 """
 
 from __future__ import annotations

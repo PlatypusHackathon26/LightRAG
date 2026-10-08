@@ -1,24 +1,11 @@
-"""Step 1 - parse raw documents with the local docling-serve.
+"""Step 1 - convert raw documents with docling-serve into <out>/<stem>/{docling.md, docling.json, meta.json}.
 
-For every file it stores the raw Docling outputs next to each other:
-    <out>/<stem>/docling.md     Markdown with a page-break marker between pages
-    <out>/<stem>/docling.json   DoclingDocument (page provenance, tables)
-    <out>/<stem>/meta.json      source path, access level, size, parse time
-
-Crash safety (the laptop can power off when it overheats):
-  * PDFs longer than --chunk-pages are converted in page ranges; each range is
-    saved to <stem>/parts/ as soon as it is done, and a re-run skips finished
-    ranges, so a crash only loses the range in flight.
-  * Every file is written to a temp name and renamed, so a half-written file
-    never looks finished. meta.json is written last and marks a file as done.
-  * --cooldown pauses between ranges to let the machine cool down.
-
-Already-parsed files are skipped unless --force is given. After a crash just
-run the same command again.
+Long PDFs are converted in page ranges and every file is written atomically, so after a crash
+the same command resumes. TXT is read directly; XLSX becomes one page per sheet.
 
 Usage:
     python denso/pipeline/parse.py denso/data/raw            # level from folder name
-    python denso/pipeline/parse.py --level 1 some/file.pdf
+    python denso/pipeline/parse.py --level 1 --force some/file.pdf
 """
 
 from __future__ import annotations

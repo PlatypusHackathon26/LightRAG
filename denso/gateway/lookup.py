@@ -1,12 +1,6 @@
-"""Keyword search over the lookup-tier catalogue tables (vehicle application rows).
+"""Keyword search over vehicle-application catalogue rows (model, engine code, year).
 
-Vector search cannot tell "TOYOTA COROLLA 1.3L 2012-2018" from "TOYOTA VIOS 1.5L
-2013-2019": thousands of rows look alike to an embedding. This index matches the
-words that matter - model, engine / chassis code, displacement, year - row by row.
-
-The cleaned catalogue tables are OCR'd with drifting columns, so a row is kept as one
-text line with its page number ("| 139 | TOYOTA COROLLA | 1.3L ... | 2012-2018 SC20HR11 |")
-rather than parsed into columns. Minimal version: no synonyms, no fuzzy matching.
+Embeddings cannot tell near-identical rows apart; this matches the words that matter.
 """
 
 from __future__ import annotations

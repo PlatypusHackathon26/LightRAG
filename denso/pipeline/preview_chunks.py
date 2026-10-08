@@ -1,14 +1,7 @@
-"""Preview how LightRAG will chunk the cleaned Markdown, without any LLM.
-
-Runs the same path as an upload of a cleaned .md file: the `native` parser
-writes a sidecar, then the `P` (paragraph semantic) chunker splits it. For
-each document it reports chunk count and token sizes, how many chunks carry a
-page marker (needed to cite pages), split tables, and an indexing-time
-estimate for the knowledge-graph tier.
+"""Preview how LightRAG will chunk the cleaned Markdown (sizes, page markers, split tables).
 
 Usage:
-    python denso/pipeline/preview_chunks.py                     # all cleaned_md files
-    python denso/pipeline/preview_chunks.py "AC Compressor Leaflet.md" --show 3
+    python denso/pipeline/preview_chunks.py ["AC Compressor Leaflet.md" --show 3]
 """
 
 from __future__ import annotations

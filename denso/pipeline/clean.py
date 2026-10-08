@@ -1,18 +1,10 @@
-"""Step 2 - clean Docling Markdown and export it for the knowledge base.
+"""Step 2 - clean Docling Markdown and tag every page "--- [Trang N | ngôn ngữ: xx] ---".
 
-Input:  <parsed>/<stem>/{docling.md, meta.json}   (written by parse.py)
-Output: <out>/cleaned_md/<stem>.md      heading-preserving Markdown for LightRAG
-        <out>/cleaned_json/<stem>.json  A3 schema (see output_format.json)
-        <parsed>/<stem>/clean_report.json  what was dropped / fixed, per page
-
-Rules are deliberately conservative: a line is only dropped when it matches a
-known junk pattern, and OCR word-joining needs dictionary evidence. Every
-language is kept (the benchmark compares e.g. the Russian and English sections)
-and each page is tagged with its detected language instead.
+Writes cleaned_md/<stem>.md (for LightRAG), cleaned_json/<stem>.json and a per-page
+clean_report.json. Conservative: only known junk patterns are dropped; every language is kept.
 
 Usage:
-    python denso/pipeline/clean.py                 # every parsed document
-    python denso/pipeline/clean.py "AC Compressor Leaflet"
+    python denso/pipeline/clean.py ["AC Compressor Leaflet"]
 """
 
 from __future__ import annotations

@@ -1,14 +1,7 @@
-"""Score vehicle-application (lookup tier) questions end to end through the Agent Gateway.
-
-For each question in denso/data/evaluation/Lookup_10_QA.json it asks POST /agent/chat,
-like the UI does, and checks without any judge LLM:
-  * facts  - every fact group has at least one accepted part number in the answer
-  * page   - a citation points at one of the accepted catalogue pages
-  * abstain - for vehicles not in the catalogues, the answer declines
+"""Score the 10 vehicle-lookup questions through the gateway: part numbers, page, or a correct decline.
 
 Usage:
-    python denso/scripts/eval_lookup.py --name keyword_v1
-    python denso/scripts/eval_lookup.py --gateway http://127.0.0.1:9700 --ids L1 L6
+    python denso/scripts/eval_lookup.py --name keyword_v1 [--ids L1 L6]
 """
 
 from __future__ import annotations

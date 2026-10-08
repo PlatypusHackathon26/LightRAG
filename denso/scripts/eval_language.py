@@ -1,10 +1,4 @@
-"""Does the chatbot answer in the language of the question, without mixing languages?
-
-Asks each question through the Agent Gateway (like the UI) and splits the answer into
-sentences. Codes, part numbers, units, URLs, quoted document names and citations are removed
-first - they stay verbatim by design - then each remaining sentence of 20+ letters is
-language-detected. A sentence in another language than the question counts as mixed.
-No judge LLM.
+"""Check that the chatbot answers in the question's language without mixing languages.
 
 Usage:
     python denso/scripts/eval_language.py --name baseline

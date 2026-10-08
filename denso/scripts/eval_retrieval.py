@@ -1,11 +1,4 @@
-"""Retrieval-only evaluation: does LightRAG fetch the evidence chunk at all?
-
-For every answerable benchmark question it calls /query/data (naive mode =
-embedding search only, no LLM tokens) and finds the first rank at which a
-retrieved chunk comes from the cited file AND contains the citation's evidence
-(token recall >= --min-recall). Reports hit@k and lists the misses with what
-was retrieved instead, which separates "retrieval missed it" from "the LLM
-answered badly".
+"""Retrieval-only check: at which rank does LightRAG fetch each question's evidence chunk?
 
 Usage:
     python denso/scripts/eval_retrieval.py --server http://127.0.0.1:9621 --name level_1_knowledge
