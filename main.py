@@ -8,6 +8,10 @@ from iot.telemetry_receiver import TelemetryReceiver
 from iot.actuator_dispatcher import ActuatorDispatcher
 from iot.action_approval import ActionApproval
 
+from agent.brain import AgentBrain
+from agent.tools import AgentTools
+from agent.rag_engine import RAGEngine
+
 from machines.cnc_milling import CncMilling
 from machines.robot_arm import RobotArm
 from machines.amr_vehicle import AmrVehicle
@@ -59,6 +63,28 @@ def main():
     receiver = TelemetryReceiver(event_hub=bus)
     state_store = StateStore()
 
+    # 1b. Nối Agent (RAG giả lập) vào vòng kín: alert -> RAG -> lệnh PLC
+    rag = RAGEngine()
+    tools = AgentTools(event_bus=bus)
+    brain = AgentBrain(rag_engine=rag, tools=tools, event_bus=bus)
+    bus.subscribe("alert", brain.handle_alert)
+    bus.subscribe("normal", brain.handle_heartbeat)
+
+    def _route_action_command(event: dict) -> None:
+        approval.process_action_request({
+            "machine_id": event.get("machine_id", "UNKNOWN"),
+            "command": event.get("command", ""),
+            "params": event.get("params", {}),
+            "payload": event.get("params", {}),
+            "risk_level": event.get("risk_level", "LOW"),
+            "reason": event.get("reason", "Agent de xuat"),
+        })
+
+    bus.subscribe("action_command", _route_action_command)
+
+    # 1c. Đẩy mọi event bus vào StateStore để dashboard hiển thị
+    bus.subscribe("*", state_store.handle_event)
+
     # 2. Khởi tạo 5 dòng máy
     machines = [
         CncMilling(event_hub=bus),
@@ -80,7 +106,13 @@ def main():
     print("🚀 IoT Simulation Engine started.")
 
     # 4. Khởi chạy Dashboard Web dành cho Tester tại cổng 8085
-    app = create_app(state_store=state_store, machines_dict=machines_dict)
+    app = create_app(
+        state_store=state_store,
+        machines_dict=machines_dict,
+        approval=approval,
+        on_chat=brain.handle_user_query,
+        on_decision=approval.decide,
+    )
     print("🌐 Tester Fleet Dashboard running at: http://localhost:8085")
     uvicorn.run(app, host="0.0.0.0", port=8085)
 

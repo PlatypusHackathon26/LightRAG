@@ -233,6 +233,22 @@
         }
 
         // Bấm nút "Áp dụng": gửi tần suất sinh lỗi mới lên server
+        // Bấm nút "Lệnh PLC: ..." trên thẻ lỗi: gửi lệnh sửa xuống máy qua HITL
+        async function sendPlcFix(machineId, command) {
+            try {
+                const res = await fetch(`/api/plc/fix`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ machine_id: machineId, command: command }),
+                });
+                const data = await res.json();
+                console.log("PLC fix:", machineId, command, data);
+            } catch (err) {
+                console.error("Lỗi khi gửi lệnh PLC:", err);
+            }
+        }
+
+
         async function updateInterval() {
             const inputEl = document.getElementById("fault-interval-input");
             const statusEl = document.getElementById("fault-interval-status");

@@ -36,6 +36,10 @@ LOW_RISK_COMMANDS = {
 }
 
 
+class ActionDispatchError(RuntimeError):
+    """Lỗi khi dispatcher không thể thực thi lệnh đã duyệt."""
+
+
 class ActionApproval:
     """Chốt chặn an toàn (Human-in-the-Loop) phân loại rủi ro, quản lý phê duyệt và bảo vệ vận hành."""
 
@@ -54,6 +58,18 @@ class ActionApproval:
             self.dispatcher_callback = dispatcher_callback
         elif dispatcher is not None and hasattr(dispatcher, "execute"):
             self.dispatcher_callback = dispatcher.execute
+        elif dispatcher is not None and hasattr(dispatcher, "dispatch"):
+            # Tương thích dispatcher kiểu cũ: dispatch(machine_id, action, payload)
+            disp = dispatcher
+
+            def _compat_cb(command: Dict[str, Any]) -> Any:
+                return disp.dispatch(
+                    command.get("machine_id", "UNKNOWN"),
+                    command.get("command") or command.get("action") or "UNKNOWN",
+                    command.get("params") or command.get("payload") or {},
+                )
+
+            self.dispatcher_callback = _compat_cb
         else:
             self.dispatcher_callback = None
 
@@ -138,6 +154,23 @@ class ActionApproval:
 
             return command_record
 
+    # --- API tương thích bản cũ (test_hitl dùng propose/decide/snapshot) ---
+    def propose(self, machine_id: str, action: str, payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Tạo đề xuất hành động (alias của process_action_request cho API cũ)."""
+        return self.process_action_request({
+            "machine_id": machine_id,
+            "command": action,
+            "action": action,
+            "payload": payload or {},
+            "params": payload or {},
+        })
+
+    def snapshot(self) -> List[Dict[str, Any]]:
+        """Danh sách ticket đang chờ (API cũ)."""
+        with self._lock:
+            self._cleanup_expired()
+            return list(self.pending_actions.values())
+
     def approve(self, action_id: str) -> Dict[str, Any]:
         """Kỹ sư bấm [Duyệt Thực Thi] trên giao diện."""
         with self._lock:
@@ -146,12 +179,18 @@ class ActionApproval:
 
         if not command:
             logger.warning(f"[Approval] Không thể duyệt: Ticket {action_id} không tồn tại hoặc đã hết hạn.")
-            return {"status": "REJECTED_OR_EXPIRED", "action_id": action_id}
+            raise KeyError(action_id)
 
         logger.info(f"[Approval] Kỹ sư ĐÃ DUYỆT lệnh {action_id} ({command.get('command')}) -> Chuyển thi hành.")
         if self.dispatcher_callback:
-            exec_res = self.dispatcher_callback(command)
-            return {"status": "EXECUTED", "action_id": action_id, "execution_result": exec_res}
+            try:
+                exec_res = self.dispatcher_callback(command)
+            except Exception as exc:
+                raise ActionDispatchError(str(exc)) from exc
+            status = exec_res.get("status") if isinstance(exec_res, dict) else None
+            if status not in ("SUCCESS", "dispatched", "EXECUTED"):
+                raise ActionDispatchError(f"Dispatcher trả về trạng thái lỗi: {status}")
+            return {"status": "approved", "action_id": action_id, "dispatch_result": exec_res}
         return {"status": "DISPATCHER_UNAVAILABLE", "action_id": action_id}
 
     def reject(self, action_id: str, reason: str = "Rejected by operator") -> Dict[str, Any]:
@@ -168,15 +207,17 @@ class ActionApproval:
                     "command": command,
                     "reason": reason,
                 })
-            return {"status": "REJECTED", "action_id": action_id}
-        return {"status": "NOT_FOUND", "action_id": action_id}
+            return {"status": "rejected", "action_id": action_id}
+        raise KeyError(action_id)
 
     def decide(self, action_id: str, decision: str) -> Dict[str, Any]:
         """Endpoint đa năng phục vụ REST API Dashboard."""
         dec = decision.strip().upper()
         if dec in ("APPROVE", "APPROVED", "YES", "CONFIRM"):
             return self.approve(action_id)
-        return self.reject(action_id)
+        if dec in ("REJECT", "REJECTED", "NO", "DENY"):
+            return self.reject(action_id)
+        raise ValueError(f"Decision không hợp lệ: {decision}")
 
     def get_pending_actions(self) -> List[Dict[str, Any]]:
         """Lấy danh sách các lệnh đang chờ duyệt trên Dashboard."""

@@ -128,6 +128,23 @@ class ActuatorDispatcher:
                 timestamp=now_str,
             )
 
+    def dispatch(self, machine_id: str, action: str, payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Alias kiểu cũ cho execute() — test_hitl dùng dispatch(machine_id, action, payload)."""
+        result = self.execute({
+            "machine_id": machine_id,
+            "command": action,
+            "action": action,
+            "payload": payload or {},
+            "params": payload or {},
+        })
+        return {
+            "status": "dispatched" if result.get("status") == "SUCCESS" else result.get("status"),
+            "machine_id": machine_id,
+            "action": action,
+            "plc_command": action.upper() if isinstance(action, str) else action,
+            "detail": result,
+        }
+
     def _record_and_publish(
         self,
         machine_id: str,
