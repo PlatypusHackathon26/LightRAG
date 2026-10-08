@@ -17,6 +17,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 ALLOWED = {".pdf", ".docx", ".pptx", ".xlsx", ".html", ".md", ".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".webp", ".txt"}
+SCANNABLE = {".pdf", ".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".webp"}  # may hold pages only OCR can read
 SAFE_NAME = re.compile(r"[^\w\s().,+-]", re.UNICODE)
 
 
@@ -154,11 +155,20 @@ class JobRunner:
         # the previous parse (parse.py skips files whose meta.json exists).
         await self._step(job, ["denso/pipeline/parse.py", "--level", str(job.level), "--docling", self.docling,
                                "--cooldown", "2", "--force", str(raw)], "parse")
+        ocr_note = ""
+        if job.level == 1 and raw.suffix.lower() in SCANNABLE:
+            # Scanned pages / photos: the vision model reads Vietnamese diacritics Docling's OCR drops.
+            # Level 1 only (the page images leave the machine); on failure Docling's text stays.
+            job.stage, job.progress = "Đọc trang scan bằng mô hình thị giác", 40
+            try:
+                await self._step(job, ["denso/pipeline/ocr_pages.py", "--docs", job.stem], "read scanned pages")
+            except RuntimeError as exc:
+                ocr_note = f"; đọc trang scan lỗi, dùng OCR của Docling: {str(exc)[:120]}"
         job.status, job.stage, job.progress = "chunking", "Làm sạch, gắn dấu trang và ngôn ngữ", 60
         await self._step(job, ["denso/pipeline/clean.py", job.stem], "clean")
         job.status, job.stage, job.progress = "embedding", "Tạo vector và nạp vào kho tri thức", 80
         skipped = await self._ingest(job, self._ingest_copy(job.stem), "ingest")
-        note = f" - chưa nạp vào {', '.join(skipped)} (server chưa chạy)" if skipped else ""
+        note = (f" - chưa nạp vào {', '.join(skipped)} (server chưa chạy)" if skipped else "") + ocr_note
         job.status, job.stage, job.progress = "vectorized", f"Sẵn sàng hỏi đáp (có trích dẫn trang){note}", 100
         if not self.read_images or raw.suffix.lower() != ".pdf" or job.level > 1:
             job.images, job.finished = "skipped", time.time()  # images leave the machine: public docs only

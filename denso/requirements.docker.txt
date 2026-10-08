@@ -6,5 +6,6 @@ uvicorn>=0.30
 python-multipart>=0.0.9   # gateway document upload (Form/File)
 python-dotenv>=1.0        # rate proxy reads the API key from .env
 pypdf>=5.0                # parse.py page counts
+pillow>=10.0              # ocr_pages.py / ocr_images.py page images
 langdetect>=1.0.9         # clean.py page language
 wordfreq>=3.1             # clean.py OCR word joining

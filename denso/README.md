@@ -4,7 +4,8 @@ Mọi thứ của DENSO nằm trong thư mục `denso/`; lõi LightRAG không b�
 kéo được bản cập nhật từ upstream.
 
 ```
-Nạp:  PDF/DOCX/XLSX/TXT/ảnh ─► pipeline/parse.py (docling-serve :5001) ─► pipeline/clean.py
+Nạp:  PDF/DOCX/XLSX/TXT/ảnh ─► pipeline/parse.py (docling-serve :5001)
+        ─► [pipeline/ocr_pages.py: trang scan / ảnh chụp, NVIDIA 90B vision, cấp 1] ─► pipeline/clean.py
         (trang + ngôn ngữ) ─► [pipeline/ocr_images.py: chữ trong ảnh] ─► scripts/ingest.py
 Hỏi:  UI ─► Agent Gateway :9700 (quyền, trích dẫn) ─► LightRAG :9621 (level_1) / :9631 (lookup)
         ─► reranker ngôn ngữ :7998 ─► proxy :8899 ─► LLM API (NVIDIA)

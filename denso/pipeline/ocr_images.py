@@ -230,6 +230,11 @@ def main() -> None:
             continue
         rng = tiers.get(pdf.stem, {}).get("knowledge_pages")
         images = collect_images(pdf, tuple(rng) if rng else None, args.min_px, args.min_bytes, args.max_repeat)
+        # Scanned pages were transcribed whole by ocr_pages.py; describing the scan again as a picture
+        # added "[Ảnh] The image shows a technical document in Vietnamese..." next to the real text.
+        scan_file = args.parsed / pdf.stem / "scan_pages.json"
+        scanned = set(json.loads(scan_file.read_text(encoding="utf-8"))) if scan_file.exists() else set()
+        images = {k: v for k, v in images.items() if not set(v["pages"]) <= scanned}
         cache_path = args.parsed / pdf.stem / "image_text.json"
         cache_path.parent.mkdir(parents=True, exist_ok=True)
         # Page -> image keys in PDF order, so clean.py can put each description where Docling

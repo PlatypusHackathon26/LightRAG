@@ -46,11 +46,11 @@ def run(runner: FakeRunner, name="Manual E5.pdf", level=1):
 def test_pipeline_order_and_final_status(tmp_path):
     r = FakeRunner(tmp_path, up={"http://docling", "http://l1"})
     job = run(r)
-    assert [s[0] for s in r.steps] == ["parse", "clean", "ingest (level 1)", "read images", "clean with images",
-                                       "ingest with images (level 1)"]
+    assert [s[0] for s in r.steps] == ["parse", "read scanned pages", "clean", "ingest (level 1)", "read images",
+                                       "clean with images", "ingest with images (level 1)"]
     assert job.status == "vectorized" and job.images == "done" and job.progress == 100
     assert "level_2, level_3" in job.stage  # not running: reported, not silently skipped
-    ingest_args = r.steps[2][1]
+    ingest_args = r.steps[3][1]
     assert ingest_args[ingest_args.index("--server") + 1] == "http://l1" and ingest_args[-1].endswith(".[native-P!].md")
 
 
@@ -127,3 +127,21 @@ def test_text_files_are_accepted(tmp_path):
 def test_a_text_file_does_not_need_docling(tmp_path):
     r = FakeRunner(tmp_path, up={"http://l1"})  # Docling down
     assert run(r, name="Ghi chu.txt").status == "vectorized"
+
+
+def test_scanned_pages_are_read_by_the_vision_model_for_public_documents_only(tmp_path):
+    r = FakeRunner(tmp_path, up={"http://docling", "http://l1", "http://l2"})
+    run(r, name="Phieu scan.pdf", level=2)
+    assert "read scanned pages" not in [s[0] for s in r.steps]  # level 2: nothing leaves the machine
+    r = FakeRunner(tmp_path, up={"http://docling", "http://l1"})
+    run(r, name="notes.docx")
+    assert "read scanned pages" not in [s[0] for s in r.steps]  # a DOCX has no scanned pages
+    r = FakeRunner(tmp_path, up={"http://docling", "http://l1"})
+    run(r, name="photo.jpg")
+    assert [s[0] for s in r.steps][:2] == ["parse", "read scanned pages"]
+
+
+def test_a_failed_scan_reading_keeps_doclings_text_and_says_so(tmp_path):
+    r = FakeRunner(tmp_path, up={"http://docling", "http://l1"}, fail="read scanned")
+    job = run(r, name="photo.jpg")
+    assert job.status == "vectorized" and "dùng OCR của Docling" in job.stage
