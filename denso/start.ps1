@@ -5,9 +5,11 @@ param([switch]$DoclingOnly)
 $ErrorActionPreference = "Stop"
 $repo = Split-Path -Parent $PSScriptRoot
 
+# Through cmd: in Windows PowerShell 5.1 with ErrorActionPreference Stop, docker's stderr line
+# ("failed to connect to the docker API") is a terminating error, so Docker was never started.
+function Test-Docker { cmd /c "docker info >nul 2>&1"; return ($LASTEXITCODE -eq 0) }
 Write-Host "[0/3] Docker Desktop"
-docker info *> $null
-if ($LASTEXITCODE -ne 0) {
+if (-not (Test-Docker)) {
     # After a hard power-off Docker leaves broken AF_UNIX sockets behind and then
     # refuses to start ("The file cannot be accessed by the system"). Move the
     # socket folders aside (Docker recreates them) before starting it.
@@ -24,12 +26,13 @@ if ($LASTEXITCODE -ne 0) {
         Start-Process "C:\Program Files\Docker\Docker\Docker Desktop.exe"
     }
     $up = $false
-    foreach ($i in 1..60) { Start-Sleep 3; docker info *> $null; if ($LASTEXITCODE -eq 0) { $up = $true; break } }
+    foreach ($i in 1..60) { Start-Sleep 3; if (Test-Docker) { $up = $true; break } }
     if (-not $up) { throw "Docker engine did not start; open Docker Desktop and check for an error dialog" }
 }
 
 Write-Host "[1/3] docling-serve"
-docker compose -f "$PSScriptRoot\docling\docker-compose.yml" up -d
+cmd /c "docker compose -f `"$PSScriptRoot\docling\docker-compose.yml`" up -d 2>&1"  # progress goes to stderr
+if ($LASTEXITCODE -ne 0) { throw "docker compose up failed for docling-serve" }
 $ok = $false
 foreach ($i in 1..60) {
     try { Invoke-RestMethod -Uri "http://127.0.0.1:5001/health" -TimeoutSec 5 | Out-Null; $ok = $true; break } catch { Start-Sleep 5 }
