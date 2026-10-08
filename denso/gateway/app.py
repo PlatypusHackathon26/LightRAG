@@ -213,8 +213,16 @@ def only_cited(references: list[dict], answer: str) -> list[dict]:
     best = max(score.values())
     ids = {i for m in CITED_ID.finditer(answer) for i in re.findall(r"\d+", m.group(1))}
     cited = [r for r in references if str(r.get("reference_id")) in ids]
-    if best < 3:  # too little to judge (a short or Vietnamese answer): trust the markers
-        return cited or references
+    # A substantive (English) answer that no retrieved chunk supports came from somewhere else -
+    # conversation history, the model's own knowledge. Citing a chunk would present it as
+    # sourced (seen live: a Google Play answer cited the Spark Plug Catalogue, p. 4).
+    terms = {w.lower() for w in PAGE_WORD.findall(CITED_ID.sub(" ", answer))} - PAGE_STOPWORDS
+    if len(terms) >= 10:
+        support = max(len(terms & {w.lower() for w in PAGE_WORD.findall(t)}) for r in references for t in chunk_texts(r) or [""])
+        if support < max(3, 0.2 * len(terms)):
+            return []
+    if best < 3:
+        return cited or references  # too little text to judge (short or Vietnamese answer)
     supported = [r for r in references if score[id(r)] >= max(3, best * 0.5)]
     kept = [r for r in cited if r in supported]
     return kept or supported or references
@@ -496,19 +504,23 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
             raise HTTPException(status_code=503, detail="the answering LLM returned only its reasoning, no answer "
                                                         "- please ask again")
         # A "not in the documents" answer cites nothing: a listed source would read as support.
-        citations = [] if REFUSAL.search(content) else to_citations(only_cited(body.get("references") or [], content), content)
+        refused = bool(REFUSAL.search(content))
+        citations = [] if refused else to_citations(only_cited(body.get("references") or [], content), content)
+        grounded = refused or bool(citations)
         history[req.conversationId].extend(
             [{"role": "user", "content": req.message}, {"role": "assistant", "content": content}]
         )
         now = datetime.now(timezone.utc).isoformat()
         events = [
             {"id": f"ev-{uuid.uuid4().hex[:8]}", "timestamp": now, "type": "knowledge_retrieved",
-             "label": f"Retrieved {len(citations)} source document(s) ({target}, {mode}, level {user.level})",
+             "label": (f"Retrieved {len(citations)} source document(s) ({target}, {mode}, level {user.level})"
+                       if grounded else
+                       "⚠️ Không có đoạn tài liệu nào khớp câu trả lời này – có thể dựa trên lịch sử hội thoại, cần kiểm tra lại"),
              "citations": citations},
             {"id": f"ev-{uuid.uuid4().hex[:8]}", "timestamp": now, "type": "response_generated",
              "label": "Answer generated", "detail": f"{body.get('response_time', '?')} s"},
         ]
-        return {"content": content, "citations": citations, "events": events,
+        return {"content": content, "citations": citations, "events": events, "grounded": grounded,
                 "target": target, "llmGenerated": body.get("llm_generated", True)}
 
     @app.get("/agent/documents/jobs/{job_id}")

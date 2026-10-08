@@ -350,3 +350,21 @@ def test_a_chunk_spanning_pages_cites_the_page_the_answer_is_on():
     answer = "Press and hold the power key for one second; a pop-up menu appears, then tap Power off to shut down."
     (c,) = to_citations([ref], answer)
     assert c["pages"] == "18"
+
+
+def test_an_answer_no_retrieved_chunk_supports_cites_nothing_and_is_flagged(tmp_path):
+    # Seen live: after the BHT manual was deleted, an answer repeated from the conversation
+    # history about Google Play auto-updates cited "Spark Plug Catalogue 2025, page 4".
+    spark = {"reference_id": "1", "file_path": "Spark Plug Catalogue 2025.md", "content": [
+        "--- [Trang 4 | ngôn ngữ: en] ---\nIridium spark plugs: the fine centre electrode improves ignitability."]}
+    answer = ("If you are not using Google Play Store in operation, disable the Google Play Store app; otherwise "
+              "open App info, clear storage and select Don't auto-update apps in the Auto-update apps menu [1].")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"response": answer, "references": [spark]})
+
+    settings = Settings(level_servers=SERVERS, users={}, actions_log=tmp_path / "a.jsonl", ops_file=tmp_path / "n.json")
+    body = TestClient(create_app(settings, transport=httpx.MockTransport(handler))).post(
+        "/agent/chat", json={"conversationId": "c", "message": "How do I stop Google Play auto-updates?"}).json()
+    assert body["citations"] == [] and body["grounded"] is False
+    assert "Không có đoạn tài liệu nào khớp" in body["events"][0]["label"]
