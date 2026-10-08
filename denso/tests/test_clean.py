@@ -173,3 +173,13 @@ def test_descriptions_do_not_change_the_page_language():
 def test_compact_caption_collapses_a_looping_transcription():
     looped = "A can of ND-OIL 11.\n" + "* ND-OIL 11\n" * 40 + "* HFC-134a"
     assert compact_caption(looped) == "A can of ND-OIL 11.; ND-OIL 11; HFC-134a"
+
+
+def test_a_formula_is_not_a_letter_spaced_logo():
+    # Seen live: "Công thức: A - B = C" was dropped from a text upload.
+    from clean import is_letter_spaced
+
+    assert not is_letter_spaced("Công thức: A - B = C")
+    assert not is_letter_spaced("A - B = C")
+    assert is_letter_spaced("P r i n t e d i n B")
+    assert is_letter_spaced("BOSCH 10 9 8 7,6 5 4 3 2")

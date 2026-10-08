@@ -39,6 +39,8 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUT = ROOT / "data" / "parsed"
 PAGE_BREAK = "<!-- PAGE_BREAK -->"
 DOCLING_SUFFIXES = {".pdf", ".docx", ".pptx", ".xlsx", ".html", ".md", ".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".webp"}
+# Plain text is read here: Docling's convert API does not take .txt.
+TEXT_SUFFIXES = {".txt"}
 LEVEL_DIR = re.compile(r"level_(\d)")
 
 
@@ -56,7 +58,7 @@ def collect(paths: list[str]) -> list[Path]:
     files: list[Path] = []
     for p in map(Path, paths):
         if p.is_dir():
-            files += sorted(f for f in p.rglob("*") if f.suffix.lower() in DOCLING_SUFFIXES)
+            files += sorted(f for f in p.rglob("*") if f.suffix.lower() in DOCLING_SUFFIXES | TEXT_SUFFIXES)
         elif p.is_file():
             files.append(p)
         else:
@@ -68,6 +70,50 @@ def write_atomic(path: Path, text: str) -> None:
     tmp = path.with_name(path.name + ".tmp")
     tmp.write_text(text, encoding="utf-8")
     os.replace(tmp, path)
+
+
+def read_text_file(path: Path) -> str:
+    """A .txt upload as Markdown text: UTF-8 (with or without BOM), UTF-16, else Windows Vietnamese."""
+    raw = path.read_bytes()
+    if raw.startswith((b"\xff\xfe", b"\xfe\xff")):
+        return raw.decode("utf-16")
+    for enc in ("utf-8-sig", "cp1258"):
+        try:
+            return raw.decode(enc)
+        except UnicodeDecodeError:
+            continue
+    return raw.decode("latin-1")
+
+
+def _md_table(grid: list[list[dict]]) -> str:
+    rows = [[" ".join((c.get("text") or "").split()).replace("|", "\\|") for c in row] for row in grid]
+    if not rows:
+        return ""
+    lines = ["| " + " | ".join(rows[0]) + " |", "|" + "---|" * len(rows[0])]
+    return "\n".join(lines + ["| " + " | ".join(r) + " |" for r in rows[1:]])
+
+
+def sheets_markdown(doc_json: dict) -> str | None:
+    """A workbook as one page per sheet, each headed by its sheet name; None if it has no sheets.
+
+    Docling's own Markdown put both sheets' tables before the first page break and dropped the
+    sheet names, so a torque from sheet "Mô-men xoắn" was cited as page 1 with no sheet.
+    """
+    sheets = [g for g in doc_json.get("groups") or [] if g.get("label") == "sheet"]
+    if not sheets:
+        return None
+    pages = []
+    for sheet in sheets:
+        parts = [f"## Sheet: {sheet.get('name') or len(pages) + 1}"]
+        for child in sheet.get("children") or []:
+            _, kind, idx = (child.get("$ref") or "#//").split("/")[:3]
+            item = (doc_json.get(kind) or [])[int(idx)] if idx.isdigit() else {}
+            if kind == "tables":
+                parts.append(_md_table(item.get("data", {}).get("grid") or []))
+            elif kind == "texts" and item.get("text"):
+                parts.append(item["text"])
+        pages.append("\n\n".join(p for p in parts if p))
+    return f"\n\n{PAGE_BREAK}\n\n".join(pages)
 
 
 def pdf_page_count(path: Path) -> int | None:
@@ -255,13 +301,18 @@ def main() -> None:
             out_dir.mkdir(parents=True, exist_ok=True)
             warnings: list[str] = []
             try:
-                if chunked:
+                if path.suffix.lower() in TEXT_SUFFIXES:
+                    md_content = read_text_file(path).replace("\r\n", "\n")
+                    body = {"status": "success", "errors": []}
+                elif chunked:
                     md_content, warnings = parse_in_ranges(client, path, out_dir, total, args)
                     body = {"status": "success", "errors": []}
                 else:
                     body = convert(client, path, args.ocr_lang)
                     doc = body["document"]
                     md_content = doc.get("md_content") or ""
+                    if path.suffix.lower() == ".xlsx":
+                        md_content = sheets_markdown(doc.get("json_content") or {}) or md_content
                     write_atomic(out_dir / "docling.json", json.dumps(doc.get("json_content") or {}, ensure_ascii=False))
             except Exception as exc:  # keep going; one bad file must not stop the batch
                 failed += 1

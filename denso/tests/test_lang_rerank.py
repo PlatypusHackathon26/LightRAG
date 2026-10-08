@@ -92,3 +92,10 @@ def test_picture_text_in_a_named_language_still_ranks_with_the_named_sections():
     docs = [EN, DE, IMAGE, ru_image]
     order = [i for i, _ in rank("Does the SCV torque in the Russian-language section match the English section?", docs)]
     assert order[0] == 3 and order[-1] == 2
+
+
+def test_english_ranks_second_after_the_question_language():
+    vi = "--- trang 1 · ngôn ngữ: vi ---\nQuy trình chạy rà máy nén mới."
+    docs = [RU, DE, EN, vi]
+    order = [i for i, _ in rank("Sau khi lắp máy nén điều hòa mới phải chạy rà như thế nào?", docs)]
+    assert order[:2] == [3, 2]

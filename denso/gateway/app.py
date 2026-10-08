@@ -97,8 +97,12 @@ def pages_from_chunks(chunks: list[str]) -> str | None:
     The language reranker ranks the question's language first, so the first chunk's
     language is the one the answer was read from.
     """
-    first_lang = next((m.group(1) for c in chunks for m in [CHUNK_LANG.search(c)] if m), None)
     marks = [(int(p), lang) for c in chunks for p, lang in PAGE_LANG.findall(c)]
+    # English (the manuals' source language) when the document has it: a Vietnamese question
+    # answered from a Vietnamese upload kept the installation manual in vector order, and its
+    # first chunk's language gave pages 44-45 of another translation.
+    first_lang = "en" if any(lang == "en" for _, lang in marks) else next(
+        (m.group(1) for c in chunks for m in [CHUNK_LANG.search(c)] if m), None)
     # A chunk can run across a language boundary (en p.4 -> de p.5): filter page by page.
     pages = sorted({p for p, lang in marks if not first_lang or lang in (first_lang, "mixed", "")})
     if len(pages) > MAX_PAGES_SHOWN:

@@ -289,6 +289,7 @@ export default function KnowledgeHubDrawer() {
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
         'text/html': ['.html'],
         'text/markdown': ['.md'],
+        'text/plain': ['.txt'],
         'image/*': ['.png', '.jpg', '.jpeg', '.tiff', '.bmp', '.webp'],
       }
       : {

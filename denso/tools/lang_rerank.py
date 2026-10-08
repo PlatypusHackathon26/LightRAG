@@ -53,7 +53,8 @@ LANGUAGE_NAMES = re.compile(r"\b(" + "|".join(sorted(map(re.escape, LANGUAGE_COD
 # Wording that asks about several languages at once, whatever language is named.
 MULTI_LANGUAGE = re.compile(r"\b(multilingual|translations?|language versions?|other languages?)\b|"
                             r"ngôn ngữ (khác|nào)|đa ngôn ngữ", re.IGNORECASE)
-LANG_BOOST = 1.0
+LANG_BOOST = 2.0  # tiers: question language > English (FALLBACK_BOOST) > other translations
+FALLBACK_BOOST = 1.0
 TEXT_FLOOR = 1.0
 MAX_SCORE = TEXT_FLOOR + 1.0 + LANG_BOOST
 IMAGE_CHUNK = re.compile(r"^#{2,3} Ảnh |^# Chữ và hình trong ảnh", re.MULTILINE)
@@ -119,8 +120,14 @@ def rank(query: str, documents: list[str]) -> list[tuple[int, float]]:
                 score += TEXT_FLOOR + LANG_BOOST
         else:
             score += TEXT_FLOOR
-            if (lang and lang in chunk_languages(doc)) or (wanted & chunk_languages(doc)):
+            langs = chunk_languages(doc)
+            if (lang and lang in langs) or (wanted & langs):
                 score += LANG_BOOST
+            elif lang and lang != FALLBACK_LANG and FALLBACK_LANG in langs:
+                # English (the source language) second, above the other translations: with one
+                # Vietnamese upload in the pool, a Vietnamese question's context was filled with
+                # the Romanian, Spanish, Croatian... run-in sections and the English one left out.
+                score += FALLBACK_BOOST
         scored.append((i, round(score, 6)))
     return sorted(scored, key=lambda x: -x[1])
 

@@ -28,7 +28,7 @@ import uuid
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-ALLOWED = {".pdf", ".docx", ".pptx", ".xlsx", ".html", ".md", ".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".webp"}
+ALLOWED = {".pdf", ".docx", ".pptx", ".xlsx", ".html", ".md", ".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".webp", ".txt"}
 SAFE_NAME = re.compile(r"[^\w\s().,+-]", re.UNICODE)
 
 
@@ -162,8 +162,10 @@ class JobRunner:
             raise RuntimeError("Docling is not running on " + self.docling +
                                " - start it with denso/start.ps1 -DoclingOnly, then upload again") from None
         job.status, job.stage, job.progress = "parsing", "Docling đang đọc bố cục, bảng và trang", 10
+        # --force: an upload replacing a file of the same name must be read again, not served from
+        # the previous parse (parse.py skips files whose meta.json exists).
         await self._step(job, ["denso/pipeline/parse.py", "--level", str(job.level), "--docling", self.docling,
-                               "--cooldown", "2", str(raw)], "parse")
+                               "--cooldown", "2", "--force", str(raw)], "parse")
         job.status, job.stage, job.progress = "chunking", "Làm sạch, gắn dấu trang và ngôn ngữ", 60
         await self._step(job, ["denso/pipeline/clean.py", job.stem], "clean")
         job.status, job.stage, job.progress = "embedding", "Tạo vector và nạp vào kho tri thức", 80

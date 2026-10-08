@@ -172,3 +172,11 @@ def test_tied_pages_prefer_the_english_section():
     ref = {"reference_id": "1", "file_path": "Diesel_SCV.md", "content": [chunk]}
     (c,) = to_citations([ref], "Lắp O-ring mới cho SCV trên bơm Common Rail. [1]")
     assert c["pages"] == "4"
+
+
+def test_fallback_pages_of_a_multilingual_manual_are_the_english_ones():
+    # Seen live: a Vietnamese run-in answer cited pages 44-45 (another translation) of the manual.
+    from app import pages_from_chunks
+
+    chunks = ["--- [Trang 44 | ngôn ngữ: tr] ---\nRodaj prosedürü.", "--- [Trang 5 | ngôn ngữ: en] ---\nRun in procedure."]
+    assert pages_from_chunks(chunks) == "5"

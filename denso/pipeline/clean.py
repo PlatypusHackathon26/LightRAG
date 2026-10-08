@@ -86,9 +86,10 @@ def detect_lang(text: str) -> str:
 def is_letter_spaced(line: str) -> bool:
     """'P r i n t e d i n B' - print codes and logos spelled out by OCR."""
     tokens = BULLET_PREFIX.sub("", line).split()
-    if len(tokens) < 3:
+    # A formula is not a spelled-out logo: "Công thức: A - B = C" was dropped from a text upload.
+    if len(tokens) < 3 or "=" in tokens:
         return False
-    singles = sum(1 for t in tokens if len(t) == 1)
+    singles = sum(1 for t in tokens if len(t) == 1 and t not in "-+=/×")
     return singles / len(tokens) >= 0.6
 
 

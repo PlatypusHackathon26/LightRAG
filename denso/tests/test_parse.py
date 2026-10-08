@@ -3,6 +3,8 @@
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "pipeline"))
 
 from parse import access_level_for, align_segments, page_ranges, write_atomic  # noqa: E402
@@ -57,3 +59,33 @@ def test_access_level_from_folder_or_flag():
     assert access_level_for(Path("data/raw/level_3/sop.pdf"), None) == 3
     assert access_level_for(Path("data/raw/sop.pdf"), None) == 1
     assert access_level_for(Path("data/raw/level_3/sop.pdf"), 2) == 2
+
+
+@pytest.mark.parametrize("data", [
+    "Mô-men xoắn 6,9-10,8 Nm\r\n".encode("utf-8"),
+    "Mô-men xoắn 6,9-10,8 Nm\r\n".encode("utf-8-sig"),
+    "Mô-men xoắn 6,9-10,8 Nm\r\n".encode("utf-16"),
+])
+def test_a_text_upload_is_read_in_any_common_encoding(tmp_path, data):
+    from parse import read_text_file
+
+    f = tmp_path / "note.txt"
+    f.write_bytes(data)
+    assert read_text_file(f).strip() == "Mô-men xoắn 6,9-10,8 Nm"
+
+
+def test_a_workbook_becomes_one_page_per_named_sheet():
+    # Seen live: Docling's Markdown put both sheets' tables on page 1 and dropped the names.
+    from parse import PAGE_BREAK, sheets_markdown
+
+    cell = lambda t: {"text": t}  # noqa: E731
+    doc = {"groups": [{"label": "sheet", "name": "Dầu", "children": [{"$ref": "#/tables/0"}]},
+                      {"label": "sheet", "name": "Mô-men", "children": [{"$ref": "#/texts/0"}, {"$ref": "#/tables/1"}]}],
+           "texts": [{"text": "Ghi chú"}],
+           "tables": [{"data": {"grid": [[cell("Tên"), cell("Mã")], [cell("ND-oil 8"), cell("DND08250")]]}},
+                      {"data": {"grid": [[cell("Chi tiết"), cell("Nm")], [cell("SCV | bu-lông"), cell("6,9 – 10,8")]]}}]}
+    pages = sheets_markdown(doc).split(PAGE_BREAK)
+    assert len(pages) == 2
+    assert pages[0].strip().startswith("## Sheet: Dầu") and "| ND-oil 8 | DND08250 |" in pages[0]
+    assert "Ghi chú" in pages[1] and r"SCV \| bu-lông" in pages[1]
+    assert sheets_markdown({"groups": []}) is None

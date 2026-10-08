@@ -110,3 +110,15 @@ def test_gateway_route_returns_the_job_and_lists_it(tmp_path, monkeypatch):
     job = tc.get(f"/agent/documents/jobs/{r.json()['jobId']}", headers=h).json()
     assert job["name"] == "manual.pdf" and job["status"] in {"uploading", "parsing", "vectorized"}
     assert tc.post("/agent/documents", files={"file": ("x.exe", b"MZ")}, data={"level": "1"}, headers=h).status_code == 415
+
+
+def test_a_replacing_upload_is_parsed_again_not_served_from_the_old_parse(tmp_path):
+    r = FakeRunner(tmp_path, up={"http://docling", "http://l1"})
+    run(r, name="Bang_tra.xlsx")
+    assert "--force" in r.steps[0][1]
+
+
+def test_text_files_are_accepted(tmp_path):
+    r = FakeRunner(tmp_path, up={"http://docling", "http://l1"})
+    job = run(r, name="Ghi chu.txt")
+    assert job.status == "vectorized"
