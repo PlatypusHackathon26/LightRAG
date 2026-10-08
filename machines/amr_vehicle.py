@@ -1,16 +1,13 @@
 from __future__ import annotations
 
 import random
+import time
 from typing import Any, Dict, Optional
 from machines.base_machine import BaseMachine
 
 
 class AmrVehicle(BaseMachine):
-    """Mô phỏng xe tự hành nhà kho AMR chuẩn VDA 5050 (Model: OMRON LD-90 / MiR250).
-
-    Mô phỏng trạng thái pin LiFePO4, nhiệt độ cell, tải kéo, định vị LiDAR SLAM
-    và điều phối các chặng di chuyển trong xưởng.
-    """
+    """Mô phỏng xe tự hành nhà kho AMR chuẩn VDA 5050 (Model: OMRON LD-90 / MiR250)."""
 
     def __init__(self, event_hub: Optional[Any] = None) -> None:
         super().__init__(
@@ -21,57 +18,105 @@ class AmrVehicle(BaseMachine):
             event_hub=event_hub,
         )
 
-        # Trạng thái di chuyển
-        self.state = "IDLE"  # IDLE, NAVIGATING, CHARGING, BLOCKED_OBSTACLE, E_STOP
+        # 1. Trạng thái điều khiển
+        self.state = "NAVIGATING"  # Mặc định xe chạy vận chuyển linh kiện
+        self.target_station = "STATION_DOCK_2"
         self.current_station = "STATION_DOCK_1"
-        self.target_station = "STATION_DOCK_1"
-        self.current_speed_m_s = 0.0
-        self.max_speed_m_s = 1.4
+        self.target_speed_m_s = 1.2
+        self.max_configured_speed = 1.4
 
-        # Năng lượng & cơ khí
-        self.battery_pct = 82.0  # Dung lượng pin (%)
-        self.battery_temp_c = 31.0
-        self.payload_weight_kg = 0.0  # Tải trọng chuyên chở (Max 90 kg)
-        self.lidar_confidence_pct = 99.2  # Độ tin cậy định vị hạt SLAM
+        # 2. Trạng thái vật lý
+        self.current_velocity_m_s = 1.2
+        self.battery_pct = 85.0
+        self.battery_temp_c = 33.6  # Điểm cân bằng của pin khi di chuyển đầy tải
+        self.payload_weight_kg = 25.0
+        self.lidar_confidence_pct = 99.0
+        self.ambient_temp_c = 26.0
+        self.last_update_time = time.time()
+
+        # 3. Khai báo lỗi
+        self.active_faults = {
+            "BATTERY_CELL_DEGRADATION": False,  # Chai pin, nội trở cao
+            "LIDAR_OPTICAL_DIRT": False,        # Bụi bẩn che lăng kính LiDAR
+            "WHEEL_MOTOR_RESISTANCE": False,    # Kẹt cơ cấu bánh xe
+        }
+        self.fault_trigger_min_cycles = 15
+        self.fault_trigger_probability = 0.12
 
     def generate_telemetry(self) -> Dict[str, Any]:
         with self._lock:
-            # 1. Động học tiêu hao pin
-            if self.state == "NAVIGATING":
-                self.current_speed_m_s = self.max_speed_m_s + random.uniform(-0.1, 0.1)
-                # Xả pin = Tải kéo + vận tốc
-                drain_rate = 0.08 + (self.payload_weight_kg / 90.0) * 0.05
-                self.battery_pct = max(0.0, self.battery_pct - drain_rate)
-                self.battery_temp_c += random.uniform(0.01, 0.05)
-            elif self.state == "CHARGING":
-                self.current_speed_m_s = 0.0
-                self.battery_pct = min(100.0, self.battery_pct + 0.45)
-                self.battery_temp_c = max(28.0, self.battery_temp_c - 0.08)
-            else:
-                self.current_speed_m_s = 0.0
-                self.battery_pct = max(0.0, self.battery_pct - 0.005)
+            current_time = time.time()
+            dt = max(0.1, min(current_time - self.last_update_time, 2.5))
+            self.last_update_time = current_time
 
-            # 2. Nhiễu LiDAR từ bụi sàn / người đi lại
-            self.lidar_confidence_pct = max(50.0, min(100.0, 99.0 + random.uniform(-1.5, 0.8)))
+            if self.state == "NAVIGATING":
+                self.maybe_trigger_random_fault()
+
+            # --- VẬN TỐC XE ---
+            if self.state == "NAVIGATING":
+                desired = self.target_speed_m_s
+                if self.active_faults["WHEEL_MOTOR_RESISTANCE"]:
+                    desired *= 0.5  # Kẹt bánh làm tốc độ tụt mạnh
+                self.current_velocity_m_s += (desired - self.current_velocity_m_s) * min(1.0, 2.0 * dt)
+            else:
+                self.current_velocity_m_s = max(0.0, self.current_velocity_m_s - 2.5 * dt)
+
+            # --- TIÊU HAO & NHIỆT ĐỘ PIN ---
+            if self.state == "NAVIGATING":
+                drain = 0.04 + (self.payload_weight_kg / 90.0) * 0.02
+                if self.active_faults["BATTERY_CELL_DEGRADATION"]:
+                    drain *= 4.0  # Tụt pin gấp 4 lần
+                if self.active_faults["WHEEL_MOTOR_RESISTANCE"]:
+                    drain *= 1.8
+                self.battery_pct = max(0.0, self.battery_pct - drain * dt)
+
+                heat_gen = drain * 5.0
+                self.battery_temp_c += (heat_gen - (self.battery_temp_c - self.ambient_temp_c) * 0.03) * dt
+            elif self.state == "CHARGING":
+                self.battery_pct = min(100.0, self.battery_pct + 0.4 * dt)
+                cooling = (self.battery_temp_c - self.ambient_temp_c) * 0.08 * dt
+                self.battery_temp_c = max(self.ambient_temp_c, self.battery_temp_c - cooling)
+            else:
+                self.battery_pct = max(0.0, self.battery_pct - 0.001 * dt)
+                cooling = (self.battery_temp_c - self.ambient_temp_c) * 0.05 * dt
+                self.battery_temp_c = max(self.ambient_temp_c, self.battery_temp_c - cooling)
+
+            # --- ĐỘ TIN CẬY LIDAR SLAM ---
+            if self.active_faults["LIDAR_OPTICAL_DIRT"]:
+                self.lidar_confidence_pct = max(40.0, self.lidar_confidence_pct - 2.0 * dt)
+            else:
+                self.lidar_confidence_pct = min(99.5, self.lidar_confidence_pct + 2.0 * dt)
+
+            noise_v = random.uniform(-0.02, 0.02) if self.current_velocity_m_s > 0.05 else 0.0
+            noise_lidar = random.uniform(-0.2, 0.2)
+            noise_bat = random.uniform(-0.05, 0.05)
+            noise_btemp = random.uniform(-0.1, 0.1)
 
             return {
                 "Controller_Execution": self.state,
-                "Battery_Pct": round(self.battery_pct, 1),
-                "Battery_Temp_C": round(self.battery_temp_c, 1),
-                "Current_Velocity_m_s": round(self.current_speed_m_s, 2),
+                "Battery_Pct": round(max(0.0, self.battery_pct + noise_bat), 1),
+                "Battery_Temp_C": round(self.battery_temp_c + noise_btemp, 1),
+                "Current_Velocity_m_s": round(max(0.0, self.current_velocity_m_s + noise_v), 2),
                 "Payload_Weight_Kg": round(self.payload_weight_kg, 1),
                 "Current_Station": self.current_station,
                 "Target_Station": self.target_station,
-                "Lidar_Confidence_Pct": round(self.lidar_confidence_pct, 1),
+                "Lidar_Confidence_Pct": round(max(0.0, min(100.0, self.lidar_confidence_pct + noise_lidar)), 1),
+                "Simulated_Active_Faults": self.get_active_faults(),
             }
 
     def detect_anomaly(self, telemetry: Dict[str, Any]) -> Optional[str]:
-        bat = telemetry.get("Battery_Pct", 100)
-        lidar = telemetry.get("Lidar_Confidence_Pct", 100)
-        if bat < 20.0 and self.state != "CHARGING":
-            return "critically low battery (depletion risk)"
+        bat = telemetry.get("Battery_Pct", 100.0)
+        temp = telemetry.get("Battery_Temp_C", 30.0)
+        lidar = telemetry.get("Lidar_Confidence_Pct", 100.0)
+
+        if bat < 15.0 and self.state != "CHARGING":
+            return "CRITICAL_BATTERY_EXHAUSTED"
+        if temp > 55.0:
+            return "CRITICAL_BATTERY_OVERHEAT"
         if lidar < 65.0:
-            return "localization lost (lidar obscured/corridor symmetric slip)"
+            return "LOCALIZATION_CONFIDENCE_LOST"
+        if bat < 25.0 and self.state != "CHARGING":
+            return "WARNING_LOW_BATTERY"
         return None
 
     def receive_plc_command(
@@ -80,31 +125,48 @@ class AmrVehicle(BaseMachine):
         payload = payload or {}
         with self._lock:
             detail = ""
-            if command == "NAVIGATE_TO":
-                station = payload.get("station", "BUFFER_STATION")
-                self.target_station = station
-                self.state = "NAVIGATING"
-                self.payload_weight_kg = float(payload.get("load_weight_kg", 25.0))
-                detail = f"VDA 5050 instant action accepted: Path calculated to {station}."
+
+            if command == "CLEAN_LIDAR_OPTICS":
+                self.clear_fault("LIDAR_OPTICAL_DIRT")
+                self.lidar_confidence_pct = 99.0
+                detail = "Đã làm sạch ống kính quang học LiDAR bằng khí nén; SLAM phục hồi."
+
+            elif command == "SERVICE_DRIVE_MOTOR":
+                self.clear_fault("WHEEL_MOTOR_RESISTANCE")
+                detail = "Đã kiểm tra và bôi trơn trục động cơ di chuyển."
+
+            elif command == "REPLACE_BATTERY_MODULE":
+                self.clear_fault("BATTERY_CELL_DEGRADATION")
+                self.battery_pct = 95.0
+                detail = "Đã thay cụm cell pin LiFePO4 mới."
 
             elif command == "RETURN_TO_CHARGER":
                 self.target_station = "CHARGING_STATION"
                 self.state = "CHARGING"
+                self.target_speed_m_s = 0.0
                 self.payload_weight_kg = 0.0
-                detail = "Vehicle docked to fast-charge contact plate."
+                detail = "Xe đã kết nối đế sạc tiếp xúc tự động."
+
+            elif command == "NAVIGATE_TO":
+                station = payload.get("station", "BUFFER_STATION")
+                self.target_station = station
+                self.state = "NAVIGATING"
+                self.target_speed_m_s = min(self.max_configured_speed, float(payload.get("speed_m_s", 1.2)))
+                detail = f"Chấp thuận lệnh lộ trình VDA 5050 tới trạm {station}."
+
+            elif command == "RESUME":
+                self.state = "NAVIGATING"
+                self.target_speed_m_s = 1.2
+                detail = "Tiếp tục lộ trình vận chuyển tự hành."
 
             elif command == "EMERGENCY_STOP":
                 self.state = "E_STOP"
-                self.current_speed_m_s = 0.0
-                detail = "Safety LiDAR safety field breached: Dynamic electro-magnetic braking clamped."
-
-            elif command == "RESUME":
-                self.state = "IDLE"
-                self.current_speed_m_s = 0.0
-                detail = "Obstacle cleared; AMR safety circuit reset to IDLE."
+                self.target_speed_m_s = 0.0
+                self.current_velocity_m_s = 0.0
+                detail = "Phanh điện từ kích hoạt, dừng xe khẩn cấp."
 
             else:
-                detail = f"VDA 5050 command {command} rejected by fleet manager."
+                detail = f"Lệnh '{command}' không được hỗ trợ trong giao thức VDA 5050."
 
             return self._build_event(
                 "plc_command_executed",
@@ -113,6 +175,7 @@ class AmrVehicle(BaseMachine):
                     "command": command,
                     "execution_detail": detail,
                     "current_state": self.state,
+                    "active_faults": self.get_active_faults(),
                 },
                 priority="info",
             )

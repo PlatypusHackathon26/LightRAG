@@ -71,7 +71,11 @@ class ApiEndpointTests(unittest.TestCase):
             ("127.0.0.1", 0),
             cls.state,
             None,
-            on_decision=None,
+            on_decision=lambda aid, d: {
+                "action_id": aid,
+                "status": "APPROVED" if d.strip().upper() in ("APPROVE", "APPROVED", "YES")
+                else "REJECTED",
+            },
             on_chat=lambda text: f"Phản hồi RAG cho: {text}",
         )
         cls.port = cls.server.server_port
@@ -156,6 +160,82 @@ class ApiEndpointTests(unittest.TestCase):
             snap = json.loads(res.read().decode("utf-8"))
         self.assertIn("conversations", snap)
         self.assertIn("uploads", snap)
+
+
+    def test_decision_endpoint_flows_into_chat(self) -> None:
+        """POST /api/decision phải cập nhật luôn thẻ HITL trong khung chat."""
+        self.state.handle_event({
+            "event_type": "approval_required",
+            "approval_id": "deadbeef",
+            "command": {"machine_id": "MC-TEST-01", "command": "PAUSE_MOTION",
+                        "reason": "quá dòng", "risk_level": "HIGH"},
+        })
+        payload = json.dumps({"action_id": "deadbeef", "decision": "APPROVE"}).encode()
+        status, data = self._post("/api/decision", payload, "application/json")
+        self.assertEqual(status, 200)
+        self.assertEqual(data["status"], "APPROVED")
+        pending_ids = [p.get("approval_id")
+                       for p in self.state.get_snapshot()["pending_approvals"]]
+        self.assertNotIn("deadbeef", pending_ids)
+
+        snap = self.state.get_snapshot()
+        cards = [m for conv in snap["conversations"]
+                 if conv["machine_id"] == "MC-TEST-01"
+                 for m in conv["messages"] if m.get("approval_id") == "deadbeef"]
+        self.assertEqual(len(cards), 1)
+        self.assertEqual(cards[0]["status"], "approved")
+
+
+class ApprovalInChatTests(unittest.TestCase):
+    """Thẻ HITL phải nằm TRONG đoạn chat, không còn ở panel cột phải."""
+
+    def _make_state_with_approval(self) -> tuple[DashboardState, str]:
+        state = DashboardState()
+        state.handle_event({
+            "event_type": "approval_required",
+            "approval_id": "ab12cd34",
+            "command": {"machine_id": "MC-MILL-01", "command": "SAFE_STOP",
+                        "params": {"graceful": True},
+                        "reason": "Nhiệt độ vượt ngưỡng", "risk_level": "HIGH"},
+        })
+        return state, "ab12cd34"
+
+    @staticmethod
+    def _pending_ids(snapshot: dict) -> list:
+        return [p.get("approval_id") for p in snapshot["pending_approvals"]]
+
+    def test_approval_card_created_pending_in_conversation(self) -> None:
+        state, app_id = self._make_state_with_approval()
+        snap = state.get_snapshot()
+        self.assertIn(app_id, self._pending_ids(snap))
+
+        conv = snap["conversations"][0]
+        cards = [m for m in conv["messages"] if m["role"] == "approval"]
+        self.assertEqual(len(cards), 1)
+        self.assertEqual(cards[0]["status"], "pending")
+        self.assertEqual(cards[0]["command"], "SAFE_STOP")
+        self.assertEqual(conv["category"], "system_alert")
+
+    def test_approve_updates_card_status(self) -> None:
+        state, app_id = self._make_state_with_approval()
+        state.remove_approval(app_id, status="APPROVE")
+
+        snap = state.get_snapshot()
+        self.assertNotIn(app_id, self._pending_ids(snap))
+        card = [m for m in snap["conversations"][0]["messages"]
+                if m["role"] == "approval"][0]
+        self.assertEqual(card["status"], "approved")
+
+    def test_reject_updates_card_status(self) -> None:
+        state, app_id = self._make_state_with_approval()
+        state.remove_approval(app_id, status="REJECT")
+
+        snap = state.get_snapshot()
+        self.assertNotIn(app_id, self._pending_ids(snap))
+        card = [m for m in snap["conversations"][0]["messages"]
+                if m["role"] == "approval"][0]
+        self.assertEqual(card["status"], "rejected")
+
 
 
 if __name__ == "__main__":

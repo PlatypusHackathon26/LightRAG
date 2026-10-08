@@ -1,16 +1,13 @@
 ﻿from __future__ import annotations
 
 import random
+import time
 from typing import Any, Dict, Optional
 from machines.base_machine import BaseMachine
 
 
 class RobotArm(BaseMachine):
-    """Mô phỏng cánh tay Robot công nghiệp 6 bậc chuẩn OPC UA Robotics (Model: DENSO VS-068).
-
-    Mô phỏng dòng điện servo khớp (Joint Currents), tải trọng cổ tay (Wrist Payload),
-    va chạm và nhiệt độ cuộn cảm stator.
-    """
+    """Mô phỏng cánh tay Robot công nghiệp 6 trục (Model: DENSO VS-068)."""
 
     def __init__(self, event_hub: Optional[Any] = None) -> None:
         super().__init__(
@@ -21,55 +18,107 @@ class RobotArm(BaseMachine):
             event_hub=event_hub,
         )
 
-        # Trạng thái điều khiển servo
-        self.state = "RUNNING"  # RUNNING, PAUSED, COLLISION_STOP, E_STOP
-        self.speed_override_pct = 100.0  # Tốc độ quỹ đạo vận hành
-        self.payload_kg = 3.2  # Tải gắp phôi hiện tại (Max 7.0 kg)
+        # 1. Trạng thái điều khiển
+        self.state = "RUNNING"
+        self.speed_override_pct = 100.0
+        self.servo_power_enabled = True
+        self.gripper_command = "CLAMP"
+        self.payload_kg = 3.5
 
-        # Động học khớp 3 (Joint 3 - Khớp chịu mô-men uốn và gia tốc lớn nhất)
-        self.joint_3_current_a = 9.5  # Dòng điện pha động cơ định danh (Amps)
-        self.joint_3_temp_c = 48.0  # Nhiệt độ cuộn dây servo (°C)
-        self.joint_1_current_a = 6.2
-        self.ambient_temp_c = 28.0
+        # 2. Trạng thái vật lý
+        self.joint_3_current_a = 8.5
+        self.joint_3_temp_c = 40.0
+        self.actual_gripper_pressure_bar = 6.0
+        self.ambient_temp_c = 26.0
+        self.last_update_time = time.time()
+
+        # 3. Khai báo danh mục lỗi
+        self.active_faults = {
+            "GEARBOX_LACK_OF_GREASE": False,  # Khô mỡ hộp số giảm tốc khớp 3
+            "GRIPPER_PNEUMATIC_LEAK": False,  # Xì khí nén kẹp phôi
+            "PAYLOAD_OVERLOAD": False,        # Quá tải trọng gắp
+        }
+        self.fault_trigger_min_cycles = 18
+        self.fault_trigger_probability = 0.12
 
     def generate_telemetry(self) -> Dict[str, Any]:
         with self._lock:
+            current_time = time.time()
+            dt = max(0.1, min(current_time - self.last_update_time, 2.5))
+            self.last_update_time = current_time
+
             if self.state == "RUNNING":
-                # 1. Dòng điện Joint 3 = f(Speed Override, Payload, Gravity Torque)
-                speed_ratio = self.speed_override_pct / 100.0
-                dynamic_load = (self.payload_kg / 7.0) * 5.0
-                base_current = 7.0 * speed_ratio + dynamic_load
-                self.joint_3_current_a = base_current + random.uniform(-0.8, 1.2)
+                self.maybe_trigger_random_fault()
 
-                # 2. Nhiệt độ động cơ khớp = Hiệu ứng Joule (I^2 * R)
-                heat_generated = ((self.joint_3_current_a / 12.0) ** 2) * 1.1
-                heat_dissipated = 0.55
-                self.joint_3_temp_c += (heat_generated - heat_dissipated) + random.uniform(-0.1, 0.15)
-                self.joint_3_temp_c = max(self.ambient_temp_c, min(105.0, self.joint_3_temp_c))
-
-                self.joint_1_current_a = 5.0 * speed_ratio + random.uniform(-0.4, 0.4)
+            # --- DÒNG ĐIỆN SERVO KHỚP 3 ---
+            if self.state == "RUNNING" and self.servo_power_enabled:
+                base_target_j3 = 5.0 * (self.speed_override_pct / 100.0) + (self.payload_kg / 7.0) * 4.5 + 2.0
+                if self.active_faults["GEARBOX_LACK_OF_GREASE"]:
+                    base_target_j3 += 8.5  # Ma sát khô bánh răng làm động cơ kéo dòng lớn
+                if self.active_faults["PAYLOAD_OVERLOAD"]:
+                    base_target_j3 += 5.5
+                target_j3 = base_target_j3
+            elif self.state == "PAUSED":
+                target_j3 = 2.0
             else:
-                self.joint_3_current_a = 0.6 + random.uniform(-0.1, 0.1)  # Dòng giữ phanh servo
-                self.joint_1_current_a = 0.4
-                self.joint_3_temp_c = max(self.ambient_temp_c, self.joint_3_temp_c - 0.4)
+                target_j3 = 0.0
+
+            self.joint_3_current_a += (target_j3 - self.joint_3_current_a) * min(1.0, 3.0 * dt)
+
+            # --- CÂN BẰNG NHIỆT KHỚP (JOULE THERMAL DYNAMICS) ---
+            if self.joint_3_current_a > 1.0:
+                heat_in = ((self.joint_3_current_a / 10.0) ** 2) * 1.5
+                if self.active_faults["GEARBOX_LACK_OF_GREASE"]:
+                    heat_in += 4.0
+                if self.active_faults["PAYLOAD_OVERLOAD"]:
+                    heat_in += 1.5  # Động cơ quá tải sinh nhiệt ngoài mô hình I²R
+                # Hệ số 0.09 → cân bằng bình thường ≈ 40°C (bằng giá trị khởi tạo)
+                heat_out = max(0.0, (self.joint_3_temp_c - self.ambient_temp_c) * 0.09)
+                self.joint_3_temp_c += (heat_in - heat_out) * dt
+            else:
+                cooling = (self.joint_3_temp_c - self.ambient_temp_c) * 0.08 * dt
+                self.joint_3_temp_c = max(self.ambient_temp_c, self.joint_3_temp_c - cooling)
+
+            self.joint_3_temp_c = max(self.ambient_temp_c, min(120.0, self.joint_3_temp_c))
+
+            # --- ÁP SUẤT TAY GẮP KHÍ NÉN ---
+            if self.gripper_command == "CLAMP":
+                if self.active_faults["GRIPPER_PNEUMATIC_LEAK"]:
+                    self.actual_gripper_pressure_bar = max(0.8, self.actual_gripper_pressure_bar - 1.2 * dt)
+                else:
+                    self.actual_gripper_pressure_bar += (6.0 - self.actual_gripper_pressure_bar) * min(1.0, 3.0 * dt)
+            else:
+                self.actual_gripper_pressure_bar = max(0.0, self.actual_gripper_pressure_bar - 8.0 * dt)
+
+            noise_j3 = random.uniform(-0.05, 0.05)
+            noise_temp = random.uniform(-0.04, 0.04)
+            noise_grip = random.uniform(-0.08, 0.08)
 
             return {
                 "Controller_Execution": self.state,
-                "Joint_3_Current_A": round(max(0.0, self.joint_3_current_a), 2),
-                "Joint_1_Current_A": round(max(0.0, self.joint_1_current_a), 2),
-                "Motor_Temp_C": round(self.joint_3_temp_c, 2),
+                "Joint_3_Current_A": round(max(0.0, self.joint_3_current_a + noise_j3), 2),
+                "Motor_Temp_C": round(max(self.ambient_temp_c, self.joint_3_temp_c + noise_temp), 2),
+                "Gripper_Pressure_Bar": round(max(0.0, self.actual_gripper_pressure_bar + noise_grip), 2),
                 "Payload_Kg": round(self.payload_kg, 2),
                 "Speed_Override_Pct": self.speed_override_pct,
-                "Safety_Guard_Interlock": True,
+                "Simulated_Active_Faults": self.get_active_faults(),
             }
 
     def detect_anomaly(self, telemetry: Dict[str, Any]) -> Optional[str]:
-        j3_amp = telemetry.get("Joint_3_Current_A", 0)
-        motor_t = telemetry.get("Motor_Temp_C", 0)
-        if j3_amp > 18.0:
-            return "joint 3 servo overcurrent (mechanical resistance/collision)"
-        if motor_t > 75.0:
-            return "servo motor thermal overload"
+        j3 = telemetry.get("Joint_3_Current_A", 0)
+        temp = telemetry.get("Motor_Temp_C", 0)
+        pressure = telemetry.get("Gripper_Pressure_Bar", 0)
+
+        if j3 > 16.5:
+            return "CRITICAL_SERVO_OVERCURRENT"
+        if temp > 80.0:
+            return "CRITICAL_SERVO_OVERHEAT"
+        if self.gripper_command == "CLAMP" and pressure < 3.5 and self.state == "RUNNING":
+            return "CRITICAL_GRIPPER_PRESSURE_LOSS"
+        if temp > 65.0:
+            return "WARNING_SERVO_ELEVATED_TEMPERATURE"
+        if j3 > 12.5:
+            return "WARNING_JOINT_HIGH_LOAD"
         return None
 
     def receive_plc_command(
@@ -78,35 +127,44 @@ class RobotArm(BaseMachine):
         payload = payload or {}
         with self._lock:
             detail = ""
-            if command == "PAUSE_MOTION":
+
+            if command == "REFILL_GEARBOX_GREASE":
+                self.clear_fault("GEARBOX_LACK_OF_GREASE")
+                detail = "Đã bơm mỡ bôi trơn chuyên dụng cho hộp số giảm tốc Khớp 3."
+
+            elif command == "REPAIR_PNEUMATIC_SYSTEM":
+                self.clear_fault("GRIPPER_PNEUMATIC_LEAK")
+                detail = "Đã thay gioăng ống dẫn khí kẹp gắp, áp suất phục hồi 6 Bar."
+
+            elif command == "RESET_PAYLOAD":
+                self.clear_fault("PAYLOAD_OVERLOAD")
+                self.payload_kg = 3.5
+                detail = "Đã đưa tải trọng phôi về định mức danh nghĩa 3.5 kg."
+
+            elif command == "PAUSE_MOTION":
                 self.state = "PAUSED"
                 self.speed_override_pct = 0.0
-                detail = "Robot trajectory motion suspended. Servo position locks engaged."
+                detail = "Đã dừng quỹ đạo di chuyển robot. Động cơ giữ phanh tại vị trí an toàn."
 
-            elif command == "ADJUST_JOINT_SPEED":
-                factor = float(payload.get("speed_factor", 0.5))
-                self.speed_override_pct = factor * 100.0
-                detail = f"Trajectory velocity scaled down to {self.speed_override_pct}%."
+            elif command == "SET_SPEED_OVERRIDE":
+                target_pct = float(payload.get("speed_pct", 50.0))
+                self.speed_override_pct = max(0.0, min(100.0, target_pct))
+                detail = f"Đã hạ tốc độ di chuyển cánh tay robot xuống {self.speed_override_pct}%."
 
-            elif command == "RESET_TRAJECTORY":
+            elif command == "RESUME":
                 self.state = "RUNNING"
-                self.speed_override_pct = 50.0
-                self.payload_kg = 0.0  # Nhả kẹp phôi
-                detail = "Manipulator homed to safe origin position; gripper released."
+                self.servo_power_enabled = True
+                self.speed_override_pct = 100.0
+                detail = "Khôi phục chu trình gắp đặt tự động bình thường."
 
             elif command == "EMERGENCY_STOP":
                 self.state = "COLLISION_STOP"
                 self.speed_override_pct = 0.0
-                self.joint_3_current_a = 0.0
-                detail = "Category 0 E-Stop activated: Dynamic braking engaged and 24V servo bus dropped."
-
-            elif command == "RESUME":
-                self.state = "RUNNING"
-                self.speed_override_pct = 100.0
-                detail = "Robot resumed automated handling cycle at normal velocity."
+                self.servo_power_enabled = False
+                detail = "NGẮT KHẨN CẤP: Ngắt nguồn driver servo, khóa chốt phanh cơ học."
 
             else:
-                detail = f"Command {command} rejected by Denso RC8A controller."
+                detail = f"Lệnh '{command}' không được hỗ trợ bởi bộ điều khiển Denso RC8A."
 
             return self._build_event(
                 "plc_command_executed",
@@ -115,6 +173,7 @@ class RobotArm(BaseMachine):
                     "command": command,
                     "execution_detail": detail,
                     "current_state": self.state,
+                    "active_faults": self.get_active_faults(),
                 },
                 priority="info",
             )

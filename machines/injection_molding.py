@@ -1,16 +1,13 @@
 ﻿from __future__ import annotations
 
 import random
+import time
 from typing import Any, Dict, Optional
 from machines.base_machine import BaseMachine
 
 
 class InjectionMolding(BaseMachine):
-    """Mô phỏng máy ép phun nhựa chuẩn EUROMAP 63/77 (Model: FANUC ROBOSHOT S-2000i).
-
-    Mô phỏng chu trình ép 4 thì (Clamping -> Injection -> Packing/Cooling -> Mold Open),
-    cân bằng nhiệt nòng phun và áp suất thủy lực/servo.
-    """
+    """Mô phỏng máy ép phun nhựa chuẩn EUROMAP 63/77 (Model: FANUC ROBOSHOT S-2000i)."""
 
     def __init__(self, event_hub: Optional[Any] = None) -> None:
         super().__init__(
@@ -21,73 +18,104 @@ class InjectionMolding(BaseMachine):
             event_hub=event_hub,
         )
 
-        # Trạng thái chu trình
-        self.state = "RUNNING"  # RUNNING, MOLD_MAINTENANCE, PURGING, EMERGENCY_STOP
-        self.cycle_phase = "INJECTION"  # CLAMP, INJECTION, PACKING, COOLING, OPEN
-        self.heater_bands_active = True
-        self.mold_clamped = True
+        # 1. Trạng thái điều khiển
+        self.state = "RUNNING"
+        self.cycle_phase = "INJECTION"
+        self.heater_bands_enabled = True
+        self.mold_clamp_command = True
+        self.nozzle_temp_zone1_target = 220.0
+        self.clamping_pressure_target_bar = 140.0
 
-        # Động học và nhiệt độ các vùng nòng phun (Heater Zones)
-        self.nozzle_temp_zone1_target = 220.0  # Vùng đầu phun (°C)
+        # 2. Trạng thái vật lý
         self.nozzle_temp_zone1_actual = 220.0
         self.barrel_temp_zone2_actual = 210.0
-        self.mold_temp_c = 45.0  # Nhiệt độ nước giải nhiệt khuôn (°C)
-
-        # Áp suất & vị trí trục vít ép
-        self.clamping_pressure_bar = 140.0  # Áp lực kẹp khuôn định danh (120-160 Bar)
-        self.injection_pressure_bar = 95.0  # Áp suất phun nhựa
-        self.screw_position_mm = 35.0  # Vị trí trục vít (Cushion position)
+        self.mold_temp_c = 45.0
+        self.clamping_pressure_bar = 140.0
+        self.injection_pressure_bar = 95.0
+        self.screw_position_mm = 35.0
         self.ambient_temp_c = 28.0
+        self.last_update_time = time.time()
+
+        # 3. Khai báo danh mục lỗi
+        self.active_faults = {
+            "HEATER_BAND_RUNAWAY": False,               # Kẹt rơ-le nhiệt, quá nhiệt đầu phun
+            "HYDRAULIC_PROPORTIONAL_VALVE_LEAK": False, # Hở van thủy lực kẹp khuôn, tụt áp
+            "NOZZLE_CLOGGING": False,                   # Nghẹt nhựa lạnh nòng phun
+        }
+        self.fault_trigger_min_cycles = 16
+        self.fault_trigger_probability = 0.12
 
     def generate_telemetry(self) -> Dict[str, Any]:
         with self._lock:
+            current_time = time.time()
+            dt = max(0.1, min(current_time - self.last_update_time, 2.5))
+            self.last_update_time = current_time
+
             if self.state == "RUNNING":
-                # 1. Động học nhiệt độ Zone 1: Dao động theo công suất gia nhiệt và đối lưu nhựa
-                if self.heater_bands_active:
-                    # Rủi ro: Cảm biến trôi nhiệt hoặc cháy thermistor
-                    self.nozzle_temp_zone1_actual += random.uniform(-0.35, 0.45)
-                    self.nozzle_temp_zone1_actual = max(self.ambient_temp_c, min(270.0, self.nozzle_temp_zone1_actual))
-                else:
-                    self.nozzle_temp_zone1_actual = max(self.ambient_temp_c, self.nozzle_temp_zone1_actual - 0.7)
+                self.maybe_trigger_random_fault()
 
-                # 2. Nhiệt độ khuôn phụ thuộc nhiệt nhựa nóng và lưu lượng chiller
-                self.mold_temp_c += random.uniform(-0.15, 0.2)
-
-                # 3. Áp suất kẹp khuôn (Tương quan thủy lực/servo clamp)
-                if self.mold_clamped:
-                    self.clamping_pressure_bar = 140.0 + random.uniform(-2.5, 3.0)
-                else:
-                    self.clamping_pressure_bar = 0.0
-
-                # 4. Áp suất phun nhựa thực tế
-                viscosity_factor = max(0.8, 1.0 + (220.0 - self.nozzle_temp_zone1_actual) * 0.02)
-                self.injection_pressure_bar = (90.0 * viscosity_factor) + random.uniform(-1.5, 2.0)
+            # --- NHIỆT ĐỘ ĐẦU PHUN ZONE 1 ---
+            if self.state in ("EMERGENCY_STOP", "MOLD_MAINTENANCE") or not self.heater_bands_enabled:
+                cooling = (self.nozzle_temp_zone1_actual - self.ambient_temp_c) * 0.05 * dt
+                self.nozzle_temp_zone1_actual = max(self.ambient_temp_c, self.nozzle_temp_zone1_actual - cooling)
             else:
-                self.clamping_pressure_bar = 0.0
+                if self.active_faults["HEATER_BAND_RUNAWAY"]:
+                    self.nozzle_temp_zone1_actual = min(280.0, self.nozzle_temp_zone1_actual + 1.2 * dt)
+                else:
+                    diff = self.nozzle_temp_zone1_target - self.nozzle_temp_zone1_actual
+                    self.nozzle_temp_zone1_actual += diff * min(1.0, 0.4 * dt)
+
+            # --- ÁP SUẤT KẸP KHUÔN (CLAMPING BAR) ---
+            if self.mold_clamp_command and self.state == "RUNNING":
+                target_p = self.clamping_pressure_target_bar
+                if self.active_faults["HYDRAULIC_PROPORTIONAL_VALVE_LEAK"]:
+                    target_p = 102.0  # Tụt áp kẹp do hở van
+                diff_p = target_p - self.clamping_pressure_bar
+                self.clamping_pressure_bar += diff_p * min(1.0, 3.0 * dt)
+            else:
+                self.clamping_pressure_bar = max(0.0, self.clamping_pressure_bar - 40.0 * dt)
+
+            # --- ÁP SUẤT PHUN NHỰA ---
+            if self.state == "RUNNING" and self.clamping_pressure_bar > 80.0:
+                base_inj = 95.0
+                if self.active_faults["NOZZLE_CLOGGING"]:
+                    base_inj = 165.0
+                viscosity_offset = (220.0 - self.nozzle_temp_zone1_actual) * 0.35
+                target_inj = base_inj + viscosity_offset
+                self.injection_pressure_bar += (target_inj - self.injection_pressure_bar) * min(1.0, 2.0 * dt)
+            else:
                 self.injection_pressure_bar = 0.0
-                self.nozzle_temp_zone1_actual = max(self.ambient_temp_c, self.nozzle_temp_zone1_actual - 0.5)
+
+            noise_temp = random.uniform(-0.12, 0.12)
+            noise_clamp = random.uniform(-0.5, 0.5) if self.clamping_pressure_bar > 5.0 else 0.0
+            noise_inj = random.uniform(-0.5, 0.5) if self.injection_pressure_bar > 5.0 else 0.0
 
             return {
                 "Controller_Execution": self.state,
                 "Cycle_Phase": self.cycle_phase,
-                "Nozzle_Temp_Zone1": round(self.nozzle_temp_zone1_actual, 2),
+                "Nozzle_Temp_Zone1": round(self.nozzle_temp_zone1_actual + noise_temp, 2),
                 "Barrel_Temp_Zone2": round(self.barrel_temp_zone2_actual, 2),
                 "Mold_Temp_C": round(self.mold_temp_c, 1),
-                "Clamping_Pressure_Bar": round(max(0.0, self.clamping_pressure_bar), 1),
-                "Injection_Pressure_Bar": round(max(0.0, self.injection_pressure_bar), 1),
-                "Cushion_Position_mm": round(self.screw_position_mm + random.uniform(-0.2, 0.2), 2),
+                "Clamping_Pressure_Bar": round(max(0.0, self.clamping_pressure_bar + noise_clamp), 1),
+                "Injection_Pressure_Bar": round(max(0.0, self.injection_pressure_bar + noise_inj), 1),
+                "Cushion_Position_mm": round(self.screw_position_mm, 2),
                 "Cycle_Time_Sec": 22.4,
+                "Simulated_Active_Faults": self.get_active_faults(),
             }
 
     def detect_anomaly(self, telemetry: Dict[str, Any]) -> Optional[str]:
-        zone1 = telemetry.get("Nozzle_Temp_Zone1", 0)
-        clamp_p = telemetry.get("Clamping_Pressure_Bar", 0)
-        if zone1 > 240.0:
-            return "nozzle thermal runaway (burn hazard)"
-        if zone1 < 200.0 and self.state == "RUNNING":
-            return "nozzle freezing (cold slug hazard)"
-        if (clamp_p < 120.0 or clamp_p > 165.0) and self.mold_clamped:
-            return "clamping tonnage deviation"
+        temp = telemetry.get("Nozzle_Temp_Zone1", 0.0)
+        clamp_p = telemetry.get("Clamping_Pressure_Bar", 0.0)
+        inj_p = telemetry.get("Injection_Pressure_Bar", 0.0)
+
+        if temp > 245.0:
+            return "CRITICAL_NOZZLE_THERMAL_RUNAWAY"
+        if self.mold_clamp_command and clamp_p < 115.0 and self.state == "RUNNING":
+            return "CRITICAL_CLAMPING_PRESSURE_LOSS"
+        if inj_p > 145.0:
+            return "CRITICAL_INJECTION_OVERPRESSURE"
+        if temp < 195.0 and self.state == "RUNNING":
+            return "WARNING_NOZZLE_COLD_SLUG"
         return None
 
     def receive_plc_command(
@@ -96,43 +124,45 @@ class InjectionMolding(BaseMachine):
         payload = payload or {}
         with self._lock:
             detail = ""
-            if command == "ADJUST_TEMPERATURE":
-                target = float(payload.get("target_temp", 215.0))
-                self.nozzle_temp_zone1_target = target
-                # Hiệu chỉnh giảm nhiệt nòng phun
-                self.nozzle_temp_zone1_actual = target
-                detail = f"PID loop setpoint adjusted to {target}°C."
 
-            elif command == "SET_CLAMP_PRESSURE":
-                target_p = float(payload.get("pressure_bar", 135.0))
-                self.clamping_pressure_bar = target_p
-                detail = f"Proportional valve calibrated clamping pressure to {target_p} Bar."
+            if command == "SERVICE_HEATER_SSR":
+                self.clear_fault("HEATER_BAND_RUNAWAY")
+                self.nozzle_temp_zone1_target = 220.0
+                detail = "Đã ngắt điện cưỡng bức và thay rơ-le bán dẫn SSR vòng nhiệt."
+
+            elif command == "REPAIR_HYDRAULIC_VALVE":
+                self.clear_fault("HYDRAULIC_PROPORTIONAL_VALVE_LEAK")
+                detail = "Đã thay gioăng phớt van tỉ lệ thủy lực kẹp khuôn, áp suất phục hồi."
 
             elif command == "PURGE_BARREL":
+                self.clear_fault("NOZZLE_CLOGGING")
                 self.state = "PURGING"
-                self.screw_position_mm = 5.0
-                detail = "Auto-purge cycle initialized to flush degraded resin."
+                detail = "Đã thực hiện chu trình đùn xả nhựa cặn thông nòng phun."
+
+            elif command == "ADJUST_TEMPERATURE":
+                target = float(payload.get("target_temp", 220.0))
+                self.nozzle_temp_zone1_target = target
+                detail = f"Đã cập nhật nhiệt độ đặt vùng đầu phun thành {target}°C."
 
             elif command == "SAFE_STOP":
                 self.state = "MOLD_MAINTENANCE"
-                self.mold_clamped = False
-                self.clamping_pressure_bar = 0.0
-                detail = "Cycle terminated gracefully. Mold parted to safe clearance position."
+                self.mold_clamp_command = False
+                detail = "Dừng chu trình an toàn; tách khuôn về vị trí xả áp."
 
             elif command == "EMERGENCY_STOP":
                 self.state = "EMERGENCY_STOP"
-                self.heater_bands_active = False
-                self.mold_clamped = False
-                detail = "Safety door interlock / E-Stop tripped: Heaters killed, hydraulic dump valve opened."
+                self.heater_bands_enabled = False
+                self.mold_clamp_command = False
+                detail = "NGẮT KHẨN CẤP: Van xả dầu hạ áp tức thời, ngắt nguồn nhiệt."
 
             elif command == "RESUME":
                 self.state = "RUNNING"
-                self.heater_bands_active = True
-                self.mold_clamped = True
-                detail = "Automatic injection molding cycle restarted."
+                self.heater_bands_enabled = True
+                self.mold_clamp_command = True
+                detail = "Khôi phục chu trình ép tự động."
 
             else:
-                detail = f"Command {command} unmapped in Euromap registers."
+                detail = f"Lệnh '{command}' không có trong tập thanh ghi Euromap 63/77."
 
             return self._build_event(
                 "plc_command_executed",
@@ -141,6 +171,7 @@ class InjectionMolding(BaseMachine):
                     "command": command,
                     "execution_detail": detail,
                     "current_state": self.state,
+                    "active_faults": self.get_active_faults(),
                 },
                 priority="info",
             )

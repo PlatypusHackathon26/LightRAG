@@ -1,172 +1,219 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import random
+import time
 from typing import Any, Dict, Optional
 
 from machines.base_machine import BaseMachine
 
 
 class CncMilling(BaseMachine):
-    """Mô phỏng máy phay CNC chuẩn hóa dựa trên chuẩn MTConnect & OPC UA (Model: DMG MORI NVX 5080).
+    """Mo phong may phay CNC (Model: DMG MORI NVX 5080) chuan MTConnect & OPC UA."""
 
-    Tích hợp mô hình phản hồi cơ - nhiệt (Thermal-Mechanical Feedback) và phản
-    ứng với lệnh PLC.
-    """
-
-    def __init__(self, event_hub: Optional[Any] = None) -> None:
+    def __init__(
+        self,
+        event_hub: Optional[Any] = None,
+        fault_interval_sec: float = 30.0,
+    ) -> None:
         super().__init__(
             machine_id="MC-MILL-01",
             machine_type="CNC_MILLING",
             model="DMG_MORI_NVX_5080",
             location="Cell-01",
             event_hub=event_hub,
+            fault_interval_sec=fault_interval_sec,
         )
 
-        # Trạng thái điều khiển (Operating State)
-        self.state = "RUNNING"  # RUNNING, FEED_HOLD, EMERGENCY_STOP, TOOL_CHANGE
-        self.spindle_running = True
-        self.spindle_rpm_target = 12000.0  # Tốc độ thiết lập chương trình (RPM)
-        self.spindle_rpm_actual = 12000.0  # Tốc độ đọc thực tế
-        self.feed_override_pct = 100.0  # Núm Feed Override (0 - 150%)
-        self.coolant_active = True  # Hệ thống tưới nguội trục chính (TSC)
+        self.state = "RUNNING"
+        self.spindle_enabled = True
+        self.spindle_target_rpm = 12000.0
+        self.feed_override_pct = 100.0
+        self.coolant_pump_command = True
+        self.coolant_target_bar = 20.0
 
-        # Trạng thái vật lý nội tại (Physical & Mechanical Degradation)
-        self.spindle_temp_c = 42.0  # Nhiệt độ vòng bi trục chính (°C)
-        self.tool_wear_pct = 12.0  # Độ mòn dao (%)
-        self.coolant_pressure_bar = (
-            20.0  # Áp suất dung dịch làm mát định danh (Bar)
-        )
-        self.ambient_temp_c = 28.0  # Nhiệt độ môi trường xưởng (°C)
+        self.spindle_actual_rpm = 12000.0
+        self.spindle_load_pct = 45.0
+        self.spindle_temp_c = 38.0
+        self.vibration_rms_mm_s = 1.3
+        self.coolant_pressure_bar = 20.0
+        self.tool_wear_pct = 12.0
+
+        self.ambient_temp_c = 26.0
+        self.last_update_time = time.time()
+
+        self.active_faults = {
+            "SPINDLE_BEARING_LACK_OF_LUBE": False,
+            "COOLANT_PUMP_FAILURE": False,
+            "TOOL_CHIPPING_OR_WEAR": False,
+            "GUIDEWAY_LUBRICATION_ISSUE": False,
+        }
 
     def generate_telemetry(self) -> Dict[str, Any]:
-        """Tính toán telemetry dựa trên động học và tương quan nhiệt - cơ.
-
-        - Tải cắt (Load %) = f(Feed Override, Tool Wear) - Nhiệt độ = f(Load %,
-        Coolant State) - Rung chấn (ISO 10816) = f(Tool Wear, Nhiệt giãn nở
-        trục)
-        """
         with self._lock:
-            # 1. Tích lũy độ mòn dao khi đang phôi cắt
-            if self.state == "RUNNING" and self.spindle_running:
-                # Dao mòn dần theo chu trình cắt
-                wear_increment = 0.04 * (self.feed_override_pct / 100.0)
-                self.tool_wear_pct = min(100.0, self.tool_wear_pct + wear_increment)
+            current_time = time.time()
+            dt = max(0.1, min(current_time - self.last_update_time, 2.5))
+            self.last_update_time = current_time
 
-            # 2. Spindle Load (% dòng định mức động cơ)
-            if self.spindle_running and self.state == "RUNNING":
-                base_load = 45.0 * (self.feed_override_pct / 100.0)
-                wear_resistance_load = (self.tool_wear_pct / 100.0) * 35.0
-                spindle_load = base_load + wear_resistance_load + random.uniform(-1.2, 1.8)
-                self.spindle_rpm_actual = self.spindle_rpm_target + random.uniform(-15, 15)
-            else:
-                spindle_load = 3.5 + random.uniform(-0.5, 0.5)  # Dòng không tải
-                self.spindle_rpm_actual = (
-                    0.0 if not self.spindle_running else self.spindle_rpm_actual
-                )
+            if self.state == "RUNNING":
+                self.maybe_trigger_random_fault()
 
-            # 3. Spindle Temperature (°C) - Mô hình cân bằng nhiệt
-            if self.spindle_running:
-                # Nhiệt sinh ra từ ma sát và tải cắt
-                heat_in = (spindle_load / 100.0) * 1.35
-                # Tản nhiệt qua dung dịch tưới nguội
-                heat_out = 0.95 if self.coolant_active else 0.15
-                self.spindle_temp_c += (heat_in - heat_out) + random.uniform(-0.15, 0.25)
-                self.spindle_temp_c = max(self.ambient_temp_c, min(125.0, self.spindle_temp_c))
+            if self.state in ("EMERGENCY_STOP", "MAINTENANCE") or not self.spindle_enabled:
+                self.spindle_actual_rpm = max(0.0, self.spindle_actual_rpm - 3500.0 * dt)
             else:
-                # Làm mát tự nhiên về nhiệt độ phòng khi dừng
-                cooling_rate = 0.8
-                self.spindle_temp_c = max(self.ambient_temp_c, self.spindle_temp_c - cooling_rate)
+                diff = self.spindle_target_rpm - self.spindle_actual_rpm
+                self.spindle_actual_rpm += diff * min(1.0, 3.0 * dt)
 
-            # 4. Vibration RMS (mm/s) - Tiêu chuẩn ISO 10816-3
-            # Rung chấn tăng theo hàm phi tuyến khi dao mòn > 70% và trục giãn nở nhiệt
-            if self.spindle_running:
-                base_vibration = 1.6
-                wear_vibration = ((self.tool_wear_pct / 100.0) ** 2.2) * 6.8
-                thermal_expansion_vibration = max(0.0, (self.spindle_temp_c - 82.0) * 0.15)
-                vibration_rms = (
-                    base_vibration
-                    + wear_vibration
-                    + thermal_expansion_vibration
-                    + random.uniform(-0.15, 0.2)
-                )
+            if self.coolant_pump_command and not self.active_faults["COOLANT_PUMP_FAILURE"]:
+                diff_p = self.coolant_target_bar - self.coolant_pressure_bar
+                self.coolant_pressure_bar += diff_p * min(1.0, 3.0 * dt)
             else:
-                vibration_rms = 0.05 + random.uniform(0.0, 0.05)
+                self.coolant_pressure_bar = max(0.0, self.coolant_pressure_bar - 8.0 * dt)
 
-            # 5. Coolant Pressure (Bar)
-            if self.coolant_active:
-                actual_coolant_pressure = self.coolant_pressure_bar + random.uniform(-0.3, 0.3)
+            # --- TIN HIEU TAI (target_load) ---
+            # base_load = 42% o feed=100% (khong tinh mon dao) => ~45% luc ban dau
+            # +20/35/8 khi co loi tuong ung.
+            base_load = 42.0 * (self.feed_override_pct / 100.0) + (self.tool_wear_pct / 100.0) * 25.0
+            target_load = base_load
+            if self.active_faults["TOOL_CHIPPING_OR_WEAR"]:
+                target_load += 35.0
+            if self.active_faults["SPINDLE_BEARING_LACK_OF_LUBE"]:
+                target_load += 20.0
+            if self.active_faults["GUIDEWAY_LUBRICATION_ISSUE"]:
+                target_load += 8.0
+
+            self.spindle_load_pct += (target_load - self.spindle_load_pct) * min(1.0, 2.5 * dt)
+
+            # --- NHIET DO TRUC CHINH ---
+            if self.spindle_actual_rpm > 500.0:
+                heat_in = (self.spindle_load_pct / 100.0) * 1.2
+                if self.active_faults["SPINDLE_BEARING_LACK_OF_LUBE"]:
+                    heat_in += 4.5
+
+                # Toa nhiet ti le chenh lech voi moi truong; tuoi nguoi yeu -> toa cham lai.
+                # Can bang binh thuong: 0.54 / 0.045 = 12C -> 38C (bang gia tri khoi tao).
+                cool_coeff = 0.045 * max(0.3, self.coolant_pressure_bar / 20.0)
+                cooling = (self.spindle_temp_c - self.ambient_temp_c) * cool_coeff
+                self.spindle_temp_c += (heat_in - cooling) * dt
             else:
-                actual_coolant_pressure = 0.0
+                cooling = (self.spindle_temp_c - self.ambient_temp_c) * 0.08 * dt
+                self.spindle_temp_c = max(self.ambient_temp_c, self.spindle_temp_c - cooling)
+
+            self.spindle_temp_c = max(self.ambient_temp_c, min(140.0, self.spindle_temp_c))
+
+            # --- RUNG DONG (vibration) ---
+            if self.spindle_actual_rpm > 1000.0:
+                base_vib = 1.2 * (self.spindle_actual_rpm / 12000.0)
+                fault_vib = 0.0
+                if self.active_faults["SPINDLE_BEARING_LACK_OF_LUBE"]:
+                    fault_vib += 3.2
+                if self.active_faults["TOOL_CHIPPING_OR_WEAR"]:
+                    fault_vib += 4.5
+                if self.active_faults["GUIDEWAY_LUBRICATION_ISSUE"]:
+                    fault_vib += 1.5
+
+                # Nhiet tich tu lam rung tang (tren 70C)
+                thermal_vib = max(0.0, (self.spindle_temp_c - 70.0) * 0.15)
+                target_vib = base_vib + fault_vib + thermal_vib
+            else:
+                target_vib = 0.05
+
+            self.vibration_rms_mm_s += (target_vib - self.vibration_rms_mm_s) * min(1.0, 3.0 * dt)
+
+            noise_rpm = random.uniform(-15, 15)
+            noise_load = random.uniform(-0.3, 0.3)
+            noise_temp = random.uniform(-0.06, 0.06)
+            noise_vib = random.uniform(-0.03, 0.03)
+            noise_cool = random.uniform(-0.2, 0.2)
 
             return {
                 "Controller_Execution": self.state,
-                "Spindle_RotaryVelocity_RPM": round(self.spindle_rpm_actual, 1),
-                "Spindle_Load_Pct": round(max(0.0, spindle_load), 1),
-                "Spindle_Temp_C": round(self.spindle_temp_c, 2),
-                "Vibration_RMS_mm_s": round(max(0.0, vibration_rms), 2),
-                "Coolant_Pressure_Bar": round(max(0.0, actual_coolant_pressure), 2),
+                "Spindle_RotaryVelocity_RPM": round(max(0.0, self.spindle_actual_rpm + noise_rpm), 1),
+                "Spindle_Load_Pct": round(max(0.0, self.spindle_load_pct + noise_load), 1),
+                "Spindle_Temp_C": round(max(self.ambient_temp_c, self.spindle_temp_c + noise_temp), 2),
+                "Vibration_RMS_mm_s": round(max(0.05, self.vibration_rms_mm_s + noise_vib), 2),
+                "Coolant_Pressure_Bar": round(max(0.0, self.coolant_pressure_bar + noise_cool), 1),
                 "Path_Feedrate_Override_Pct": self.feed_override_pct,
                 "Tool_Wear_Pct": round(self.tool_wear_pct, 1),
-                "Tool_Life_Remaining_Minutes": max(
-                    0, int((100.0 - self.tool_wear_pct) * 2.5)
-                ),
+                "Simulated_Active_Faults": self.get_active_faults(),
             }
 
     def detect_anomaly(self, telemetry: Dict[str, Any]) -> Optional[str]:
-        """Edge Detection: Phát hiện sớm dựa trên ngưỡng kỹ thuật cẩm nang."""
-        if telemetry.get("Spindle_Temp_C", 0) > 85.0:
-            return "spindle thermal overload"
-        if telemetry.get("Vibration_RMS_mm_s", 0) > 7.1:
-            return "vibration anomaly"
-        if telemetry.get("Spindle_Load_Pct", 0) > 115.0:
-            return "spindle mechanical overload"
+        temp = telemetry.get("Spindle_Temp_C", 0)
+        vib = telemetry.get("Vibration_RMS_mm_s", 0)
+        load = telemetry.get("Spindle_Load_Pct", 0)
+        pressure = telemetry.get("Coolant_Pressure_Bar", 0)
+
+        if temp > 90.0:
+            return "CRITICAL_SPINDLE_OVERHEAT"
+        if vib > 7.1:
+            return "CRITICAL_VIBRATION_SEVERITY"
+        if load > 120.0:
+            return "SPINDLE_MOTOR_OVERLOAD"
+        if self.coolant_pump_command and pressure < 5.0 and self.state == "RUNNING":
+            return "COOLANT_PRESSURE_LOSS"
+        if temp > 75.0:
+            return "WARNING_ELEVATED_TEMPERATURE"
+        if vib > 4.5:
+            return "WARNING_HIGH_VIBRATION"
         return None
 
     def receive_plc_command(
         self, command: str, payload: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
-        """Tiếp nhận và thực thi các tín hiệu PLC tiêu chuẩn công nghiệp CNC."""
         payload = payload or {}
         with self._lock:
             detail = ""
 
-            if command == "FEED_HOLD":
-                # Tạm dừng di chuyển trục, giữ nguyên trục chính quay
+            if command == "REFILL_SPINDLE_LUBRICANT":
+                self.clear_fault("SPINDLE_BEARING_LACK_OF_LUBE")
+                detail = "Da bom dau boi tron truc chinh. Giam ma sat o bi ve muc binh thuong."
+
+            elif command == "REPAIR_COOLANT_SYSTEM":
+                self.clear_fault("COOLANT_PUMP_FAILURE")
+                self.coolant_pump_command = True
+                self.coolant_target_bar = 20.0
+                detail = "He thong lam mat da duoc sua chua va thong ong, ap suat phuc hoi."
+
+            elif command == "REPLACE_TOOL":
+                self.clear_fault("TOOL_CHIPPING_OR_WEAR")
+                self.tool_wear_pct = 0.0
+                detail = "Da thay cum dao phay moi (ATC Tool Change). Bo dem mon dao reset ve 0%."
+
+            elif command == "LUBRICATE_GUIDEWAYS":
+                self.clear_fault("GUIDEWAY_LUBRICATION_ISSUE")
+                detail = "Da boi tron bang truot cac truc X/Y/Z."
+
+            elif command == "SET_FEED_OVERRIDE":
+                target_pct = float(payload.get("override_pct", 50.0))
+                self.feed_override_pct = max(0.0, min(150.0, target_pct))
+                detail = f"Da dieu chinh Feedrate Override thanh {self.feed_override_pct}%."
+
+            elif command == "FEED_HOLD":
                 self.state = "FEED_HOLD"
                 self.feed_override_pct = 0.0
-                detail = "Feed hold engaged. Spindle maintained, linear axes motion suspended."
+                detail = "Tam dung tinh tien ban may (Feed Hold). Truc chinh van duy tri quay."
 
-            elif command in ("REDUCE_SPEED_70", "FEED_OVERRIDE"):
-                target_pct = float(payload.get("override_pct", 70.0))
-                self.feed_override_pct = target_pct
-                detail = f"Feedrate override adjusted to {target_pct}% to alleviate thermal load."
+            elif command == "COOLANT_BOOST":
+                self.coolant_pump_command = True
+                self.coolant_target_bar = 35.0
+                detail = "Kich hoat bom tuoi nguoi ap suat cao (35 Bar)."
 
             elif command == "EMERGENCY_STOP":
                 self.state = "EMERGENCY_STOP"
-                self.spindle_running = False
-                self.spindle_rpm_actual = 0.0
+                self.spindle_enabled = False
                 self.feed_override_pct = 0.0
-                detail = "Emergency stop circuit broken: Spindle drive powered down and mechanical brake locked."
-
-            elif command == "COOLANT_BOOST":
-                self.coolant_active = True
-                self.coolant_pressure_bar = 35.0  # Tăng lên mức làm mát tăng áp
-                detail = "High-pressure through-spindle coolant engaged (35 Bar)."
-
-            elif command == "TOOL_CHANGE":
-                self.tool_wear_pct = 0.0
-                self.state = "RUNNING"
-                detail = "Automatic tool change completed. Tool wear counter initialized to 0%."
+                detail = "NGAT KHAN CAP: Phanh truc chinh kich hoat, khoa toan bo truc co khi."
 
             elif command == "RESUME":
                 self.state = "RUNNING"
+                self.spindle_enabled = True
                 self.feed_override_pct = 100.0
-                self.spindle_running = True
-                self.spindle_rpm_actual = self.spindle_rpm_target
-                detail = "Program cycle resumed at 100% feedrate."
+                self.coolant_pump_command = True
+                self.coolant_target_bar = 20.0
+                detail = "Khoi phuc chu trinh gia cong dinh muc 100%."
 
             else:
-                detail = f"Command {command} rejected or unmapped in PLC registers."
+                detail = f"Lenh '{command}' khong hop le hoac chua duoc ho tro."
 
             return self._build_event(
                 "plc_command_executed",
@@ -175,6 +222,14 @@ class CncMilling(BaseMachine):
                     "command": command,
                     "execution_detail": detail,
                     "current_state": self.state,
+                    "active_faults": self.get_active_faults(),
                 },
                 priority="info",
             )
+
+            # --- MON DAO (loi mon dao x3 khi chipping; hong bom x7) ---
+            if self.state == "RUNNING" and self.spindle_actual_rpm > 1000.0:
+                w_rate = 0.005 if not self.active_faults["COOLANT_PUMP_FAILURE"] else 0.035
+                if self.active_faults["TOOL_CHIPPING_OR_WEAR"]:
+                    w_rate *= 3.0
+                self.tool_wear_pct = min(100.0, self.tool_wear_pct + w_rate * dt)

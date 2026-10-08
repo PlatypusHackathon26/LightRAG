@@ -1,86 +1,204 @@
-🏭 DENSO Smart Maintenance Agent (IIoT & Knowledge AI)
-Dự án tham dự DENSO Factory Hacks 2026
+# 🏭 DENSO Smart Maintenance Agent
 
-Hệ thống AI Agent chủ động giám sát IIoT thời gian thực, chẩn đoán sự cố dựa trên RAG tri thức và điều phối can thiệp máy móc an toàn (Human-in-the-Loop).
+### IIoT Real-time Monitoring · RAG Knowledge AI · Human-in-the-Loop
 
-📌 1. Bối cảnh & Bài toán đặt ra
+[![Python](https://img.shields.io/badge/Python-3.14-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Zero Dependency](https://img.shields.io/badge/dependencies-stdlib%20only-brightgreen)](#)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+> 🏁 Dự án tham dự **DENSO Factory Hacks 2026**
+> Hệ thống AI Agent chủ động giám sát IIoT thời gian thực, chẩn đoán sự cố dựa trên **RAG** tri thức nhà xưởng và điều phối can thiệp máy móc an toàn với cơ chế **Human-in-the-Loop (HITL)** — toàn bộ giao diện theo phong cách chat kiểu ChatGPT/Gemini.
+
+---
+
+## 📌 1. Bối cảnh & Bài toán đặt ra
+
 Trong môi trường sản xuất linh kiện ô tô chính xác của DENSO (bugi, kim phun, cụm HVAC...):
 
-Downtime tốn kém: Mỗi phút dừng dây chuyền đột ngột (Unplanned Downtime) gây thiệt hại lớn về sản lượng và tiến độ giao hàng Just-In-Time.
+- **Downtime tốn kém** — mỗi phút dừng dây chuyền đột ngột (*Unplanned Downtime*) gây thiệt hại lớn về sản lượng và tiến độ giao hàng Just-In-Time.
+- **Tra cứu cẩm nang mất thời gian** — tài liệu kỹ thuật (SOP, cẩm nang máy) đồ sộ khiến kỹ thuật viên mất nhiều thời gian tra cứu mã lỗi khi máy gặp sự cố.
+- **Mất mát tri thức chuyên gia** — kinh nghiệm xử lý lỗi của các thợ bậc cao thường nằm ở dạng ghi chép rời rạc hoặc truyền miệng, chưa được số hóa.
 
-Tra cứu cẩm nang mất thời gian: Tài liệu kỹ thuật (SOP, cẩm nang máy) đồ sộ khiến kỹ thuật viên mất nhiều thời gian tra cứu mã lỗi khi máy gặp sự cố.
+## 💡 2. Giải pháp: Kiến trúc 3 lớp
 
-Mất mát tri thức chuyên gia: Kinh nghiệm xử lý lỗi của các thợ bậc cao thường nằm ở dạng ghi chép rời rạc hoặc truyền miệng, chưa được số hóa thành tri thức chung.
-
-💡 2. Giải pháp: Hệ thống 3 lớp (3-Tier Industrial Architecture)
-Hệ thống kết hợp giữa IoT Gateway lọc dữ liệu biên, RAG đóng gói tri thức nhà xưởng và AI Agent tự hành với cơ chế Human-in-the-Loop (HITL):
-
-┌─────────────────────────┐
-│ 1. FACTORY FLOOR        │  5 máy móc đại diện DENSO (CNC, Cobot, Mold, AGV, Tester)
-│    (Telemetry & Act)    │  Bắn thông số chu kỳ: Rung động, nhiệt độ, áp suất...
-└────────────┬────────────┘
-             │ Giao thức công nghiệp (OPC UA / Telemetry stream)
+```text
+┌─────────────────────────────┐
+│ 1. FACTORY FLOOR            │  5 máy mô phỏng DENSO (CNC, Robot, Ép nhựa, AOI, AMR)
+│    (Telemetry & Act)        │  Bắn thông số chu kỳ: rung, nhiệt, áp suất, pin...
+└────────────┬────────────────┘
+             │ Event Bus (in-memory, async)
              ▼
-┌─────────────────────────┐
-│ 2. EDGE IOT GATEWAY     │  Lọc ngưỡng bất thường (Anomaly Filtering) để tối ưu băng thông
-│    (Rule & Protection)  │  Kiểm tra tính hợp lệ (Sanity check) trước khi nạp lệnh vào máy
-└────────────┬────────────┘
-             │ Event Bus / Function Calling
+┌─────────────────────────────┐
+│ 2. EDGE IOT GATEWAY         │  Lọc ngưỡng bất thường + Rate-of-Change (ROC)
+│    (Rule & Protection)      │  Cooldown chống spam · Sanity check trước khi nhận lệnh
+└────────────┬────────────────┘
+             │  event: "normal" / "alert" / "action_command"
              ▼
-┌─────────────────────────┐
-│ 3. AUTONOMOUS AI AGENT  │  Nhận alert ➔ Tra cứu tài liệu (RAG) ➔ Ra quyết định bảo trì
-│    (Reasoning & HITL)   │  Tự động: Tạo ticket ERP, thông báo Telegram
-│                         │  Nguy cơ cao (Can thiệp PLC): Chờ Kỹ sư bấm DUYỆT (HITL)
-└─────────────────────────┘
-⚙️ 3. Thiết bị mô phỏng trong nhà máy (machines/)
-Hệ thống mô phỏng 5 dòng máy móc chủ lực trong chu trình sản xuất của DENSO:
+┌─────────────────────────────┐
+│ 3. AUTONOMOUS AI AGENT      │  Nhận alert ➜ Tra cứu cẩm nang (RAG) ➜ Dịch thành lệnh
+│    (Reasoning & HITL)       │  Lệnh LOW  ➜ thực thi ngay
+│                             │  Lệnh HIGH ➜ thẻ DUYỆT trong khung chat (chờ kỹ sư)
+└─────────────────────────────┘
+```
 
-CNC_LATHE_01 (Máy tiện CNC trục chính): Gia công vỏ bugi, kim phun. Theo dõi nhiệt độ trục chính (spindle_temp), độ rung (vibration), lưu lượng dầu làm mát.
+---
 
-MOLD_PRESS_02 (Máy ép nhựa kỹ thuật): Đúc vỏ giắc cắm, cụm điều hòa. Theo dõi nhiệt độ buồng gia nhiệt (barrel_temp), áp suất phun (injection_pressure).
+## 🖥️ 3. Giao diện — kiểu ChatGPT, 3 cột
 
-COBOTTA_ARM_03 (Robot cộng tác DENSO COBOTTA Pro): Lắp ráp, siết ốc chính xác. Theo dõi dòng motor (motor_current), nhiệt độ driver khớp xoay (joint_temp).
+```text
+┌──────────────────────────────────────────────────────────────────────┐
+│  🔴 DENSO AI-AGENT 2026   TRỰC TUYẾN   12:00:00   [📤 Upfile lên RAG]│
+├───────────────┬──────────────────────────────────┬───────────────────┤
+│ 👤 USER       │  ⚠ CẢNH BÁO THIẾT BỊ (bubble)  │ 🏭 MÁY MÓC       │
+│  CHỦ ĐỘNG    │  ✦ AI_RAG: Khuyến nghị...       │  MC-MILL-01  ●    │
+│  - Chat #1    │  [user bubble]                   │  MC-ROBOT-01 ●    │
+│               │  ┌ ⏳ LỆNH CHỜ DUYỆT ─────┐     │  ...  LIVE 1s     │
+│ ⚠ SYSTEM      │  │ [MC-MILL-01] SAFE_STOP  │     │                   │
+│  ALERT        │  │ [✔ Duyệt] [✖ Từ chối]   │     │                   │
+│  - MC-MILL..  │  └─────────────────────────┘     │                   │
+│               │  [ô nhập · Enter gửi]            │                   │
+└───────────────┴──────────────────────────────────┴───────────────────┘
+```
 
-AGV_CARRIER_04 (Xe tự hành nội bộ): Chuyển phôi và khay linh kiện giữa các xưởng. Theo dõi dung lượng pin (battery_soc), vận tốc xe.
+- **Cột trái** — danh sách hội thoại chia 2 nhóm: **User chủ động** (bạn hỏi Agent) và **System Alert** (hệ thống tự tạo thread khi máy phát hiện bất thường, kèm tóm tắt anomaly + khuyến nghị RAG). Thread có lệnh chờ hiển thị badge **DUYỆT** nhấp nháy.
+- **Cột giữa** — khung chat chính: gửi tin nhắn (Enter gửi, Shift+Enter xuống dòng), Agent trả lời theo cẩm nang RAG. Lệnh rủi ro cao hiện **ngay trong khung chat** dạng thẻ **Duyệt thực thi / Từ chối** — sau quyết định, thẻ chuyển ✔ ĐÃ DUYỆT / ✖ ĐÃ TỪ CHỐI và lưu lại trong hội thoại.
+- **Cột phải** — trạng thái 5 máy thời gian thực (cập nhật mỗi 1s, viền đỏ nhấp nháy khi alert).
+- **Nút 📤 Upfile lên RAG** (góc trên phải) — modal upload file (PDF/MD/TXT...) vào `knowledge_uploads/`, danh sách file đã nạp hiển thị ngay trong modal.
 
-LEAK_TESTER_05 (Bàn kiểm tra kín khí): Thử áp suất rò rỉ kim phun theo chuẩn IATF 16949. Theo dõi tốc độ tụt áp buồng thử (pressure_drop_rate).
+---
 
-🚀 4. Điểm nhấn kỹ thuật nổi bật
-Edge Anomaly Filtering: Tránh spam API LLM; chỉ những telemetry vượt ngưỡng an toàn (hoặc có xu hướng suy thoái) mới kích hoạt Agent.
+## 🔄 4. Luồng xử lý sự cố (end-to-end)
 
-RAG Domain-Specific: Truy vấn chính xác cẩm nang sự cố và kinh nghiệm sửa chữa thực tế của xưởng DENSO.
+```text
+Máy mô phỏng sinh telemetry (mỗi 1s)
+        │  EventBus("telemetry")
+        ▼
+TelemetryReceiver — Edge Filtering
+        │  • Ngưỡng tĩnh (min/max)  • Tốc độ biến thiên ROC/phút (cửa sổ trượt)
+        │  • Cooldown 60s/chỉ số    • Heartbeat "normal" mỗi 10s
+        ├─ bình thường ──► nhãn "normal" ──► AgentBrain cập nhật trạng thái máy
+        │
+        └─ bất thường ───► nhãn "alert" (gửi ngay)
+                │
+                ▼
+        AgentBrain.handle_alert
+          ① RAGEngine.query(tình trạng)      ──► bubble trả lời RAG trong chat
+          ② AgentTools.translate_advice()    ──► so khớp keyword → lệnh + risk_level
+          ③ publish "action_command"
+                │
+                ▼
+        ActionApproval (HITL)
+          ├─ risk LOW  ──► thực thi NGAY
+          └─ risk HIGH ──► thẻ DUYỆT trong khung chat → kỹ sư bấm ✔ / ✖
+                │
+                ▼
+        ActuatorDispatcher ──► machine.receive_plc_command()
+                └──► "command_response" (audit log tối đa 200 lệnh)
+```
 
-Human-in-the-Loop (HITL) via LangGraph: AI không tự tiện dừng máy hay ghi đè thông số PLC nếu chưa có sự phê duyệt từ kỹ sư phụ trách ca trực.
+## ⚙️ 5. Năm dòng máy mô phỏng (`machines/`)
 
-Continuous Learning Loop: Sau khi sửa xong, giải pháp thực tế của thợ kỹ thuật được lưu ngược lại Vector DB để nâng cao độ chính xác cho các lần sau.
+| Machine ID | Loại | Model | Vị trí | Thông số giám sát chính |
+|---|---|---|---|---|
+| `MC-MILL-01` | CNC_MILLING | DMG MORI NVX 5080 | Cell-01 | `Spindle_Temp_C`, `Vibration_RMS_mm_s`, `Spindle_Load_Pct`, `Coolant_Pressure_Bar` |
+| `MC-ROBOT-01` | ROBOT_ARM | DENSO VS-068 | Cell-01_Handling | `Joint_3_Current_A`, `Motor_Temp_C` |
+| `MC-INJ-01` | INJECTION_MOLDING | FANUC ROBOSHOT S2000i | Cell-02 | `Nozzle_Temp_Zone1`, `Clamping_Pressure_Bar` |
+| `MC-AOI-01` | AOI_INSPECTION | KOH YOUNG ZENITH 3D | Cell-03_SMT | `False_Reject_Rate_Pct` |
+| `MC-AMR-01` | AMR_VEHICLE | OMRON LD90 (VDA5050) | Floor_Transit | `Battery_Pct` (sàn 20%) |
 
-## Chạy dashboard mô phỏng
+Mỗi máy mô hình hóa **phản hồi vật lý thật** (ví dụ CNC: dao mòn → tải tăng → nhiệt tăng → rung theo hàm phi tuyến chuẩn ISO 10816) và **nhận lệnh PLC** qua `receive_plc_command()`.
 
-Chạy từ thư mục gốc dự án:
+## 🌟 6. Điểm nhấn kỹ thuật
+
+- **Edge Anomaly Filtering** — chỉ telemetry vượt ngưỡng hoặc *tăng nhanh bất thường* (ROC) mới kích hoạt Agent; cooldown 60s chống spam LLM/API.
+- **Event Bus bất đồng bộ** — pub/sub in-memory chạy qua `ThreadPoolExecutor`, bọc try-except từng handler để lỗi một bên không làm sập hệ thống.
+- **RAG domain-specific** — `agent/rag_engine.py` trả lời theo cẩm nang DENSO theo từ khóa; **là bản giả lập có chuẩn bị sẵn interface** để thay LightRAG thật (chỉ cần thay nội dung `query()`).
+- **HITL trong khung chat** — lệnh `LOW` chạy ngay, lệnh `HIGH` tạo thẻ duyệt ngay trong hội thoại của máy; quyết định được lưu lại làm lịch sử.
+- **Chat với Agent** — người dùng hỏi trực tiếp qua ô nhập (`POST /api/chat`), hội thoại lưu thành thread riêng.
+- **Kho tri thức upload được** — nút 📤 nhận file `multipart/form-data`, parse bằng `email.parser` (stdlib, không cần `cgi` — đã bị xóa ở Python 3.13+), lưu vào `knowledge_uploads/`.
+- **Zero dependency** — backend 100% thư viện Python chuẩn; frontend HTML + Tailwind CDN, không cần Node/build step.
+- **Render diff phía client** — card máy cập nhật giá trị *tại chỗ*, sidebar/chat chỉ re-render khi dữ liệu đổi → không nhấp nháy, không reset vị trí cuộn.
+
+---
+
+## 📁 7. Cấu trúc dự án
+
+```text
+Long-agent/
+├── main.py                     # Điểm khởi chạy: ghép 3 tầng + DashboardServer
+├── machines/                   # TẦNG 1 — 5 máy mô phỏng
+│   ├── base_machine.py         #   Lớp cơ sở (state, generate_telemetry, receive_plc_command)
+│   ├── cnc_milling.py          #   MC-MILL-01  — máy phay CNC
+│   ├── robot_arm.py            #   MC-ROBOT-01 — robot 6 trục DENSO
+│   ├── injection_molding.py    #   MC-INJ-01   — máy ép nhựa
+│   ├── aoi_inspection.py       #   MC-AOI-01   — soi quang học 3D
+│   └── amr_vehicle.py          #   MC-AMR-01   — xe tự hành
+├── iot/                        # TẦNG 2 — Edge IoT Gateway
+│   ├── event_bus.py            #   Pub/Sub bất đồng bộ (ThreadPool)
+│   ├── telemetry_receiver.py   #   Lọc bất thường: ngưỡng + ROC + cooldown 60s
+│   ├── actuator_dispatcher.py  #   Định tuyến lệnh xuống máy + audit log
+│   └── action_approval.py      #   Chốt HITL: phân loại rủi ro / chờ duyệt
+├── agent/                      # TẦNG 3 — AI Agent
+│   ├── brain.py                #   Bộ não: alert → RAG → dịch lệnh → publish
+│   ├── rag_engine.py           #   RAG engine (giả lập, chờ LightRAG)
+│   ├── tools.py                #   Bảng khả năng máy + so khớp keyword → lệnh
+│   └── knowledge_base.py       #   Mock knowledge store
+├── dashboard/                  # Web UI (stdlib http.server)
+│   ├── server.py               #   Routes: /, /api/state, /api/chat, /api/upload, /api/decision
+│   ├── state_store.py          #   State tập trung: máy, hội thoại 2 nhánh, HITL, uploads
+│   └── index.html              #   Giao diện Chat-GPT 3 cột (viết lại hoàn toàn)
+├── tests/                      # Bộ kiểm thử unittest
+│   ├── test_api_chat.py        #   11 test: state, chat API, upload API, thẻ HITL
+│   ├── test_hitl.py            #   ⚠ bản cũ — chưa theo API hiện tại
+│   └── test_dashboard.py       #   ⚠ bản cũ — chưa theo API hiện tại
+├── knowledge_uploads/          # Kho file upload lên RAG (tự tạo, nằm trong .gitignore)
+└── README.md
+```
+
+## 🚀 8. Chạy dự án
+
+**Yêu cầu:** Python 3.10+ (đã kiểm chứng trên 3.14) — không cần cài thêm thư viện nào.
 
 ```powershell
+# Chạy từ thư mục gốc dự án
 python main.py
 ```
 
-Mở `http://localhost:8000` trong trình duyệt. Giao diện kiểu Chat-GPT 3 cột:
-
-- **Cột trái** — danh sách hội thoại chia 2 nhóm: **User chủ động** (bạn hỏi Agent) và **System Alert** (hệ thống tự tạo thread khi máy phát hiện bất thường, kèm tóm tắt anomaly + khuyến nghị RAG).
-- **Cột giữa** — khung chat chính: gửi tin nhắn (Enter gửi, Shift+Enter xuống dòng), Agent trả lời theo cẩm nang RAG.
-- **Cột phải** — trạng thái 5 máy thời gian thực (cập nhật mỗi 1s, viền đỏ nhấp nháy khi alert) và danh sách lệnh **Chờ duyệt HITL** (bấm **Duyệt** để gửi lệnh xuống simulator, **Từ chối** để bỏ — lệnh duyệt có bước xác nhận).
-- **Nút 📤 Upfile lên RAG** (góc trên phải) — mở modal upload file (PDF/MD/TXT...) vào thư mục `knowledge_uploads/`, danh sách file đã nạp hiển thị ngay trong modal.
-
-Ticket và thông báo bảo trì được tạo khi agent xử lý cảnh báo, không phụ thuộc quyết định PLC. Lệnh đã đề xuất không tự hết hạn; trạng thái giữ trong bộ nhớ đến khi simulator tắt.
-
-Có thể đổi cổng hoặc chu kỳ gửi telemetry:
+Mở trình duyệt tại **http://localhost:8000**.
 
 ```powershell
-python main.py --port 8080 --interval 0.5
+# Tùy chọn: đổi cổng / địa chỉ / chu kỳ telemetry (giây)
+python main.py --host 127.0.0.1 --port 8080 --interval 0.5
 ```
 
-Đây là dashboard mô phỏng cục bộ, không kết nối PLC thật và chỉ sử dụng thư viện Python chuẩn (stdlib). Nút phê duyệt chỉ gửi lệnh tới máy mô phỏng; không dùng server này như giao diện điều khiển sản xuất.
+## 🔌 9. API
 
-Chạy kiểm thử (bao gồm test luồng phê duyệt, chat API và upload API):
+| Method | Route | Mô tả |
+|---|---|---|
+| `GET` | `/` | Phục vụ giao diện `index.html` |
+| `GET` | `/api/state` | Snapshot JSON: `machines`, `conversations` (2 nhánh), `pending_approvals`, `alerts`, `uploads` |
+| `POST` | `/api/chat` | `{session_id?, text}` → tạo/chọn thread, trả `{session_id, reply}` |
+| `POST` | `/api/upload` | `multipart/form-data` (field `file`) → lưu vào `knowledge_uploads/`, trả `{status, files}` |
+| `POST` | `/api/decision` | `{action_id, decision: "APPROVE"\|"REJECT"}` → duyệt HITL, cập nhật thẻ trong chat |
+
+## 🧪 10. Kiểm thử
 
 ```powershell
 python -m unittest discover -s tests -v
 ```
+
+- ✅ **`tests/test_api_chat.py` — 11/11 PASS**: cấu trúc hội thoại 2 nhánh, alert → thread System Alert, chat API (tạo thread/tiếp tục thread/từ chối text rỗng), upload multipart (lưu file + đăng ký), thẻ HITL (tạo pending → approve/reject cập nhật trạng thái), endpoint `/api/decision`.
+- ⚠ `test_hitl.py` & `test_dashboard.py` là **bản viết cho API phiên bản cũ** (import `ActionDispatchError`, `record_agent_result` không còn tồn tại) — đang có lỗi sẵn từ trước khi refactor, cần viết lại theo API hiện tại.
+
+## ⚠️ 11. Giới hạn & lưu ý
+
+- **RAG là giả lập** — `RAGEngine.query()` trả văn bản mẫu theo từ khóa; giao diện/luồng đã sẵn sàng để thay LightRAG thật (kèm vector DB) mà không đổi code khác.
+- **Trạng thái in-memory** — hội thoại, lệnh chờ, danh sách upload lưu trong RAM, reset khi tắt simulator.
+- **Mô phỏng thuần** — không kết nối PLC/hardware thật; nút Duyệt chỉ gửi lệnh tới máy mô phỏng. **Không sử dụng server này như giao diện điều khiển sản xuất.**
+- **Chưa có xác thực** — không có đăng nhập/phân quyền (phù hợp demo nội bộ).
+
+## 📄 12. License
+
+[MIT](LICENSE) © DENSO Factory Hacks 2026 — Team Long-agent
+
+
