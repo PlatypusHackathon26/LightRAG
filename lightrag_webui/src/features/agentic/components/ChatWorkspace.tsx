@@ -6,6 +6,7 @@ import HITLActionCard from './HITLActionCard'
 import TelemetryStrip from './TelemetryStrip'
 import AgentComposer from './AgentComposer'
 import { MessageSquareIcon, AlertTriangleIcon } from 'lucide-react'
+import { postAgentChat } from '../../../api/agent'
 
 // Simulated agent responses for demo mode
 const DEMO_RESPONSES = [
@@ -44,6 +45,7 @@ export default function ChatWorkspace() {
     incidents,
     addUserMessage,
     addAssistantMessage,
+    isDemoMode,
   } = useAgenticStore()
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -58,13 +60,31 @@ export default function ChatWorkspace() {
     if (!activeConversationId) return
     addUserMessage(activeConversationId, content)
 
-    // Simulate agent response after delay
-    const lower = content.toLowerCase()
-    const matched = DEMO_RESPONSES.find((r) => r.trigger.test(lower)) ?? DEMO_RESPONSES[DEMO_RESPONSES.length - 1]
+    if (isDemoMode) {
+      const lower = content.toLowerCase()
+      const matched = DEMO_RESPONSES.find((r) => r.trigger.test(lower)) ?? DEMO_RESPONSES[DEMO_RESPONSES.length - 1]
 
-    setTimeout(() => {
-      addAssistantMessage(activeConversationId, matched.response, matched.citations)
-    }, 1200)
+      setTimeout(() => {
+        addAssistantMessage(activeConversationId, matched.response, matched.citations)
+      }, 1200)
+    } else {
+      postAgentChat({ conversationId: activeConversationId, message: content })
+        .then((res) => {
+          const citations = res.citations?.map((c, idx) => ({
+            id: `cit-${idx}`,
+            documentId: c.documentId,
+            documentName: c.documentName,
+            pages: c.pages,
+          }))
+          addAssistantMessage(activeConversationId, res.content, citations)
+        })
+        .catch(() => {
+          addAssistantMessage(
+            activeConversationId,
+            '[Chế độ luật] Không thể kết nối với Agent Gateway để trả lời câu hỏi.'
+          )
+        })
+    }
   }
 
   if (!conversation) {

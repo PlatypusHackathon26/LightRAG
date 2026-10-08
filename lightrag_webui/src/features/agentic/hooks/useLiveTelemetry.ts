@@ -27,44 +27,107 @@ function tick(base: TelemetryPoint[]): TelemetryPoint[] {
     if (p.key === 'temp') v = jitter(p.value, 1.5, 88, 96)
     else if (p.key === 'vibZ') v = jitter(p.value, 5, 28, 42)
     else if (p.key === 'coolFlow') v = jitter(p.value, 3, 6, 8.5)
-    const isAnomalous = p.threshold !== undefined ? v > p.threshold : false
+    let isAnomalous = false
+    if (p.threshold !== undefined) {
+      if (p.direction === 'below') {
+        isAnomalous = v <= p.threshold
+      } else {
+        isAnomalous = v > p.threshold
+      }
+    }
     return { ...p, value: v, isAnomalous }
   })
 }
 
 /**
- * Hook that drives live telemetry updates every 1.5 seconds in DEMO mode.
+ * Hook that drives live telemetry updates:
+ * - Every 1.5 seconds in DEMO mode.
+ * - Every 3.0 seconds in REAL mode (polling /agent/telemetry/{deviceId}).
+ * Removed dependency on `incidents` to prevent interval re-creation on every tick.
  */
 export function useLiveTelemetry() {
-  const { updateLiveTelemetry, incidents } = useAgenticStore()
+  const { isDemoMode, updateLiveTelemetry } = useAgenticStore()
 
   useEffect(() => {
-    // Only drive telemetry for active incidents with telemetry
-    const activeIncidents = incidents.filter(
-      (i) => (i.status === 'active' || i.status === 'awaiting_approval') && i.telemetry
-    )
+    if (isDemoMode) {
+      const id = setInterval(() => {
+        const incidents = useAgenticStore.getState().incidents
+        const activeIncidents = incidents.filter(
+          (i) => (i.status === 'active' || i.status === 'awaiting_approval') && i.telemetry
+        )
 
-    if (activeIncidents.length === 0) return
+        if (activeIncidents.length === 0) return
 
-    const id = setInterval(() => {
-      activeIncidents.forEach((incident) => {
-        const device = incident.telemetry!.deviceId
-        const base = BASE[device] ?? incident.telemetry!.points
-        const updated = tick(base)
-        updateLiveTelemetry(device, updated)
+        activeIncidents.forEach((incident) => {
+          const device = incident.telemetry!.deviceId
+          const base = BASE[device] ?? incident.telemetry!.points
+          const updated = tick(base)
+          updateLiveTelemetry(device, updated)
 
-        // Also update the incident's own telemetry snapshot in store
-        // (we patch it through the store's incidents array)
-        useAgenticStore.setState((s) => ({
-          incidents: s.incidents.map((i) =>
-            i.id === incident.id && i.telemetry
-              ? { ...i, telemetry: { ...i.telemetry, points: updated, timestamp: new Date().toISOString() } }
-              : i
-          ),
-        }))
-      })
-    }, 1500)
+          useAgenticStore.setState((s) => ({
+            incidents: s.incidents.map((i) =>
+              i.id === incident.id && i.telemetry
+                ? { ...i, telemetry: { ...i.telemetry, points: updated, timestamp: new Date().toISOString() } }
+                : i
+            ),
+          }))
+        })
+      }, 1500)
 
-    return () => clearInterval(id)
-  }, [incidents, updateLiveTelemetry])
+      return () => clearInterval(id)
+    } else {
+      // Real mode: poll /agent/telemetry/{deviceId} every 3 seconds
+      const poll = async () => {
+        const state = useAgenticStore.getState()
+        const incidents = state.incidents
+        const targetDevices = new Set<string>()
+
+        if (state.activeIncident?.device) {
+          targetDevices.add(state.activeIncident.device)
+        }
+        incidents.forEach((inc) => {
+          if (inc.status === 'active' || inc.status === 'awaiting_approval') {
+            targetDevices.add(inc.device)
+          }
+        })
+        if (targetDevices.size === 0) {
+          targetDevices.add('COMP-TB-01')
+        }
+
+        for (const device of targetDevices) {
+          try {
+            const res = await fetch(`/agent/telemetry/${device}`)
+            if (!res.ok) continue
+            const snapshot = await res.json()
+            if (snapshot?.points) {
+              updateLiveTelemetry(device, snapshot.points)
+              useAgenticStore.setState((s) => ({
+                incidents: s.incidents.map((i) =>
+                  i.device === device
+                    ? { ...i, telemetry: { ...snapshot, timestamp: snapshot.timestamp || new Date().toISOString() } }
+                    : i
+                ),
+                activeIncident:
+                  s.activeIncident?.device === device
+                    ? {
+                      ...s.activeIncident,
+                      telemetry: {
+                        ...snapshot,
+                        timestamp: snapshot.timestamp || new Date().toISOString(),
+                      },
+                    }
+                    : s.activeIncident,
+              }))
+            }
+          } catch {
+            // Ignore polling errors in background
+          }
+        }
+      }
+
+      poll()
+      const id = setInterval(poll, 3000)
+      return () => clearInterval(id)
+    }
+  }, [isDemoMode, updateLiveTelemetry])
 }

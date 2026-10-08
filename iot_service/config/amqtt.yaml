@@ -1,0 +1,10 @@
+listeners:
+  default:
+    type: tcp
+    bind: 127.0.0.1:1883
+    max_connections: 100
+timeout-disconnect-delay: 2
+auth:
+  allow-anonymous: true
+  plugins:
+    - auth_anonymous
