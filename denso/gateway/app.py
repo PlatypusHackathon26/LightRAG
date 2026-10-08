@@ -39,6 +39,7 @@ from pydantic import BaseModel
 
 import lookup as catalogue  # noqa: E402  (sibling module; app.py runs as a script)
 from jobs import JobRunner  # noqa: E402
+from language import language_instruction, named_languages, question_language  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
@@ -113,7 +114,7 @@ def excerpt_from_chunks(chunks: list[str], limit: int = 300) -> str | None:
     return None
 
 
-def to_citations(references: list[dict], answer: str = "") -> list[dict]:
+def to_citations(references: list[dict], answer: str = "", prefer: set[str] = frozenset()) -> list[dict]:
     """LightRAG references (with include_chunk_content) -> UI Citation objects.
 
     With the answer, pages and excerpt come from the chunks that support it, not from every
@@ -121,12 +122,15 @@ def to_citations(references: list[dict], answer: str = "") -> list[dict]:
     """
     out = []
     for ref in references:
-        chunks = supporting_chunks(ref, answer) if answer else chunk_texts(ref)
+        # A question about a language section looks at every chunk: the supporting-chunk filter
+        # favours the English chunk (it shares the document name the answer cites) and dropped
+        # the Russian one before its page could be chosen.
+        chunks = supporting_chunks(ref, answer) if answer and not prefer else chunk_texts(ref)
         out.append({
             "id": f"cit-{ref.get('reference_id', len(out) + 1)}",
             "documentId": display_name(ref.get("file_path", "")),
             "documentName": display_name(ref.get("file_path", "")),
-            "pages": supporting_pages(chunks, answer) or pages_from_chunks(chunks),
+            "pages": supporting_pages(chunks, answer, prefer) or pages_from_chunks(chunks),
             "excerpt": excerpt_from_chunks(chunks),
         })
     return out
@@ -197,7 +201,31 @@ def answer_terms(answer: str) -> tuple[set[str], set[str]]:
             {f.replace(",", ".") for f in ANSWER_FIGURE.findall(body)})
 
 
-def only_cited(references: list[dict], answer: str) -> list[dict]:
+def only_cited(references: list[dict], answer: str, prefer: set[str] = frozenset()) -> list[dict]:
+    """See _only_cited; a question about a language section keeps the sources holding that section.
+
+    The SCV guide and its image-text document share a name; for "the Russian section" the
+    image document (English/German pages only) was kept and the guide itself dropped.
+    """
+    kept = _only_cited(references, answer, judge_grounding=not prefer)
+    if prefer and kept:
+        # The sources covering most of the languages asked about (the guide itself holds both the
+        # Russian and the English section; its image-text document only English and German pages).
+        langs = {id(r): {m.group(2) for t in chunk_texts(r) for m in PAGE_LANG.finditer(t)} & prefer
+                 for r in references}
+        # Greedy cover, cited sources first: "German and French" kept only the image-text document
+        # (German pages) and dropped the guide holding the French section.
+        holding, covered = [], set()
+        for r in sorted(references, key=lambda r: (r not in kept, -len(langs[id(r)]))):
+            if langs[id(r)] - covered:
+                holding.append(r)
+                covered |= langs[id(r)]
+        if holding:
+            return holding
+    return kept
+
+
+def _only_cited(references: list[dict], answer: str, judge_grounding: bool = True) -> list[dict]:
     """The references the answer draws on: never none, never one that does not support it.
 
     LightRAG returns every document that contributed a context chunk (a whole catalogue next
@@ -216,8 +244,12 @@ def only_cited(references: list[dict], answer: str) -> list[dict]:
     # A substantive (English) answer that no retrieved chunk supports came from somewhere else -
     # conversation history, the model's own knowledge. Citing a chunk would present it as
     # sourced (seen live: a Google Play answer cited the Spark Plug Catalogue, p. 4).
+    # Judged only for English answers (the documents' language: a Vietnamese answer shares no
+    # words with them) and only when none of the answer's figures is in a chunk (a cross-lingual
+    # answer quoting the Russian value has few English words in common with the chunks).
     terms = {w.lower() for w in PAGE_WORD.findall(CITED_ID.sub(" ", answer))} - PAGE_STOPWORDS
-    if len(terms) >= 10:
+    figure_found = any(f in t.replace(",", ".") for f in figures for r in references for t in chunk_texts(r))
+    if judge_grounding and len(terms) >= 10 and not figure_found and question_language(answer) == "en":
         support = max(len(terms & {w.lower() for w in PAGE_WORD.findall(t)}) for r in references for t in chunk_texts(r) or [""])
         if support < max(3, 0.2 * len(terms)):
             return []
@@ -228,7 +260,7 @@ def only_cited(references: list[dict], answer: str) -> list[dict]:
     return kept or supported or references
 
 
-def supporting_pages(chunks: list[str], answer: str) -> str | None:
+def supporting_pages(chunks: list[str], answer: str, prefer: set[str] = frozenset()) -> str | None:
     """Pages, within the supporting chunks, whose text supports the answer best.
 
     A chunk of a long manual runs across several pages (power-off sits on one page of a
@@ -246,6 +278,24 @@ def supporting_pages(chunks: list[str], answer: str) -> str | None:
             t = text.replace(",", ".")
             v = len(words & {w.lower() for w in PAGE_WORD.findall(t)}) + 3 * sum(1 for f in figures if f in t)
             scores[int(page)] = max(scores.get(int(page), 0), v)
+    # A question about a language section ("phần tiếng Nga") cites that section: the same figure is
+    # on every translation's page (a Russian-section question cited the English and German pages).
+    if prefer:
+        lang_of = {int(m.group(1)): m.group(2) for c in chunks for m in PAGE_LANG.finditer(c)}
+        in_lang = {p: v for p, v in scores.items() if lang_of.get(p) in prefer}
+        if in_lang and max(in_lang.values()) >= 2:
+            if len(prefer) > 1:
+                # A comparison ("Russian vs English", "German and French") cites the best page of
+                # each language asked about, not only the one that shares most words.
+                picked = set()
+                for lang in prefer:
+                    own = {p: v for p, v in in_lang.items() if lang_of.get(p) == lang and v >= 2}
+                    if own:
+                        top = max(own.values())
+                        picked |= {p for p, v in own.items() if v >= top * 0.8}
+                if picked:
+                    return ", ".join(map(str, sorted(picked)[:MAX_PAGES_SHOWN]))
+            scores = in_lang
     best = max(scores.values(), default=0)
     if best < 2:
         return None
@@ -389,7 +439,8 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
             "temperature": 0,
             "reasoning_effort": "low",
             "max_tokens": 2000,
-            "messages": [{"role": "system", "content": catalogue.ANSWER_INSTRUCTIONS}, *past,
+            "messages": [{"role": "system", "content": f"{catalogue.ANSWER_INSTRUCTIONS} {language_instruction(question)}".strip()},
+                         *past,
                          {"role": "user", "content": f"Catalogue rows:\n{catalogue.rows_context(hits)}\n\nQuestion: {question}"}],
         }
         try:
@@ -479,6 +530,10 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
             "include_chunk_content": True,
             "conversation_history": past or None,
         }
+        instruction = language_instruction(req.message)
+        if instruction:
+            # Appended to the server's answer prompt (denso_answer.md): the prefix ends with a newline.
+            payload["user_prompt"] = "\n" + instruction
         try:
             r = await client.post(f"{url}/query", json=payload)
         except httpx.TimeoutException:
@@ -505,7 +560,9 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
                                                         "- please ask again")
         # A "not in the documents" answer cites nothing: a listed source would read as support.
         refused = bool(REFUSAL.search(content))
-        citations = [] if refused else to_citations(only_cited(body.get("references") or [], content), content)
+        named = named_languages(req.message)
+        citations = [] if refused else to_citations(only_cited(body.get("references") or [], content, named),
+                                                    content, named)
         grounded = refused or bool(citations)
         history[req.conversationId].extend(
             [{"role": "user", "content": req.message}, {"role": "assistant", "content": content}]

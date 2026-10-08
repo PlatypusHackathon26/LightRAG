@@ -35,10 +35,12 @@ def test_same_language_chunks_move_up_keeping_vector_order_within_groups():
     assert order == [2, 0, 1, 3]
 
 
-def test_cross_lingual_question_keeps_vector_order():
+def test_cross_lingual_question_prefers_the_sections_it_names():
     docs = [RU, DE, EN]
     order = [i for i, _ in rank("Does the Russian section give the same torque as the English section?", docs)]
-    assert order == [0, 1, 2]
+    assert order == [0, 1, 2]  # Russian first; English is never boosted (every catalogue is English)
+    order = [i for i, _ in rank("Does the Russian section give the same torque as the English section?", [DE, EN, RU])]
+    assert order == [2, 0, 1]
 
 
 def test_endpoint_is_cohere_compatible():
@@ -62,3 +64,31 @@ def test_cross_lingual_vietnamese_question_still_keeps_vector_order():
     docs = [RU, DE, EN]
     order = [i for i, _ in rank("Mô-men xoắn trong phần tiếng Nga là bao nhiêu?", docs)]
     assert order == [0, 1, 2]
+
+
+IMAGE = "## Ảnh trên trang 3 – SCV\n\n### Ảnh 1\nA hand pressing two guide pins into the pump body."
+FR = "--- trang 7 · ngôn ngữ: fr ---\nInstaller les 2 goupilles de guidage avant de monter la SCV."
+
+
+def test_picture_descriptions_rank_below_every_document_text_chunk():
+    # Seen live (Q28): image-caption chunks pushed the French section out of the context
+    # and the model invented "3 guide pins" for it.
+    docs = [IMAGE, IMAGE, FR, DE]
+    ranked = rank("Do the German and French language sections agree on the number of guide pins?", docs)
+    assert [i for i, _ in ranked][:2] == [2, 3]
+    assert all(s > 0 for _, s in ranked)  # LightRAG drops chunks scored below 0
+
+
+def test_endpoint_scores_stay_within_zero_and_one():
+    tc = TestClient(create_app())
+    r = tc.post("/rerank", json={"query": "What torque for the SCV bolts?", "documents": [EN, IMAGE, RU]})
+    scores = [x["relevance_score"] for x in r.json()["results"]]
+    assert all(0.0 < s <= 1.0 for s in scores)
+
+
+def test_picture_text_in_a_named_language_still_ranks_with_the_named_sections():
+    # Seen live (Q27): the Russian section reached the pool only as the OCR text of its pages.
+    ru_image = "## Ảnh trong mục «Инструкции» (trang 17)\n--- [Trang 19 | ngôn ngữ: ru] ---\nЗатянуть 6,9-10,8 Н-м."
+    docs = [EN, DE, IMAGE, ru_image]
+    order = [i for i, _ in rank("Does the SCV torque in the Russian-language section match the English section?", docs)]
+    assert order[0] == 3 and order[-1] == 2
