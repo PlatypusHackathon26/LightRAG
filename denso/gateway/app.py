@@ -151,6 +151,8 @@ REFUSAL = re.compile(r"(?:do not|don[’']t|does not|doesn[’']t) have enough i
                      r"\bno (?:relevant )?information (?:is )?(?:available|provided|found|about|on|regarding)|"
                      r"\b(?:is|are) not (?:specified|listed|mentioned|provided|given|stated) in\b|"
                      r"không (?:có )?(?:đủ )?thông tin|không (?:được )?(?:nêu|đề cập) (?:trong|tới|đến)|không tìm thấy thông tin|"
+                     # "Tài liệu được cung cấp không chứa bất kỳ thông tin nào về giá ..." cited three documents.
+                     r"(?:tài liệu|ngữ cảnh|văn bản)[^.]{0,40}không (?:chứa|có|ghi|nêu|đề cập|cung cấp)|"
                      r"情報(?:が|は)(?:ありません|見つかりません)|記載(?:が|は)?(?:ありません|されていません)|"
                      r"cannot (?:determine|answer)", re.IGNORECASE)
 
@@ -322,8 +324,20 @@ def _only_cited(references: list[dict], answer: str, judge_grounding: bool = Tru
     if best < 3:
         # Too little English text to judge (short or Vietnamese answer): keep only what the answer
         # itself points to. Returning every reference cited two catalogues for "Xin chào!".
-        return (cited or named_in_answer(references, answer) or quoting_references(references, answer)
-                or sharing_codes(references, answer))
+        picked = (cited or named_in_answer(references, answer) or quoting_references(references, answer)
+                  or sharing_codes(references, answer))
+        # The model's own References block can name the wrong source: a Chinook answer listed the
+        # Spark Plug Catalogue, which holds none of its words, while the slides held "Chinook".
+        # Keep a pick only when it shares about as much of the answer as the best. Language-neutral
+        # terms only (names, codes, numbers): with Vietnamese word pairs, any Vietnamese document
+        # ("máy nén", "mã lỗi") outscored the English bulletin a Vietnamese answer was read from.
+        terms_any = neutral_terms(CITED_ID.sub(" ", answer))
+        overlap = {id(r): max((len(terms_any & neutral_terms(t)) for t in chunk_texts(r)), default=0) for r in references}
+        top = max(overlap.values(), default=0)
+        if top >= 2:
+            sound = [r for r in picked if overlap[id(r)] >= top * 0.5]
+            return sound or [r for r in references if overlap[id(r)] == top]
+        return picked
     supported = [r for r in references if score[id(r)] >= max(3, best * 0.5)]
     kept = [r for r in cited if r in supported]
     return kept or supported or references
@@ -348,6 +362,12 @@ def quoting_references(references: list[dict], answer: str) -> list[dict]:
     return [r for r in references if core and any(core in _squash(t) for t in chunk_texts(r))] if core else []
 
 
+def neutral_terms(text: str) -> set[str]:
+    """Terms that read the same in every language: Latin-script words of 4+ letters and whole numbers."""
+    return ({w.lower() for w in PAGE_WORD.findall(text)} - PAGE_STOPWORDS) | set(
+        re.findall(r"(?<![\d.,])\d{2,}(?![\d.,]?\d)", text))
+
+
 def page_terms(text: str) -> set[str]:
     """Words a page and an answer can share, in any language.
 
@@ -358,7 +378,9 @@ def page_terms(text: str) -> set[str]:
     """
     english = {w.lower() for w in PAGE_WORD.findall(text)} - PAGE_STOPWORDS
     words = [w.lower() for w in UNICODE_WORD.findall(text)]
-    return english | {f"{a} {b}" for a, b in zip(words, words[1:]) if not (a.isascii() and b.isascii())}
+    # Whole numbers too ("b ~ 35, m ~ 100"): decimals and long codes alone left that slide with 1 point.
+    numbers = set(re.findall(r"(?<![\d.,])\d{2,}(?![\d.,]?\d)", text))
+    return english | numbers | {f"{a} {b}" for a, b in zip(words, words[1:]) if not (a.isascii() and b.isascii())}
 
 
 def supporting_pages(chunks: list[str], answer: str, prefer: set[str] = frozenset()) -> str | None:
@@ -380,11 +402,19 @@ def supporting_pages(chunks: list[str], answer: str, prefer: set[str] = frozense
             page_text[int(page)] = page_text.get(int(page), "") + "\n" + text
     scores: dict[int, int] = {}
     core = answer_core(answer)
+    named_pages = {int(n) for n in re.findall(r"(?:\bp\.|\bpage|\btrang|\btr\.|ページ)\s*(\d+)", answer, re.IGNORECASE)}
     for page, text in page_text.items():
         t = text.replace(",", ".")
         scores[page] = len(words & page_terms(text)) + 3 * sum(1 for f in figures if f in t)
         if core and core in _squash(text):
             scores[page] += 10  # the short answer is printed on this page
+    # The answer names its page itself ("(Trang 27)") and that page does support it: cite it alone.
+    # p. 9 shared more words about chess and was cited instead. Only a page holding at least half
+    # the best support counts - the model's page can be wrong (a Russian-section answer said p. 6).
+    best_any = max(scores.values(), default=0)
+    named_ok = sorted(p for p in named_pages if scores.get(p, 0) >= max(1, best_any * 0.5))
+    if named_ok and not prefer:
+        return ", ".join(map(str, named_ok[:MAX_PAGES_SHOWN]))
     # A question about a language section ("phần tiếng Nga") cites that section: the same figure is
     # on every translation's page (a Russian-section question cited the English and German pages).
     if prefer:

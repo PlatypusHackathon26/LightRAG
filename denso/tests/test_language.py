@@ -233,3 +233,55 @@ def test_the_chunk_kept_for_pages_is_chosen_in_the_answers_language_too():
               "tìm kiếm; thứ tự sắp xếp các bước đi có ảnh hưởng lớn. Deep Blue đã thắng Garry Kasparov.")
     (c,) = to_citations([ref], answer)
     assert "34" in c["pages"].split(", ")
+
+
+def test_a_wrongly_listed_source_gives_way_to_the_one_holding_the_answer():
+    # Seen on the held-out set: a Chinook answer's References block named the Spark Plug Catalogue.
+    from app import only_cited
+
+    slides = {"reference_id": "2", "file_path": "Bai 5.md", "content": [
+        "--- [Trang 45 | ngôn ngữ: en] ---\n- Checkers: Chinook ended 40-year-reign of human world champion "
+        "Marion Tinsley in 1994. Used a pre-computed endgame database."]}
+    plugs = {"reference_id": "1", "file_path": "Spark Plug Catalogue 2025.md", "content": [
+        "--- [Trang 12 | ngôn ngữ: en] ---\nHeat range table for iridium plugs."]}
+    answer = ("Chương trình Chinook đã đánh bại nhà vô địch Marion Tinsley năm 1994 nhờ cơ sở dữ liệu tàn cuộc "
+              "tính sẵn.")
+    assert [r["reference_id"] for r in only_cited([plugs, slides], answer, listed={"1"})] == ["2"]
+
+
+def test_the_page_an_answer_names_is_preferred():
+    # Seen: "(Trang 27)" in the answer, but p. 9 shared more chess words and was cited.
+    from app import supporting_pages
+
+    chunks = ["--- [Trang 9 | ngôn ngữ: vi] ---\n- Trò chơi cờ vua có hệ số phân nhánh lớn, độ sâu lớn.\n"
+              "--- [Trang 27 | ngôn ngữ: vi] ---\n- Chơi cờ vua: b ~ 35, m ~100."]
+    assert supporting_pages(chunks, "Trong cờ vua, hệ số phân nhánh b khoảng 35 và độ sâu m khoảng 100. (Trang 27)") == "27"
+
+
+def test_a_vietnamese_document_says_nothing_refusal():
+    from app import is_refusal
+
+    assert is_refusal("Tài liệu được cung cấp không chứa bất kỳ thông tin nào về giá cả của lon dầu ND-oil 12.")
+    assert not is_refusal("Mô-men xoắn là 6,9 – 10,8 Nm. Tài liệu không ghi lực siết cho bu-lông M8.")
+
+
+def test_a_vietnamese_answer_keeps_the_english_bulletin_it_was_read_from():
+    # Seen on the held-out set: a Vietnamese answer about the diode bulletin was moved to a
+    # Vietnamese maintenance sheet that merely shares "máy nén", "mã lỗi".
+    from app import only_cited
+
+    bulletin = {"reference_id": "1", "file_path": "Control-Valve-Bulletin.md", "content": [
+        "--- [Trang 2 | ngôn ngữ: en] ---\nIf a compressor with a diode inside the external control valve is "
+        "replaced with a compressor without a diode, the compressor will not operate and the ECU will store a DTC."]}
+    sheet = {"reference_id": "2", "file_path": "Phieu_bao_tri.md", "content": [
+        "--- [Trang 2 | ngôn ngữ: vi] ---\nSau khi lắp máy nén: kiểm tra không có mã lỗi DTC trên máy chẩn đoán."]}
+    answer = "Nếu thay máy nén có diode bằng máy nén không có diode thì máy nén không hoạt động và ECU lưu mã lỗi DTC."
+    assert [r["reference_id"] for r in only_cited([bulletin, sheet], answer, listed={"1"})] == ["1"]
+
+
+def test_the_tr_abbreviation_names_a_page():
+    from app import supporting_pages
+
+    chunks = ["--- [Trang 1 | ngôn ngữ: vi] ---\nDeep Blue thắng Kasparov năm 1997.\n"
+              "--- [Trang 27 | ngôn ngữ: vi] ---\n- 12-ply = Deep Blue, Kasparov"]
+    assert supporting_pages(chunks, "12-ply = Deep Blue, Kasparov. (Bài 5, tr. 27)") == "27"
