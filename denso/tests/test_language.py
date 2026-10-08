@@ -217,3 +217,19 @@ def test_a_bare_formula_answer_cites_the_page_it_is_printed_on():
     kept = only_cited([ref, other], "O(b m/2)")
     assert [r["reference_id"] for r in kept] == ["1"]
     assert to_citations(kept, "O(b m/2)")[0]["pages"] == "34"
+
+
+def test_the_chunk_kept_for_pages_is_chosen_in_the_answers_language_too():
+    # Seen live: the chunk holding pp. 29-36 lost to chunks naming Kasparov / Minimax in English,
+    # and a Vietnamese alpha-beta answer cited pp. 8, 9, 46.
+    from app import to_citations
+
+    defining = ("--- [Trang 34 | ngôn ngữ: vi] ---\n- Phương pháp cắt cụt alpha-beta không ảnh hưởng đến kết quả cuối "
+                "cùng, chỉ ảnh hưởng đến thời gian tìm kiếm. Thứ tự sắp xếp các bước đi có ảnh hưởng lớn.")
+    names = ("--- [Trang 45 | ngôn ngữ: en] ---\n- Chess: Deep Blue defeated Garry Kasparov in 1997, searching "
+             "200 million positions with alpha-beta and minimax extensions.")
+    ref = {"reference_id": "1", "file_path": "Bai 5.md", "content": [names, defining]}
+    answer = ("Cắt cụt alpha-beta không ảnh hưởng đến kết quả cuối cùng của minimax, chỉ ảnh hưởng đến thời gian "
+              "tìm kiếm; thứ tự sắp xếp các bước đi có ảnh hưởng lớn. Deep Blue đã thắng Garry Kasparov.")
+    (c,) = to_citations([ref], answer)
+    assert "34" in c["pages"].split(", ")

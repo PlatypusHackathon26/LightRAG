@@ -428,8 +428,11 @@ def supporting_pages(chunks: list[str], answer: str, prefer: set[str] = frozense
 def supporting_chunks(ref: dict, answer: str) -> list[str]:
     """The chunks of a reference the answer was read from (for its pages and excerpt)."""
     chunks = chunk_texts(ref)
-    words, figures = answer_terms(answer)
-    scored = [(evidence(t, words, figures), t) for t in chunks]
+    # Any language, like supporting_pages: with English words only, the Vietnamese chunk defining
+    # alpha-beta (pp. 29-36) lost to chunks naming Kasparov and Minimax, and pp. 8, 9, 46 were cited.
+    _, figures = answer_terms(answer)
+    terms = page_terms(CITED_ID.sub(" ", answer))
+    scored = [(len(terms & page_terms(t)) + 3 * sum(1 for f in figures if f in t.replace(",", ".")), t) for t in chunks]
     best = max((s for s, _ in scored), default=0)
     if best < 3:
         return chunks
