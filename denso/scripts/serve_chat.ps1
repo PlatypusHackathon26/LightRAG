@@ -21,6 +21,8 @@ param(
     [string]$CorsRegex = '^https://light-rag(-[a-z0-9-]+)?-charlotte-eb9d\.vercel\.app$',
     [string]$DemoSite = "https://light-rag-git-feat-rag-backend-charlotte-eb9d.vercel.app",
     [switch]$Restart,
+    # Visitors without a token (the hosted demo) may upload and delete documents. For team testing only.
+    [switch]$GuestUpload,
     [switch]$WithUI,
     # Expose the gateway through a Cloudflare quick tunnel (public URL, guest = level 1) for the hosted demo.
     [switch]$Tunnel
@@ -93,9 +95,11 @@ if (-not (Test-Port 9700)) {
     $env:DENSO_GATEWAY_CORS_REGEX = $CorsRegex
     $env:DENSO_LOOKUP_LLM_MODEL = $Model           # keyword-matched catalogue rows are answered by the same model
     $env:DENSO_LOOKUP_LLM_EXTRA_BODY = $ExtraBody
+    $env:DENSO_GUEST_CAN_UPLOAD = $(if ($GuestUpload) { '1' } else { '0' })
     Start-Bg $py @("denso\gateway\app.py") "gateway"
     Wait-Url "http://127.0.0.1:9700/agent/health" 20 | Out-Null
 }
+if ($GuestUpload) { "WARNING    guests may upload and DELETE documents (-GuestUpload); restart without it after testing" }
 "gateway    :9700 knowledge mode=$(if ($env:DENSO_KNOWLEDGE_MODE) { $env:DENSO_KNOWLEDGE_MODE } else { 'naive' })"
 
 if ($WithUI -and -not (Test-Port 5173)) {

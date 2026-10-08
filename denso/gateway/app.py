@@ -425,6 +425,9 @@ class Settings:
     lookup_server: str | None = None
     users: dict[str, dict] = field(default_factory=dict)
     guest_level: int = 1
+    # Team testing on the hosted demo: visitors without a token may upload and delete too.
+    # Anyone with the tunnel link can then change the knowledge base - turn it off afterwards.
+    guest_can_upload: bool = False
     api_key: str | None = None
     cors: list[str] = field(default_factory=lambda: ["http://localhost:5173"])
     # Hosted UI whose URL changes per deployment, e.g. ^https://denso-copilot(-[a-z0-9-]+)?\.vercel\.app$
@@ -461,6 +464,7 @@ class Settings:
             lookup_server=os.environ.get("DENSO_LOOKUP_SERVER") or None,
             users={k: v for k, v in users.items() if not k.startswith("_")},
             guest_level=int(os.environ.get("DENSO_GUEST_LEVEL", "1")),
+            guest_can_upload=os.environ.get("DENSO_GUEST_CAN_UPLOAD", "0") == "1",
             api_key=os.environ.get("LIGHTRAG_API_KEY") or None,
             cors=[o.strip() for o in os.environ.get("DENSO_GATEWAY_CORS", "http://localhost:5173").split(",")],
             cors_regex=os.environ.get("DENSO_GATEWAY_CORS_REGEX") or None,
@@ -557,7 +561,7 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
     def current_user(authorization: str | None = Header(default=None)) -> User:
         token = (authorization or "").removeprefix("Bearer ").strip()
         if not token:
-            return User(name="guest", level=settings.guest_level)
+            return User(name="guest", level=settings.guest_level, can_upload=settings.guest_can_upload)
         info = settings.users.get(token)
         if info is None:
             raise HTTPException(status_code=401, detail="unknown token")

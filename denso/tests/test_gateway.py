@@ -451,3 +451,17 @@ def test_one_users_conversation_history_never_reaches_another_user(client):
             headers={"Authorization": "Bearer tok-admin"})
     tc.post("/agent/chat", json={"conversationId": "shared", "message": "What torque for SCV bolts?"})  # a guest
     assert json.loads(calls[-1].content).get("conversation_history") is None
+
+
+def test_guests_upload_only_when_the_team_testing_switch_is_on(tmp_path):
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"status": "success", "track_id": "t"})
+
+    for allowed, expected in [(False, 403), (True, 200)]:
+        settings = Settings(level_servers=SERVERS, users={}, actions_log=tmp_path / "a.jsonl",
+                            ops_file=tmp_path / "n.json", upload_pipeline=False, guest_can_upload=allowed)
+        tc = TestClient(create_app(settings, transport=httpx.MockTransport(handler)))
+        r = tc.post("/agent/documents", files={"file": ("a.md", b"x")}, data={"level": "1"})
+        assert r.status_code == expected
+        # Still level 1: the switch grants uploads, never a higher access level.
+        assert tc.post("/agent/documents", files={"file": ("a.md", b"x")}, data={"level": "2"}).status_code == 403
