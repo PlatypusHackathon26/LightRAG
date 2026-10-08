@@ -20,9 +20,11 @@ Env:  DENSO_LEVEL_SERVERS="http://127.0.0.1:9621,http://127.0.0.1:9622,http://12
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import re
+import shutil
 import uuid
 from collections import defaultdict, deque
 from contextlib import asynccontextmanager
@@ -301,6 +303,7 @@ class Settings:
     # Uploads go through the DENSO pipeline (gateway/jobs.py) so their answers cite pages;
     # False sends the raw file straight to LightRAG (no Docling available, e.g. a server).
     upload_pipeline: bool = True
+    data_dir: Path = REPO / "denso" / "data"   # pipeline outputs a delete cleans up
     docling_url: str = "http://127.0.0.1:5001"
     # Extra request fields, e.g. {"chat_template_kwargs": {"enable_thinking": false}} for Nemotron.
     lookup_llm_extra_body: dict = field(default_factory=dict)
@@ -554,6 +557,98 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
                 raise HTTPException(status_code=502, detail=f"upload to level_{lv} failed ({r.status_code})")
             tracks[f"level_{lv}"] = r.json().get("track_id")
         return {"status": "accepted", "trackIds": tracks}
+
+    async def named_documents(url: str, names: set[str]) -> list[str] | None:
+        """Ids of the documents on this server whose canonical or uploaded name is in `names`;
+        None when the server is not running."""
+        ids, page = [], 1
+        try:
+            while True:
+                r = await client.post(f"{url}/documents/paginated", json={"page": page, "page_size": 100})
+                r.raise_for_status()
+                data = r.json()
+                for d in data.get("documents", []):
+                    own = {Path(d.get("file_path") or "").name, (d.get("metadata") or {}).get("source_file") or ""}
+                    if own & names:
+                        ids.append(d["id"])
+                if not data.get("pagination", {}).get("has_next"):
+                    return list(dict.fromkeys(ids))
+                page += 1
+        except (httpx.HTTPError, ValueError):
+            return None
+
+    async def find_document(url: str, doc_id: str) -> dict | None:
+        page = 1
+        try:
+            while True:
+                r = await client.post(f"{url}/documents/paginated", json={"page": page, "page_size": 100})
+                r.raise_for_status()
+                data = r.json()
+                doc = next((d for d in data.get("documents", []) if d.get("id") == doc_id), None)
+                if doc or not data.get("pagination", {}).get("has_next"):
+                    return doc
+                page += 1
+        except (httpx.HTTPError, ValueError):
+            return None
+
+    def remove_local_files(file_path: str) -> list[str]:
+        """Pipeline outputs of a deleted document; the raw upload stays (undo by uploading it again)."""
+        stem = Path(Path(file_path).name).stem
+        stem = stem.split(".[", 1)[0]  # "x.[native-P!]" -> "x"
+        data = settings.data_dir
+        removed = []
+        for p in [data / "cleaned_md" / f"{stem}.md", data / "cleaned_md" / f"{stem}.[native-P!].md",
+                  data / "cleaned_md" / f"{stem} - images.[native-P!].md", data / "cleaned_json" / f"{stem}.json"]:
+            if p.exists():
+                p.unlink()
+                removed.append(p.name)
+        parsed = (data / "parsed" / stem).resolve()
+        # Never more than one folder directly under parsed/ (a name like ".." must not reach data/).
+        if stem not in ("", ".", "..") and parsed.is_dir() and parsed.parent == (data / "parsed").resolve():
+            shutil.rmtree(parsed)
+            removed.append(f"parsed/{stem}/")
+        return removed
+
+    @app.delete("/agent/documents/{doc_id}")
+    async def delete_document(doc_id: str, user: User = Depends(current_user)) -> dict:
+        """Remove a document from every level server holding it: chunks, vectors, its knowledge-
+        graph contributions and cache (LightRAG delete_document), then its local pipeline files."""
+        if not user.can_upload:
+            raise HTTPException(status_code=403, detail="this user may not delete documents")
+        if doc_id.startswith("job-"):
+            raise HTTPException(status_code=409, detail="this upload is still being processed; delete it when it is ready")
+        doc = None
+        # The servers this user can see (levels 1..user.level), skipping any that is not running.
+        for url in settings.level_servers[: user.level]:
+            doc = await find_document(url, doc_id)
+            if doc:
+                break
+        if doc is None:
+            raise HTTPException(status_code=404, detail="document not found at your access level")
+        names = {Path(doc.get("file_path") or "").name, (doc.get("metadata") or {}).get("source_file") or ""} - {""}
+        holders = {}
+        for lv, url in enumerate(settings.level_servers, 1):
+            ids = await named_documents(url, names)
+            if ids:
+                holders[lv] = (url, ids)
+        if min(holders, default=user.level) > user.level:
+            raise HTTPException(status_code=403, detail="cannot delete a document above your access level")
+        deleted = []
+        for lv, (url, ids) in sorted(holders.items()):
+            r = await client.request("DELETE", f"{url}/documents/delete_document", json={"doc_ids": ids, "delete_file": False})
+            status = r.json().get("status") if r.status_code == 200 else None
+            if status == "busy":
+                raise HTTPException(status_code=409, detail="the knowledge base is busy indexing another document - try again in a minute")
+            if r.status_code != 200 or status not in ("deletion_started", "success"):
+                raise HTTPException(status_code=502, detail=f"level_{lv} refused the deletion ({r.status_code} {status})")
+            deleted.append(f"level_{lv}")
+        # Deletion runs in the background on each server: wait briefly so the UI's next listing is right.
+        for _ in range(30):
+            remaining = [url for url, _ in holders.values() if await named_documents(url, names)]
+            if not remaining:
+                break
+            await asyncio.sleep(2)
+        return {"status": "deleted", "levels": deleted, "removedFiles": remove_local_files(doc.get("file_path") or "")}
 
     @app.get("/agent/incidents")
     async def incidents(user: User = Depends(current_user)) -> list[dict]:

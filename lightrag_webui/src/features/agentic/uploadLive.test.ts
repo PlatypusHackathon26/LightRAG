@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { AgentApiError, type UploadJob } from '../../api/agent'
 import type { KnowledgeDocument } from './types/agentic'
-import { uploadLive } from './uploadLive'
+import { deleteLive, uploadLive } from './uploadLive'
 
 const job = (patch: Partial<UploadJob>): UploadJob => ({
   id: 'j1', name: 'manual.pdf', level: 1, status: 'parsing', progress: 10, stage: 'Docling',
@@ -56,5 +56,23 @@ describe('uploadLive', () => {
     const h = harness()
     await uploadLive(new File(['%PDF'], 'manual.pdf'), h.add, h.update, client, async () => {})
     expect(h.docs[0].statusNote).toBe('Tài khoản này không có quyền upload tài liệu')
+  })
+})
+
+describe('deleteLive', () => {
+  test('the row goes only after the server confirms the deletion', async () => {
+    const order: string[] = []
+    const client = { deleteDocument: async (id: string) => { order.push(`server:${id}`); return { status: 'deleted', levels: ['level_1'] } } }
+    await deleteLive('doc-1', (id) => order.push(`row:${id}`), () => {}, client)
+    expect(order).toEqual(['server:doc-1', 'row:doc-1'])
+  })
+
+  test('a refused deletion keeps the row and says why', async () => {
+    const notes: string[] = []
+    let removed = false
+    const client = { deleteDocument: async () => { throw new AgentApiError('DELETE failed: 409 - busy', 409) } }
+    await deleteLive('doc-1', () => { removed = true }, (_id, patch) => notes.push(patch.statusNote ?? ''), client)
+    expect(removed).toBe(false)
+    expect(notes[notes.length - 1]).toBe('Xóa lỗi: DELETE failed: 409 - busy')
   })
 })

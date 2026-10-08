@@ -12,6 +12,7 @@
  *   GET  /agent/documents
  *   POST /agent/documents              (multipart: file, level) -> upload job
  *   GET  /agent/documents/jobs/{id}    pipeline progress of an upload
+ *   DELETE /agent/documents/{id}       remove a document from the knowledge base
  *   POST /agent/actions/{id}/approve
  *   POST /agent/actions/{id}/reject
  *   GET  /agent/telemetry/{deviceId}
@@ -144,6 +145,12 @@ export function createAgentClient(config: AgentConfig, fetchImpl: FetchLike = (i
       return request<UploadJob>(`/agent/documents/jobs/${encodeURIComponent(jobId)}`)
     },
 
+    /** Live only: remove the document from every knowledge-base server holding it. */
+    async deleteDocument(docId: string): Promise<{ status: string; levels: string[] }> {
+      if (!config.live) return { status: 'deleted', levels: [] }
+      return request(`/agent/documents/${encodeURIComponent(docId)}`, { method: 'DELETE' })
+    },
+
     approveAction(actionId: string): Promise<{ ack: string }> {
       if (!config.live) return Promise.resolve({ ack: 'ACK 200' })
       return request<{ ack: string }>(`/agent/actions/${encodeURIComponent(actionId)}/approve`, { method: 'POST' })
@@ -175,6 +182,7 @@ export const postAgentChat = (req: AgentChatRequest) => agentClient.postAgentCha
 export const fetchDocuments = () => agentClient.fetchDocuments()
 export const uploadDocument = (file: File, level?: number) => agentClient.uploadDocument(file, level)
 export const fetchUploadJob = (jobId: string) => agentClient.fetchUploadJob(jobId)
+export const deleteKnowledgeDocument = (docId: string) => agentClient.deleteDocument(docId)
 export const approveAction = (actionId: string) => agentClient.approveAction(actionId)
 export const rejectAction = (actionId: string) => agentClient.rejectAction(actionId)
 export const fetchTelemetry = (incidentId: string) => agentClient.fetchTelemetry(incidentId)

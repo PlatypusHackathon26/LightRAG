@@ -3,7 +3,7 @@ import { useDropzone } from 'react-dropzone'
 import { useAgenticStore } from '../stores/agenticStore'
 import type { KnowledgeDocument } from '../types/agentic'
 import { agentClient } from '../../../api/agent'
-import { uploadLive } from '../uploadLive'
+import { deleteLive, uploadLive } from '../uploadLive'
 import {
   XIcon,
   UploadCloudIcon,
@@ -396,7 +396,7 @@ export default function KnowledgeHubDrawer() {
                   key={doc.id}
                   doc={doc}
                   onPreview={(id) => setPreviewDocumentId(id)}
-                  onDelete={(id) => deleteDocument(id)}
+                  onDelete={(id) => (agentClient.live ? deleteLive(id, deleteDocument, updateDocument) : deleteDocument(id))}
                 />
               ))}
             </tbody>

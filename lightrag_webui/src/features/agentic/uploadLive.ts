@@ -48,3 +48,25 @@ export async function uploadLive(
   }
 }
 
+
+/**
+ * Live mode: delete the document on the server first; the row goes only once the gateway
+ * confirms. (The mock UI dropped the row and left the document answering questions.)
+ */
+export async function deleteLive(
+  id: string,
+  removeDocument: (id: string) => void,
+  updateDocument: (id: string, patch: Partial<KnowledgeDocument>) => void,
+  client: Pick<typeof agentClient, 'deleteDocument'> = agentClient
+): Promise<void> {
+  updateDocument(id, { statusNote: 'Đang xóa khỏi kho tri thức…' })
+  try {
+    await client.deleteDocument(id)
+    removeDocument(id)
+  } catch (e) {
+    const message = e instanceof AgentApiError && e.status === 403
+      ? 'Tài khoản này không có quyền xóa tài liệu'
+      : `Xóa lỗi: ${e instanceof Error ? e.message : String(e)}`
+    updateDocument(id, { statusNote: message })
+  }
+}
