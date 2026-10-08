@@ -112,3 +112,23 @@ def test_a_dot_dot_name_never_reaches_the_data_folder(tmp_path):
     make_outputs(data)
     tc.delete("/agent/documents/doc-bht", headers={"Authorization": "Bearer tok-admin"})
     assert (data / "raw" / "BHT-M60_Manual_demo_40p.pdf").exists() and (data / "cleaned_md").exists()
+
+
+def test_deleting_forgets_conversation_history_that_quotes_the_document(tmp_path):
+    # Seen live: after the delete, the same question in the same conversation was answered
+    # from the previous answer the gateway sends as conversation history.
+    state, transport = fake_lightrag({"l1"})
+    sent = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/query":
+            sent.append(json.loads(request.content).get("conversation_history"))
+            return httpx.Response(200, json={"response": "Press and hold the power key.", "references": []})
+        return transport.handle_request(request)
+
+    tc, _ = client(tmp_path, httpx.MockTransport(handler))
+    h = {"Authorization": "Bearer tok-admin"}
+    tc.post("/agent/chat", json={"conversationId": "c", "message": "How do I power off the BHT?"}, headers=h)
+    assert tc.delete("/agent/documents/doc-bht", headers=h).status_code == 200
+    tc.post("/agent/chat", json={"conversationId": "c", "message": "How do I power off the BHT?"}, headers=h)
+    assert sent[-1] is None  # no history quoting the deleted manual

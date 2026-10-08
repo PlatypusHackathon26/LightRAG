@@ -648,6 +648,9 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
             if not remaining:
                 break
             await asyncio.sleep(2)
+        # Earlier answers quoting the document sit in the conversation history the LLM is given; left
+        # there, the next question was answered from them (seen live, right after a delete).
+        history.clear()
         return {"status": "deleted", "levels": deleted, "removedFiles": remove_local_files(doc.get("file_path") or "")}
 
     @app.get("/agent/incidents")
