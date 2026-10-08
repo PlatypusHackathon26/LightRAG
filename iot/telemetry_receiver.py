@@ -4,35 +4,42 @@ import time
 from collections import deque
 from datetime import datetime
 from typing import Any, Deque, Dict, List, Optional, Tuple
+from machines.specifications import MACHINE_METRICS
 
-MACHINE_THRESHOLDS: Dict[str, Dict[str, Dict[str, float]]] = {
+ROC_CONFIG: Dict[str, Dict[str, Dict[str, float]]] = {
     "CNC_MILLING": {
-        "Spindle_Temp_C": {"max": 85.0, "window_sec": 60.0, "max_roc_per_min": 2.5},
-        "Vibration_RMS_mm_s": {"max": 7.1, "window_sec": 5.0, "max_roc_per_min": 1.2},
-        "Spindle_Load_Pct": {"max": 115.0, "window_sec": 10.0, "max_roc_per_min": 25.0},
-        "Coolant_Pressure_Bar": {"min": 10.0, "max": 40.0},
+        "Spindle_Temp_C": {"window_sec": 60.0, "max_roc_per_min": 2.5},
+        "Vibration_RMS_mm_s": {"window_sec": 5.0, "max_roc_per_min": 1.2},
+        "Spindle_Load_Pct": {"window_sec": 10.0, "max_roc_per_min": 25.0},
     },
     "ROBOT_ARM": {
-        "Joint_3_Current_A": {"max": 16.5, "window_sec": 5.0, "max_roc_per_min": 4.0},
-        "Motor_Temp_C": {"max": 75.0, "window_sec": 60.0, "max_roc_per_min": 2.0},
-        "Gripper_Pressure_Bar": {"min": 3.5, "max": 8.0},
+        "Joint_3_Current_A": {"window_sec": 5.0, "max_roc_per_min": 4.0},
+        "Motor_Temp_C": {"window_sec": 60.0, "max_roc_per_min": 2.0},
     },
     "AMR_VEHICLE": {
-        "Battery_Pct": {"min": 20.0},
-        "Battery_Temp_C": {"max": 50.0, "window_sec": 60.0, "max_roc_per_min": 2.0},
-        "Lidar_Confidence_Pct": {"min": 65.0},
+        "Battery_Temp_C": {"window_sec": 60.0, "max_roc_per_min": 2.0},
     },
     "AOI_INSPECTION": {
-        "False_Reject_Rate_Pct": {"max": 3.5, "window_sec": 30.0, "max_roc_per_min": 1.5},
-        "Optics_Cleanliness_Pct": {"min": 75.0},
-        "Illumination_Intensity_Lux": {"min": 14000.0},
+        "False_Reject_Rate_Pct": {"window_sec": 30.0, "max_roc_per_min": 1.5},
     },
     "INJECTION_MOLDING": {
-        "Nozzle_Temp_Zone1": {"min": 200.0, "max": 240.0, "window_sec": 60.0, "max_roc_per_min": 5.0},
-        "Clamping_Pressure_Bar": {"min": 115.0, "max": 160.0},
-        "Injection_Pressure_Bar": {"max": 140.0},
+        "Nozzle_Temp_Zone1": {"window_sec": 60.0, "max_roc_per_min": 5.0},
     },
 }
+
+# The dashboard and Edge must use the same documented static thresholds.
+MACHINE_THRESHOLDS: Dict[str, Dict[str, Dict[str, float]]] = {}
+for machine_type, metrics in MACHINE_METRICS.items():
+    MACHINE_THRESHOLDS[machine_type] = {}
+    for metric in metrics:
+        limits = {}
+        for bound in ("min", "max"):
+            value = metric.get(bound, metric.get("critical_" + bound))
+            if value is not None:
+                limits[bound] = value
+        limits.update(ROC_CONFIG.get(machine_type, {}).get(metric["key"], {}))
+        if limits:
+            MACHINE_THRESHOLDS[machine_type][metric["key"]] = limits
 
 
 class TelemetryReceiver:
@@ -178,7 +185,9 @@ class TelemetryReceiver:
                     oldest_time, oldest_val = queue[0]
                     duration_sec = now_mono - oldest_time
 
-                    if duration_sec >= (window_sec * 0.4):
+                    # Chờ đủ phần lớn cửa sổ để nhiễu cảm biến ngắn hạn không bị
+                    # khuếch đại thành ROC/phút và kích hoạt Agent sai.
+                    if duration_sec >= (window_sec * 0.8):
                         roc_per_min = ((current_val - oldest_val) / duration_sec) * 60.0
                         if roc_per_min > max_roc:
                             anomalies.append({

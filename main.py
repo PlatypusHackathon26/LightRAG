@@ -50,7 +50,6 @@ def start_iot_simulation(machines, receiver, state_store):
                 payload=raw_tele,
                 label=label,
                 active_faults=ground_truth_faults,
-                fault_interval_sec=m.fault_interval_sec,
             )
         time.sleep(1.0)
 
@@ -63,10 +62,10 @@ def main():
     receiver = TelemetryReceiver(event_hub=bus)
     state_store = StateStore()
 
-    # 1b. Nối Agent (RAG giả lập) vào vòng kín: alert -> RAG -> lệnh PLC
+    # Dashboard kiểm chứng: Agent phân tích và đề xuất, không tự thay đổi kịch bản lỗi.
     rag = RAGEngine()
     tools = AgentTools(event_bus=bus)
-    brain = AgentBrain(rag_engine=rag, tools=tools, event_bus=bus)
+    brain = AgentBrain(rag_engine=rag, tools=tools, event_bus=bus, execute_actions=False)
     bus.subscribe("alert", brain.handle_alert)
     bus.subscribe("normal", brain.handle_heartbeat)
 

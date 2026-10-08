@@ -13,7 +13,6 @@ class CncMilling(BaseMachine):
     def __init__(
         self,
         event_hub: Optional[Any] = None,
-        fault_interval_sec: float = 30.0,
     ) -> None:
         super().__init__(
             machine_id="MC-MILL-01",
@@ -21,7 +20,6 @@ class CncMilling(BaseMachine):
             model="DMG_MORI_NVX_5080",
             location="Cell-01",
             event_hub=event_hub,
-            fault_interval_sec=fault_interval_sec,
         )
 
         self.state = "RUNNING"
@@ -31,12 +29,12 @@ class CncMilling(BaseMachine):
         self.coolant_pump_command = True
         self.coolant_target_bar = 20.0
 
-        self.spindle_actual_rpm = 12000.0
-        self.spindle_load_pct = 45.0
-        self.spindle_temp_c = 38.0
-        self.vibration_rms_mm_s = 1.3
-        self.coolant_pressure_bar = 20.0
-        self.tool_wear_pct = 12.0
+        self.spindle_actual_rpm = self.nominal("Spindle_RotaryVelocity_RPM")
+        self.spindle_load_pct = self.nominal("Spindle_Load_Pct")
+        self.spindle_temp_c = self.nominal("Spindle_Temp_C")
+        self.vibration_rms_mm_s = self.nominal("Vibration_RMS_mm_s")
+        self.coolant_pressure_bar = self.nominal("Coolant_Pressure_Bar")
+        self.tool_wear_pct = self.nominal("Tool_Wear_Pct")
 
         self.ambient_temp_c = 26.0
         self.last_update_time = time.time()
@@ -54,18 +52,17 @@ class CncMilling(BaseMachine):
             dt = max(0.1, min(current_time - self.last_update_time, 2.5))
             self.last_update_time = current_time
 
-            if self.state == "RUNNING":
-                self.maybe_trigger_random_fault()
-
             if self.state in ("EMERGENCY_STOP", "MAINTENANCE") or not self.spindle_enabled:
                 self.spindle_actual_rpm = max(0.0, self.spindle_actual_rpm - 3500.0 * dt)
             else:
-                diff = self.spindle_target_rpm - self.spindle_actual_rpm
-                self.spindle_actual_rpm += diff * min(1.0, 3.0 * dt)
+                self.spindle_actual_rpm = self.approach(
+                    self.spindle_actual_rpm, self.spindle_target_rpm, dt, 3.0
+                )
 
             if self.coolant_pump_command and not self.active_faults["COOLANT_PUMP_FAILURE"]:
-                diff_p = self.coolant_target_bar - self.coolant_pressure_bar
-                self.coolant_pressure_bar += diff_p * min(1.0, 3.0 * dt)
+                self.coolant_pressure_bar = self.ramp(
+                    self.coolant_pressure_bar, self.coolant_target_bar, dt, 3.0
+                )
             else:
                 self.coolant_pressure_bar = max(0.0, self.coolant_pressure_bar - 8.0 * dt)
 
@@ -81,7 +78,7 @@ class CncMilling(BaseMachine):
             if self.active_faults["GUIDEWAY_LUBRICATION_ISSUE"]:
                 target_load += 8.0
 
-            self.spindle_load_pct += (target_load - self.spindle_load_pct) * min(1.0, 2.5 * dt)
+            self.spindle_load_pct = self.approach(self.spindle_load_pct, target_load, dt, 5.0)
 
             # --- NHIET DO TRUC CHINH ---
             if self.spindle_actual_rpm > 500.0:
@@ -92,8 +89,10 @@ class CncMilling(BaseMachine):
                 # Toa nhiet ti le chenh lech voi moi truong; tuoi nguoi yeu -> toa cham lai.
                 # Can bang binh thuong: 0.54 / 0.045 = 12C -> 38C (bang gia tri khoi tao).
                 cool_coeff = 0.045 * max(0.3, self.coolant_pressure_bar / 20.0)
-                cooling = (self.spindle_temp_c - self.ambient_temp_c) * cool_coeff
-                self.spindle_temp_c += (heat_in - cooling) * dt
+                self.spindle_temp_c = self.approach(
+                    self.spindle_temp_c, self.ambient_temp_c + heat_in / cool_coeff,
+                    dt, 1.0 / cool_coeff,
+                )
             else:
                 cooling = (self.spindle_temp_c - self.ambient_temp_c) * 0.08 * dt
                 self.spindle_temp_c = max(self.ambient_temp_c, self.spindle_temp_c - cooling)
@@ -117,7 +116,14 @@ class CncMilling(BaseMachine):
             else:
                 target_vib = 0.05
 
-            self.vibration_rms_mm_s += (target_vib - self.vibration_rms_mm_s) * min(1.0, 3.0 * dt)
+            self.vibration_rms_mm_s = self.approach(self.vibration_rms_mm_s, target_vib, dt, 4.0)
+
+            # --- MON DAO (loi mon dao x3 khi chipping; hong bom x7) ---
+            if self.state == "RUNNING" and self.spindle_actual_rpm > 1000.0:
+                w_rate = 0.005 if not self.active_faults["COOLANT_PUMP_FAILURE"] else 0.035
+                if self.active_faults["TOOL_CHIPPING_OR_WEAR"]:
+                    w_rate *= 3.0
+                self.tool_wear_pct = min(100.0, self.tool_wear_pct + w_rate * dt)
 
             noise_rpm = random.uniform(-15, 15)
             noise_load = random.uniform(-0.3, 0.3)
@@ -133,7 +139,7 @@ class CncMilling(BaseMachine):
                 "Vibration_RMS_mm_s": round(max(0.05, self.vibration_rms_mm_s + noise_vib), 2),
                 "Coolant_Pressure_Bar": round(max(0.0, self.coolant_pressure_bar + noise_cool), 1),
                 "Path_Feedrate_Override_Pct": self.feed_override_pct,
-                "Tool_Wear_Pct": round(self.tool_wear_pct, 1),
+                "Tool_Wear_Pct": round(self.tool_wear_pct, 2),
                 "Simulated_Active_Faults": self.get_active_faults(),
             }
 
@@ -226,10 +232,3 @@ class CncMilling(BaseMachine):
                 },
                 priority="info",
             )
-
-            # --- MON DAO (loi mon dao x3 khi chipping; hong bom x7) ---
-            if self.state == "RUNNING" and self.spindle_actual_rpm > 1000.0:
-                w_rate = 0.005 if not self.active_faults["COOLANT_PUMP_FAILURE"] else 0.035
-                if self.active_faults["TOOL_CHIPPING_OR_WEAR"]:
-                    w_rate *= 3.0
-                self.tool_wear_pct = min(100.0, self.tool_wear_pct + w_rate * dt)

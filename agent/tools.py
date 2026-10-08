@@ -35,7 +35,7 @@ MACHINE_CAPABILITIES: Dict[str, Dict[str, Dict[str, Any]]] = {
                 "tải trục",
                 "giảm tải",
             ],
-            "default_params": {"speed_pct": 50.0},
+            "default_params": {"override_pct": 50.0},
             "risk_level": "LOW",
             "desc": "Điều chỉnh tốc độ ăn dao (%)",
         },
@@ -230,14 +230,18 @@ class AgentTools:
 
                 # Bóc tách tham số chi tiết (nếu trong đoạn văn có đề cập số cụ thể)
                 # Trường hợp: lệnh chỉnh tốc độ có số % (ví dụ: 'giảm còn 40%', '50%')
-                if "speed_pct" in params:
+                if "speed_pct" in params or "override_pct" in params:
                     pct_match = re.search(r"(\d+)\s*%", text_lower)
                     if pct_match:
-                        params["speed_pct"] = float(pct_match.group(1))
+                        key = "override_pct" if "override_pct" in params else "speed_pct"
+                        params[key] = float(pct_match.group(1))
 
                 # Trường hợp: lệnh chỉnh nhiệt độ có số độ C (ví dụ: '215 độ', '220°C')
                 if "target_temp" in params:
-                    temp_match = re.search(r"(\d+(\.\d+)?)\s*(độ|°c|c)", text_lower)
+                    temp_match = re.search(
+                        r"(?<![\w.])(-?\d+(?:\.\d+)?)\s*(?:°\s*c|độ(?:\s*c)?|c\b)",
+                        text_lower,
+                    )
                     if temp_match:
                         params["target_temp"] = float(temp_match.group(1))
 

@@ -108,6 +108,12 @@ TelemetryReceiver — Edge Filtering
 
 Mỗi máy mô hình hóa **phản hồi vật lý thật** (ví dụ CNC: dao mòn → tải tăng → nhiệt tăng → rung theo hàm phi tuyến chuẩn ISO 10816) và **nhận lệnh PLC** qua `receive_plc_command()`.
 
+**Chọn lỗi thủ công:** bấm thẻ máy trên Dashboard để mở danh sách lỗi của máy đó. Chọn/bỏ chọn một hoặc nhiều lỗi rồi bấm **Áp dụng**; **Bỏ chọn tất cả** rồi **Áp dụng** hủy mọi lỗi trên máy. **Đóng** bỏ các thay đổi chưa áp dụng. Máy không tự sinh lỗi theo thời gian. Hủy lỗi giữ nguyên trạng thái vật lý để các chỉ số hồi phục theo mô phỏng.
+
+API chọn lỗi: `GET /api/machines/{machine_id}/faults` trả danh mục và lỗi đang bật; `POST` cùng đường dẫn nhận `{"active_faults": ["FAULT_CODE", ...]}` để áp dụng toàn bộ lựa chọn. Danh sách rỗng hủy tất cả lỗi trên máy.
+
+Dashboard kiểm chứng dùng mức danh nghĩa, nhiễu, đơn vị và ngưỡng chung từ `machines/specifications.py`, hiển thị đầy đủ chỉ số trong `machines_description.md`. Các chỉ số hội tụ theo thời gian hoặc theo giới hạn tốc độ khi bật/hủy lỗi, không nhảy thẳng sang giá trị đích. Agent trong `main.py` phân tích và đề xuất, không tự thực thi lệnh làm thay đổi kịch bản lỗi thủ công. Lệnh do kỹ sư chủ động gửi vẫn đi qua HITL.
+
 ## 🌟 6. Điểm nhấn kỹ thuật
 
 - **Edge Anomaly Filtering** — chỉ telemetry vượt ngưỡng hoặc *tăng nhanh bất thường* (ROC) mới kích hoạt Agent; cooldown 60s chống spam LLM/API.

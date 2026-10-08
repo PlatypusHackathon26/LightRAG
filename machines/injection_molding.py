@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 
 import random
+import math
 import time
 from typing import Any, Dict, Optional
 from machines.base_machine import BaseMachine
@@ -24,14 +25,16 @@ class InjectionMolding(BaseMachine):
         self.heater_bands_enabled = True
         self.mold_clamp_command = True
         self.nozzle_temp_zone1_target = 220.0
+        self.nozzle_temp_zone1_min_target = 180.0
+        self.nozzle_temp_zone1_max_target = 245.0
         self.clamping_pressure_target_bar = 140.0
 
         # 2. Trạng thái vật lý
-        self.nozzle_temp_zone1_actual = 220.0
+        self.nozzle_temp_zone1_actual = self.nominal("Nozzle_Temp_Zone1")
         self.barrel_temp_zone2_actual = 210.0
         self.mold_temp_c = 45.0
-        self.clamping_pressure_bar = 140.0
-        self.injection_pressure_bar = 95.0
+        self.clamping_pressure_bar = self.nominal("Clamping_Pressure_Bar")
+        self.injection_pressure_bar = self.nominal("Injection_Pressure_Bar")
         self.screw_position_mm = 35.0
         self.ambient_temp_c = 28.0
         self.last_update_time = time.time()
@@ -42,8 +45,6 @@ class InjectionMolding(BaseMachine):
             "HYDRAULIC_PROPORTIONAL_VALVE_LEAK": False, # Hở van thủy lực kẹp khuôn, tụt áp
             "NOZZLE_CLOGGING": False,                   # Nghẹt nhựa lạnh nòng phun
         }
-        self.fault_trigger_min_cycles = 16
-        self.fault_trigger_probability = 0.12
 
     def generate_telemetry(self) -> Dict[str, Any]:
         with self._lock:
@@ -51,10 +52,22 @@ class InjectionMolding(BaseMachine):
             dt = max(0.1, min(current_time - self.last_update_time, 2.5))
             self.last_update_time = current_time
 
-            if self.state == "RUNNING":
-                self.maybe_trigger_random_fault()
-
             # --- NHIỆT ĐỘ ĐẦU PHUN ZONE 1 ---
+            # Tự phục hồi nếu một lệnh cũ/không hợp lệ đã làm hỏng setpoint hoặc
+            # trạng thái nhiệt. Nhiệt đầu phun không thể thấp hơn môi trường.
+            if (
+                not math.isfinite(self.nozzle_temp_zone1_target)
+                or not self.nozzle_temp_zone1_min_target
+                <= self.nozzle_temp_zone1_target
+                <= self.nozzle_temp_zone1_max_target
+            ):
+                self.nozzle_temp_zone1_target = 220.0
+            if (
+                not math.isfinite(self.nozzle_temp_zone1_actual)
+                or self.nozzle_temp_zone1_actual < self.ambient_temp_c
+            ):
+                self.nozzle_temp_zone1_actual = self.nozzle_temp_zone1_target
+
             if self.state in ("EMERGENCY_STOP", "MOLD_MAINTENANCE") or not self.heater_bands_enabled:
                 cooling = (self.nozzle_temp_zone1_actual - self.ambient_temp_c) * 0.05 * dt
                 self.nozzle_temp_zone1_actual = max(self.ambient_temp_c, self.nozzle_temp_zone1_actual - cooling)
@@ -62,16 +75,22 @@ class InjectionMolding(BaseMachine):
                 if self.active_faults["HEATER_BAND_RUNAWAY"]:
                     self.nozzle_temp_zone1_actual = min(280.0, self.nozzle_temp_zone1_actual + 1.2 * dt)
                 else:
-                    diff = self.nozzle_temp_zone1_target - self.nozzle_temp_zone1_actual
-                    self.nozzle_temp_zone1_actual += diff * min(1.0, 0.4 * dt)
+                    target = self.approach(
+                        self.nozzle_temp_zone1_actual, self.nozzle_temp_zone1_target, dt, 15.0
+                    )
+                    self.nozzle_temp_zone1_actual = self.ramp(
+                        self.nozzle_temp_zone1_actual, target, dt, 1.2
+                    )
+            self.nozzle_temp_zone1_actual = max(
+                self.ambient_temp_c, min(280.0, self.nozzle_temp_zone1_actual)
+            )
 
             # --- ÁP SUẤT KẸP KHUÔN (CLAMPING BAR) ---
             if self.mold_clamp_command and self.state == "RUNNING":
                 target_p = self.clamping_pressure_target_bar
                 if self.active_faults["HYDRAULIC_PROPORTIONAL_VALVE_LEAK"]:
                     target_p = 102.0  # Tụt áp kẹp do hở van
-                diff_p = target_p - self.clamping_pressure_bar
-                self.clamping_pressure_bar += diff_p * min(1.0, 3.0 * dt)
+                self.clamping_pressure_bar = self.approach(self.clamping_pressure_bar, target_p, dt, 5.0)
             else:
                 self.clamping_pressure_bar = max(0.0, self.clamping_pressure_bar - 40.0 * dt)
 
@@ -82,9 +101,9 @@ class InjectionMolding(BaseMachine):
                     base_inj = 165.0
                 viscosity_offset = (220.0 - self.nozzle_temp_zone1_actual) * 0.35
                 target_inj = base_inj + viscosity_offset
-                self.injection_pressure_bar += (target_inj - self.injection_pressure_bar) * min(1.0, 2.0 * dt)
+                self.injection_pressure_bar = self.approach(self.injection_pressure_bar, target_inj, dt, 5.0)
             else:
-                self.injection_pressure_bar = 0.0
+                self.injection_pressure_bar = self.ramp(self.injection_pressure_bar, 0.0, dt, 20.0)
 
             noise_temp = random.uniform(-0.12, 0.12)
             noise_clamp = random.uniform(-0.5, 0.5) if self.clamping_pressure_bar > 5.0 else 0.0
@@ -140,9 +159,24 @@ class InjectionMolding(BaseMachine):
                 detail = "Đã thực hiện chu trình đùn xả nhựa cặn thông nòng phun."
 
             elif command == "ADJUST_TEMPERATURE":
-                target = float(payload.get("target_temp", 220.0))
-                self.nozzle_temp_zone1_target = target
-                detail = f"Đã cập nhật nhiệt độ đặt vùng đầu phun thành {target}°C."
+                try:
+                    target = float(payload.get("target_temp", 220.0))
+                except (TypeError, ValueError):
+                    target = float("nan")
+                if (
+                    not math.isfinite(target)
+                    or not self.nozzle_temp_zone1_min_target
+                    <= target
+                    <= self.nozzle_temp_zone1_max_target
+                ):
+                    detail = (
+                        "REJECTED: Nhiệt độ đặt đầu phun phải nằm trong "
+                        f"{self.nozzle_temp_zone1_min_target:.0f}–"
+                        f"{self.nozzle_temp_zone1_max_target:.0f}°C."
+                    )
+                else:
+                    self.nozzle_temp_zone1_target = target
+                    detail = f"Đã cập nhật nhiệt độ đặt vùng đầu phun thành {target}°C."
 
             elif command == "SAFE_STOP":
                 self.state = "MOLD_MAINTENANCE"

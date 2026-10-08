@@ -8,10 +8,12 @@ logger = logging.getLogger("AgentBrain")
 
 
 class AgentBrain:
-    def __init__(self, rag_engine: Any, tools: Any, event_bus: Any = None) -> None:
+    def __init__(self, rag_engine: Any, tools: Any, event_bus: Any = None,
+                 execute_actions: bool = True) -> None:
         self.rag = rag_engine
         self.tools = tools
         self.event_bus = event_bus
+        self.execute_actions = execute_actions
         # Bộ nhớ lưu trạng thái gần nhất của các máy
         self.machine_states: Dict[str, Dict[str, Any]] = {}
 
@@ -69,7 +71,7 @@ class AgentBrain:
         if actions and self.event_bus:
             for act in actions:
                 command_event = {
-                    "event_type": "action_command",
+                    "event_type": "action_command" if self.execute_actions else "action_proposed",
                     "machine_id": machine_id,
                     "command": act.get("command"),
                     "params": act.get("params", {}),

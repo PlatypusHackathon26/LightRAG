@@ -26,11 +26,11 @@ class AmrVehicle(BaseMachine):
         self.max_configured_speed = 1.4
 
         # 2. Trạng thái vật lý
-        self.current_velocity_m_s = 1.2
-        self.battery_pct = 85.0
-        self.battery_temp_c = 33.6  # Điểm cân bằng của pin khi di chuyển đầy tải
+        self.current_velocity_m_s = self.nominal("Current_Velocity_m_s")
+        self.battery_pct = self.nominal("Battery_Pct")
+        self.battery_temp_c = self.nominal("Battery_Temp_C")
         self.payload_weight_kg = 25.0
-        self.lidar_confidence_pct = 99.0
+        self.lidar_confidence_pct = self.nominal("Lidar_Confidence_Pct")
         self.ambient_temp_c = 26.0
         self.last_update_time = time.time()
 
@@ -40,8 +40,6 @@ class AmrVehicle(BaseMachine):
             "LIDAR_OPTICAL_DIRT": False,        # Bụi bẩn che lăng kính LiDAR
             "WHEEL_MOTOR_RESISTANCE": False,    # Kẹt cơ cấu bánh xe
         }
-        self.fault_trigger_min_cycles = 15
-        self.fault_trigger_probability = 0.12
 
     def generate_telemetry(self) -> Dict[str, Any]:
         with self._lock:
@@ -49,15 +47,12 @@ class AmrVehicle(BaseMachine):
             dt = max(0.1, min(current_time - self.last_update_time, 2.5))
             self.last_update_time = current_time
 
-            if self.state == "NAVIGATING":
-                self.maybe_trigger_random_fault()
-
             # --- VẬN TỐC XE ---
             if self.state == "NAVIGATING":
                 desired = self.target_speed_m_s
                 if self.active_faults["WHEEL_MOTOR_RESISTANCE"]:
                     desired *= 0.5  # Kẹt bánh làm tốc độ tụt mạnh
-                self.current_velocity_m_s += (desired - self.current_velocity_m_s) * min(1.0, 2.0 * dt)
+                self.current_velocity_m_s = self.approach(self.current_velocity_m_s, desired, dt, 4.0)
             else:
                 self.current_velocity_m_s = max(0.0, self.current_velocity_m_s - 2.5 * dt)
 
@@ -71,7 +66,9 @@ class AmrVehicle(BaseMachine):
                 self.battery_pct = max(0.0, self.battery_pct - drain * dt)
 
                 heat_gen = drain * 5.0
-                self.battery_temp_c += (heat_gen - (self.battery_temp_c - self.ambient_temp_c) * 0.03) * dt
+                self.battery_temp_c = self.approach(
+                    self.battery_temp_c, self.ambient_temp_c + heat_gen / 0.03, dt, 1 / 0.03
+                )
             elif self.state == "CHARGING":
                 self.battery_pct = min(100.0, self.battery_pct + 0.4 * dt)
                 cooling = (self.battery_temp_c - self.ambient_temp_c) * 0.08 * dt
@@ -94,7 +91,7 @@ class AmrVehicle(BaseMachine):
 
             return {
                 "Controller_Execution": self.state,
-                "Battery_Pct": round(max(0.0, self.battery_pct + noise_bat), 1),
+                "Battery_Pct": round(max(0.0, min(100.0, self.battery_pct + noise_bat)), 2),
                 "Battery_Temp_C": round(self.battery_temp_c + noise_btemp, 1),
                 "Current_Velocity_m_s": round(max(0.0, self.current_velocity_m_s + noise_v), 2),
                 "Payload_Weight_Kg": round(self.payload_weight_kg, 1),
@@ -128,7 +125,6 @@ class AmrVehicle(BaseMachine):
 
             if command == "CLEAN_LIDAR_OPTICS":
                 self.clear_fault("LIDAR_OPTICAL_DIRT")
-                self.lidar_confidence_pct = 99.0
                 detail = "Đã làm sạch ống kính quang học LiDAR bằng khí nén; SLAM phục hồi."
 
             elif command == "SERVICE_DRIVE_MOTOR":
@@ -151,7 +147,10 @@ class AmrVehicle(BaseMachine):
                 station = payload.get("station", "BUFFER_STATION")
                 self.target_station = station
                 self.state = "NAVIGATING"
-                self.target_speed_m_s = min(self.max_configured_speed, float(payload.get("speed_m_s", 1.2)))
+                self.target_speed_m_s = max(
+                    0.0,
+                    min(self.max_configured_speed, float(payload.get("speed_m_s", 1.2))),
+                )
                 detail = f"Chấp thuận lệnh lộ trình VDA 5050 tới trạm {station}."
 
             elif command == "RESUME":

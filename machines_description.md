@@ -27,21 +27,44 @@ nên máy chạy bình thường thì chỉ số **nằm yên quanh mức**, kh�
 | Máy | Chỉ số | Khởi tạo = điểm cân bằng | Hệ số đã sửa |
 |---|---|---|---|
 | CNC | `Spindle_Temp_C` | **38 °C** | `cool_coeff = 0.045 × (áp tưới/20)`: 0.54/0.045 = +12°C → 38°C |
-| Robot | `Motor_Temp_C` | **40 °C** | `heat_out = (T−26) × 0.09`: 1.28/0.09 ≈ +14°C → 40°C |
+| Robot | `Motor_Temp_C` | **40 °C** | `cool_coeff = (9.25/10)² × 1.5 / 14 ≈ 0.091674`: cân bằng chính xác ở 40°C |
 | AMR | `Battery_Temp_C` | **33.6 °C** | điểm cân bằng pin đầy tải khi di chuyển |
 | AOI | `Optics_Cleanliness_Pct` | **99 %** | trần hồi phục `min(99, +0.1·dt)` |
 
 Khi **có sự cố**, heat_in nhảy vọt → điểm cân bằng mới cao/thấp hơn hẳn →
-chỉ số **trồi/tụt sang mức mới** trong vài giây → vượt ngưỡng cảnh báo.
+chỉ số **trồi/tụt sang mức mới**; áp suất/tải có thể đổi trong vài giây, nhiệt cần hàng chục giây đến vài phút. Lỗi nhẹ không nhất thiết vượt ngưỡng tĩnh.
 
-### 1.2. Cơ chế sinh lỗi tự động (`BaseMachine`)
+Các mức cân bằng dưới đây ứng với thiết lập vận hành mặc định. CNC có mòn dao tích lũy nên tải và nhiệt cũng tăng nhẹ về lâu dài; thay dao hoặc thay đổi tốc độ/tải làm thay đổi điểm cân bằng. `dt` hiện được giới hạn trong 0.1–2.5 giây, nên không mô phỏng bù toàn bộ thời gian nếu chương trình bị treo lâu.
 
-- `fault_interval_sec` (mặc định 30 giây, chỉnh 1–300s từ Web UI qua `POST /api/fault/interval`)
-- Kiểm tra mỗi chu kỳ: `elapsed ≥ fault_interval` **VÀ** máy chưa có lỗi nào **VÀ** `fault_auto_enabled`
-  → chọn ngẫu nhiên 1 lỗi trong danh mục, bật cờ.
-- `last_fault_time` reset khi: lỗi mới sinh, lỗi được sửa (`clear_fault`), hoặc **đổi tần suất**.
-- Lỗi chỉ sinh khi trạng thái `RUNNING` (4 máy) hoặc `NAVIGATING` (AMR).
-- Khoảng cách thực tế giữa 2 lỗi = **interval + thời gian chờ sửa lỗi**.
+Mức danh nghĩa, đơn vị, nhiễu và ngưỡng cảnh báo được định nghĩa chung trong `machines/specifications.py`. Model dùng mức danh nghĩa này để khởi tạo; API cung cấp cùng định nghĩa cho Dashboard. Dashboard hiển thị đầy đủ các chỉ số trong bảng, giá trị cảm biến thực và mức tham chiếu. Dữ liệu chưa có hiển thị `—`, không thay bằng 0 hay 100.
+
+### 1.1.1. Quy luật chuyển tiếp theo thời gian
+
+Chỉ thay **giá trị đích** khi chọn/hủy lỗi, không gán trực tiếp chỉ số vật lý sang đích. Các đại lượng đáp ứng theo hai quy luật:
+
+- Hội tụ bậc nhất: `x(t+dt) = target + (x(t) − target) × exp(−dt/τ)`. Sau `τ` giây đi được khoảng 63% quãng đường, sau `3τ` giây khoảng 95%. Công thức không nhảy về đích khi chu kỳ telemetry là 1 hoặc 2.5 giây.
+- Giới hạn tốc độ: `x(t+dt) = x(t) + clamp(target − x(t), −rate×dt, +rate×dt)`. Chạm đích thì dừng, không vượt đích.
+
+Các thông số chuyển tiếp cụ thể:
+
+- CNC: tải `τ=5s`, rung `τ=4s`, RPM khi tăng/khôi phục `τ=3s`; áp làm mát mất **8 Bar/s**, phục hồi **3 Bar/s**. Nhiệt tuân theo sinh nhiệt và tỏa nhiệt, tích phân bậc nhất với `τ=1/cool_coeff` (khoảng 22.2s khi áp 20 Bar).
+- Robot: dòng điện `τ=4s`; áp kẹp rò/khôi phục **1.2 Bar/s**; nhiệt có `τ≈10.9s` và vẫn phụ thuộc dòng điện thực đang biến đổi, cộng sinh nhiệt do lỗi.
+- AMR: vận tốc `τ=4s`; LiDAR giảm/tăng **2%/s**; nhiệt pin `τ≈33.3s` khi di chuyển. Pin tiếp tục xả theo thời gian, không nhảy xuống mức thấp khi bật lỗi chai pin.
+- AOI: độ sạch giảm **0.5%/s**, tự hồi phục **0.1%/s** sau hủy lỗi, hoặc **0.5%/s** sau lệnh hiệu chuẩn; LED giảm/tăng **350 Lux/s**; FRR hội tụ theo độ sạch/ánh sáng với `τ=4s`. Băng chuyền giảm/tăng **0.2 m/phút mỗi giây** (1.2→0 trong 6s), chỉ số chu kỳ giảm/tăng **0.7s mỗi giây**. Khi kẹt, bộ đếm bo dừng ngay dù tốc độ đang giảm dần.
+- Máy ép: áp kẹp và áp phun `τ=5s`; lỗi nhiệt tăng **1.2°C/s** tới trần 280°C. Sau hủy lỗi, nhiệt hội tụ về setpoint với `τ=15s`, tốc độ hồi phục tối đa **1.2°C/s**. Áp phun đồng thời giảm theo nhiệt tăng qua `viscosity_offset = (220 − T)×0.35`.
+
+Nhiễu chỉ cộng vào **giá trị xuất ra**, không tích lũy vào trạng thái vật lý. Vì vậy số đọc vẫn rung nhẹ quanh đường tăng/giảm; tính đơn điệu được kiểm tra trên trạng thái không nhiễu, không yêu cầu mọi mẫu có nhiễu phải cùng chiều.
+
+### 1.2. Chọn lỗi thủ công trên từng máy (`BaseMachine`)
+
+- Máy khởi động không có lỗi; không còn sinh lỗi tự động hoặc bộ đếm tần suất.
+- Bấm thẻ máy để mở danh sách lỗi riêng của máy đó. Các lỗi đang bật được đánh dấu sẵn.
+- Chọn hoặc bỏ chọn một hay nhiều lỗi, rồi bấm **Áp dụng**. **Bỏ chọn tất cả** rồi **Áp dụng** hủy toàn bộ lỗi trên máy; **Đóng** bỏ thay đổi chưa áp dụng.
+- `GET /api/machines/{machine_id}/faults` trả `available_faults` và `active_faults`.
+- `POST /api/machines/{machine_id}/faults` nhận `{"active_faults": ["FAULT_CODE", ...]}` để thay toàn bộ lựa chọn của máy đó. Danh sách rỗng hủy tất cả; mã lỗi không hợp lệ bị từ chối mà không thay đổi máy.
+- Nhiều lỗi có thể cùng hoạt động; tác động cộng hoặc nhân theo công thức của mỗi máy (ví dụ mòn dao ×7×3 khi đồng thời hỏng bơm và mẻ dao).
+- Hủy lỗi chỉ tắt cờ, không đặt lại nhiệt độ, mòn dao hay pin. Các chỉ số hồi phục theo động học hiện tại; muốn đặt lại mòn dao/pin cần lệnh bảo trì tương ứng.
+- Có thể cấu hình lỗi khi máy đang dừng; tác động chỉ số vẫn phụ thuộc trạng thái vận hành. Dashboard kiểm chứng khởi chạy từ `main.py` dùng Agent để phân tích và đề xuất, không tự thực thi lệnh làm thay đổi setpoint hay xóa lỗi người dùng đang thử. Lệnh PLC do kỹ sư gửi vẫn có thể thực thi qua luồng duyệt hiện có.
 
 ### 1.3. Tách bạch dữ liệu
 
@@ -60,7 +83,7 @@ chỉ số **trồi/tụt sang mức mới** trong vài giây → vượt ngư�
 |---|---|---|
 | `Spindle_RotaryVelocity_RPM` | 12000 | ±15 |
 | `Spindle_Load_Pct` | ~45 % | ±0.3 |
-| `Spindle_Temp_C` | **38 °C** (cân bằng, không trôi) | ±0.06 |
+| `Spindle_Temp_C` | **38 °C** lúc mòn dao 12%; tăng nhẹ theo mòn dao | ±0.06 |
 | `Vibration_RMS_mm_s` | ~1.2 mm/s | ±0.03 |
 | `Coolant_Pressure_Bar` | 20 Bar | ±0.2 |
 | `Tool_Wear_Pct` | 12 %, **trôi cố ý** +0.005 %/s | — |
@@ -69,7 +92,7 @@ chỉ số **trồi/tụt sang mức mới** trong vài giây → vượt ngư�
 
 | Sự cố (code → tiếng Việt) | Chỉ số bị tác động | Đường đi | Lệnh PLC sửa |
 |---|---|---|---|
-| `SPINDLE_BEARING_LACK_OF_LUBE` — Thiếu dầu bôi trơn ổ bi trục chính | Load **+20**, Temp **+4.5°C/s**, Vib **+3.2** | Load →65%, Temp →**138°C** (vượt 75 cảnh báo, 90 nghiêm trọng), Vib →4.4+ | `REFILL_SPINDLE_LUBRICANT` |
+| `SPINDLE_BEARING_LACK_OF_LUBE` — Thiếu dầu bôi trơn ổ bi trục chính | Load **+20**, sinh nhiệt thêm **+4.5°C/s**, Vib **+3.2** | Load ~65%, Temp đạt trần **140°C**; Vib từ 4.4 tăng tới ~14.9 do nhiệt trên 70°C | `REFILL_SPINDLE_LUBRICANT` |
 | `COOLANT_PUMP_FAILURE` — Hỏng bơm làm mát | Áp tưới **−8 Bar/s về 0**, Temp **↑** (toả chỉ 30%), Mòn dao **×7** | Áp →0 (mất áp <5), Temp →~66°C, Wear tăng nhanh | `REPAIR_COOLANT_SYSTEM` |
 | `TOOL_CHIPPING_OR_WEAR` — Dao phay mẻ/mòn | Load **+35**, Vib **+4.5**, Mòn dao **×3** | Load →80%, Vib →5.7 (vượt 4.5) | `REPLACE_TOOL` (reset mòn 0%) |
 | `GUIDEWAY_LUBRICATION_ISSUE` — Thiếu dầu trượt | Load **+8**, Vib **+1.5** | Biểu hiện nhẹ | `LUBRICATE_GUIDEWAYS` |
@@ -91,9 +114,9 @@ chỉ số **trồi/tụt sang mức mới** trong vài giây → vượt ngư�
 
 | Sự cố | Chỉ số bị tác động | Đường đi | Lệnh PLC sửa |
 |---|---|---|---|
-| `GEARBOX_LACK_OF_GREASE` — Khô mỡ hộp số giảm tốc | Dòng **+8.5A**, Nhiệt **+4.0°C/s** | Dòng →17.75A (>16.5 quá dòng), Temp →**~123°C** (>80) | `REFILL_GEARBOX_GREASE` |
+| `GEARBOX_LACK_OF_GREASE` — Khô mỡ hộp số giảm tốc | Dòng **+8.5A**, sinh nhiệt thêm **+4.0°C/s** | Dòng →17.75A (>16.5 quá dòng), Temp →**~121°C** (>80) | `REFILL_GEARBOX_GREASE` |
 | `GRIPPER_PNEUMATIC_LEAK` — Rò khí nén tay gắp | Áp kẹp **−1.2 Bar/s** | Áp →0.8 Bar (<3.5 mất áp) | `REPAIR_PNEUMATIC_SYSTEM` |
-| `PAYLOAD_OVERLOAD` — Quá tải trọng gắp | Dòng **+5.5A**, Nhiệt **+1.5°C/s** | Dòng →14.75A (>12.5), Temp →~79°C | `RESET_PAYLOAD` (về 3.5kg) |
+| `PAYLOAD_OVERLOAD` — Quá tải trọng gắp | Dòng **+5.5A**, sinh nhiệt thêm **+1.5°C/s** | Dòng →14.75A (>12.5), Temp →~78°C | `RESET_PAYLOAD` (về 3.5kg) |
 
 **Ngưỡng:** Dòng >12.5 (cảnh báo), >16.5 (nghiêm trọng); Temp >65, >80; Áp <3.5.
 
@@ -104,7 +127,7 @@ chỉ số **trồi/tụt sang mức mới** trong vài giây → vượt ngư�
 | Chỉ số | Mức bình thường | Noise |
 |---|---|---|
 | `Current_Velocity_m_s` | 1.2 m/s | ±0.02 |
-| `Battery_Pct` | 85 %, **trôi cố ý** −2.7 %/phút khi di chuyển | ±0.05 |
+| `Battery_Pct` | 85 %, **trôi cố ý** −2.7333 %/phút (~2.7) khi di chuyển ở tải 25kg | ±0.05 |
 | `Battery_Temp_C` | **33.6 °C** (cân bằng) | ±0.1 |
 | `Lidar_Confidence_Pct` | 99.5 % | ±0.2 |
 
@@ -118,11 +141,6 @@ chỉ số **trồi/tụt sang mức mới** trong vài giây → vượt ngư�
 
 **Ngưỡng:** Pin <25 (cảnh báo), <15 (nghiêm trọng); Nhiệt pin >55; Lidar <65.
 
-|---|---|---|---|
-| `SPINDLE_BEARING_LACK_OF_LUBE` — Thiếu dầu bôi trơn ổ bi trục chính | Load **+20**, Temp **+4.5°C/s**, Vib **+3.2** | Load →65%, Temp →**138°C** (vượt 75 cảnh báo, 90 nghiêm trọng), Vib →4.4+ | `REFILL_SPINDLE_LUBRICANT` |
-| `COOLANT_PUMP_FAILURE` — Hỏng bơm làm mát | Áp tưới **−8 Bar/s về 0**, Temp **↑** (toả chỉ 30%), Mòn dao **×7** | Áp →0 (mất áp <5), Temp →~66°C, Wear tăng nhanh | `REPAIR_COOLANT_SYSTEM` |
-| `TOOL_CHIPPING_OR_WEAR` — Dao phay mẻ/mòn | Load **+35**, Vib **+4.5**, Mòn dao **×3** | Load →80%, Vib →5.7 (vượt 4.5) | `REPLACE_TOOL` (reset mòn 0%) |
-| `GUIDEWAY_LUBRICATION_ISSUE` — Thiếu dầu trượt | Load **+8**, Vib **+1.5** | Biểu hiện nhẹ | `LUBRICATE_GUIDEWAYS` |
 ### 2.4. MC-AOI-01 — Máy kiểm tra quang (`AOI_INSPECTION`)
 
 **Chỉ số khi bình thường:**
@@ -138,7 +156,7 @@ chỉ số **trồi/tụt sang mức mới** trong vài giây → vượt ngư�
 
 | Sự cố | Chỉ số bị tác động | Đường đi | Lệnh PLC sửa |
 |---|---|---|---|
-| `OPTICAL_LENS_CONTAMINATION` — Bẩn lăng kính quang học | Độ sạch **−0.5 %/s**, FRR **↑ theo độ bẩn** | Sạch →30%, FRR →**~11%** (nghiêm trọng >4) | `RECALIBRATE_OPTICS` (reset 99.2%) |
+| `OPTICAL_LENS_CONTAMINATION` — Bẩn lăng kính quang học | Độ sạch **−0.5 %/s**, FRR **↑ theo độ bẩn** | Sạch →30%, FRR →**~11%** (nghiêm trọng >4) | `RECALIBRATE_OPTICS` (hồi phục dần về 99%) |
 | `LED_DRIVER_DEGRADATION` — Nguồn LED suy hao | Sáng **−350 Lux/s**, FRR **↑** | Sáng →9000 (<14000), FRR →~8% | `REPLACE_LED_MODULE` |
 | `SMEMA_CONVEYOR_JAM` — Kẹt bảng mạch trên băng chuyền | Tốc độ băng →**0** | Vận tốc 0, chu kỳ 0 | `CLEAR_CONVEYOR_JAM` |
 
@@ -167,6 +185,8 @@ chỉ số **trồi/tụt sang mức mới** trong vài giây → vượt ngư�
 
 **Ngưỡng:** Nhiệt >245 (nghiêm trọng), <195 (cảnh báo); Áp kẹp <115; Áp phun >145.
 
+Lệnh `ADJUST_TEMPERATURE` chỉ nhận setpoint **180–245°C**. Giá trị ngoài miền, `NaN` hoặc vô hạn bị từ chối. Nếu phát hiện trạng thái cũ bị hỏng (setpoint ngoài miền hoặc nhiệt thực thấp hơn nhiệt môi trường), model tự đặt lại setpoint và nhiệt đầu phun về **220°C** trước khi tiếp tục mô phỏng.
+
 ---
 
 ## 3. Hành vi bình thường — tóm tắt "dao động quanh mức"
@@ -185,8 +205,13 @@ SỬA LỖI:                 ╲___________/    trượt về mức cũ
 | Chỉ số | Tốc độ | Lý do |
 |---|---|---|
 | `Tool_Wear_Pct` (CNC) | +0.005 %/s (~18%/giờ) | Mòn dao tích lũy vật lý |
-| `Battery_Pct` (AMR) | −2.7 %/phút khi di chuyển | Xả pin khi vận hành (sạc lại khi `CHARGING`) |
-| `boards_inspected_total`, `boards_flagged_defect` (AOI) | +1 board/s | Bộ đếm tích lũy |
+| `Battery_Pct` (AMR) | −2.7333 %/phút (~2.7) ở tải 25kg | Xả pin khi vận hành (sạc lại khi `CHARGING`) |
+| `boards_inspected_total` (AOI) | +1 board/s ở tốc độ mặc định, dừng khi kẹt/dừng máy | Tích lũy theo `dt`, không theo số lần gọi |
+| `boards_flagged_defect` (AOI) | Tăng ngẫu nhiên với xác suất FRR/100 cho mỗi bo kiểm tra | Không tăng cố định mỗi giây; dừng khi không có bo đi qua |
+
+Sửa lỗi sẽ đưa các chỉ số về mức phù hợp với trạng thái điều khiển hiện tại. Hiệu chuẩn quang học, thay LED, làm sạch LiDAR chỉ thay điều kiện/đích phục hồi; số đo tăng/giảm dần. Thay vật tư là trường hợp riêng: thay dao mới đặt mòn về 0%, thay cụm pin mới đặt mức pin 95%. `PURGE_BARREL` chuyển máy ép sang `PURGING`, cần `RESUME` để chạy lại.
+
+Các ngưỡng tĩnh trong mục 2 được dùng thống nhất cho màu cảnh báo Dashboard và Edge (`MACHINE_THRESHOLDS`, lấy từ `machines/specifications.py`). Edge còn có ROC để phát hiện xu hướng tăng nhanh trước khi vượt ngưỡng tĩnh. Kẹt băng AOI và kẹt bánh AMR thể hiện trên tốc độ và danh sách lỗi thủ công; hiện chưa có ngưỡng cảnh báo tốc độ riêng.
 
 ---
 
@@ -207,9 +232,9 @@ Giá trị số + unit giữ nguyên; **không đổi dữ liệu backend**, ch�
 | Thành phần | File |
 |---|---|
 | Động học, noise, cân bằng | `machines/*.py` → `generate_telemetry()` |
-| Sinh lỗi theo tần suất | `machines/base_machine.py` → `maybe_trigger_random_fault()` |
+| Chọn/hủy nhiều lỗi thủ công | `machines/base_machine.py` → `set_active_faults()`, `get_fault_config()` |
 | Ngưỡng tĩnh + ROC | `iot/telemetry_receiver.py` → `MACHINE_THRESHOLDS` |
 | Lệnh PLC & interlock an toàn | `iot/actuator_dispatcher.py` |
-| Stream dữ liệu + API tần suất | `dashboard/server.py`, `dashboard/state_store.py` |
+| Stream dữ liệu + API chọn lỗi | `dashboard/server.py`, `dashboard/state_store.py` |
 | Hiển thị tiếng Việt | `dashboard/index.html` |
 

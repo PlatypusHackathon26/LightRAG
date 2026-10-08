@@ -26,10 +26,12 @@ class RobotArm(BaseMachine):
         self.payload_kg = 3.5
 
         # 2. Trạng thái vật lý
-        self.joint_3_current_a = 8.5
-        self.joint_3_temp_c = 40.0
-        self.actual_gripper_pressure_bar = 6.0
+        self.joint_3_current_a = self.nominal("Joint_3_Current_A")
+        self.joint_3_temp_c = self.nominal("Motor_Temp_C")
+        self.actual_gripper_pressure_bar = self.nominal("Gripper_Pressure_Bar")
         self.ambient_temp_c = 26.0
+        # Exact nominal equilibrium: I=9.25 A, T=40 C.
+        self.motor_cooling_coeff = ((9.25 / 10.0) ** 2) * 1.5 / (40.0 - 26.0)
         self.last_update_time = time.time()
 
         # 3. Khai báo danh mục lỗi
@@ -38,17 +40,12 @@ class RobotArm(BaseMachine):
             "GRIPPER_PNEUMATIC_LEAK": False,  # Xì khí nén kẹp phôi
             "PAYLOAD_OVERLOAD": False,        # Quá tải trọng gắp
         }
-        self.fault_trigger_min_cycles = 18
-        self.fault_trigger_probability = 0.12
 
     def generate_telemetry(self) -> Dict[str, Any]:
         with self._lock:
             current_time = time.time()
             dt = max(0.1, min(current_time - self.last_update_time, 2.5))
             self.last_update_time = current_time
-
-            if self.state == "RUNNING":
-                self.maybe_trigger_random_fault()
 
             # --- DÒNG ĐIỆN SERVO KHỚP 3 ---
             if self.state == "RUNNING" and self.servo_power_enabled:
@@ -63,7 +60,7 @@ class RobotArm(BaseMachine):
             else:
                 target_j3 = 0.0
 
-            self.joint_3_current_a += (target_j3 - self.joint_3_current_a) * min(1.0, 3.0 * dt)
+            self.joint_3_current_a = self.approach(self.joint_3_current_a, target_j3, dt, 4.0)
 
             # --- CÂN BẰNG NHIỆT KHỚP (JOULE THERMAL DYNAMICS) ---
             if self.joint_3_current_a > 1.0:
@@ -72,21 +69,25 @@ class RobotArm(BaseMachine):
                     heat_in += 4.0
                 if self.active_faults["PAYLOAD_OVERLOAD"]:
                     heat_in += 1.5  # Động cơ quá tải sinh nhiệt ngoài mô hình I²R
-                # Hệ số 0.09 → cân bằng bình thường ≈ 40°C (bằng giá trị khởi tạo)
-                heat_out = max(0.0, (self.joint_3_temp_c - self.ambient_temp_c) * 0.09)
-                self.joint_3_temp_c += (heat_in - heat_out) * dt
+                # Hệ số danh nghĩa giữ nhiệt cân bằng ở 40°C khi dòng điện 9.25 A.
+                self.joint_3_temp_c = self.approach(
+                    self.joint_3_temp_c, self.ambient_temp_c + heat_in / self.motor_cooling_coeff,
+                    dt, 1.0 / self.motor_cooling_coeff,
+                )
             else:
                 cooling = (self.joint_3_temp_c - self.ambient_temp_c) * 0.08 * dt
                 self.joint_3_temp_c = max(self.ambient_temp_c, self.joint_3_temp_c - cooling)
 
-            self.joint_3_temp_c = max(self.ambient_temp_c, min(120.0, self.joint_3_temp_c))
+            self.joint_3_temp_c = max(self.ambient_temp_c, min(140.0, self.joint_3_temp_c))
 
             # --- ÁP SUẤT TAY GẮP KHÍ NÉN ---
             if self.gripper_command == "CLAMP":
                 if self.active_faults["GRIPPER_PNEUMATIC_LEAK"]:
                     self.actual_gripper_pressure_bar = max(0.8, self.actual_gripper_pressure_bar - 1.2 * dt)
                 else:
-                    self.actual_gripper_pressure_bar += (6.0 - self.actual_gripper_pressure_bar) * min(1.0, 3.0 * dt)
+                    self.actual_gripper_pressure_bar = self.ramp(
+                        self.actual_gripper_pressure_bar, 6.0, dt, 1.2
+                    )
             else:
                 self.actual_gripper_pressure_bar = max(0.0, self.actual_gripper_pressure_bar - 8.0 * dt)
 

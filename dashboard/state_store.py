@@ -27,20 +27,13 @@ class StateStore:
     def update_machine_telemetry(
         self, machine_id: str, machine_type: str, payload: Dict[str, Any],
         label: str = "normal", active_faults: Optional[List[str]] = None,
-        fault_interval_sec: float = 30.0,
     ) -> None:
         with self._lock:
             self._states[machine_id] = {
                 "machine_id": machine_id, "machine_type": machine_type,
                 "label": label, "telemetry": payload,
                 "active_faults": active_faults or [],
-                "fault_interval_sec": fault_interval_sec,
             }
-
-    def set_fault_interval(self, seconds: float) -> None:
-        with self._lock:
-            for state in self._states.values():
-                state["fault_interval_sec"] = seconds
 
     def get_all_machines(self) -> Dict[str, Dict[str, Any]]:
         with self._lock:
@@ -54,7 +47,7 @@ class StateStore:
                     "machine_id": mid, "machine_type": getattr(m, "machine_type", ""),
                     "model": getattr(m, "model", ""), "location": getattr(m, "location", ""),
                     "label": "normal", "status": "normal", "telemetry": {},
-                    "history": {}, "active_faults": [], "fault_interval_sec": 30.0,
+                    "history": {}, "active_faults": [],
                     "last_agent_result": None,
                 }
     # ---- Event bus -> state ----
@@ -68,7 +61,7 @@ class StateStore:
                 st = self._states.get(mid, {
                     "machine_id": mid, "machine_type": "", "telemetry": {},
                     "history": {}, "status": "normal", "label": "normal",
-                    "active_faults": [], "fault_interval_sec": 30.0,
+                    "active_faults": [],
                     "last_agent_result": None,
                 })
                 st["telemetry"] = payload
@@ -101,7 +94,7 @@ class StateStore:
                 st = self._states.get(mid, {
                     "machine_id": mid, "machine_type": "", "telemetry": {},
                     "history": {}, "status": "alert", "label": "alert",
-                    "active_faults": [], "fault_interval_sec": 30.0,
+                    "active_faults": [],
                     "last_agent_result": None,
                 })
                 st["status"] = "alert"
@@ -211,7 +204,6 @@ class StateStore:
                     "history": st.get("history", {}),
                     "last_agent_result": st.get("last_agent_result"),
                     "active_faults": st.get("active_faults", []),
-                    "fault_interval_sec": st.get("fault_interval_sec", 30.0),
                 })
             return {"machines": machines, "alerts": list(self._alerts)}
 
@@ -254,7 +246,6 @@ class StateStore:
                     "history": st.get("history", {}),
                     "last_agent_result": st.get("last_agent_result"),
                     "active_faults": st.get("active_faults", []),
-                    "fault_interval_sec": st.get("fault_interval_sec", 30.0),
                 })
             return {"machines": machines, "alerts": list(self._alerts)}
 

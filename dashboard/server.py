@@ -1,5 +1,5 @@
 # dashboard/server.py
-"""FastAPI dashboard: SSE telemetry + chat + upload + HITL decision + PLC fix."""
+"""FastAPI dashboard: SSE telemetry + manual faults + chat + upload + HITL."""
 from __future__ import annotations
 
 import asyncio
@@ -13,6 +13,7 @@ from typing import Any, Callable, Dict, Optional
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
+from machines.specifications import MACHINE_METRICS
 
 UPLOAD_DIR = str(Path(__file__).parent.parent / "knowledge_uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -50,6 +51,12 @@ def create_app(
     )
     html_file = Path(__file__).parent / "index.html"
 
+    def machine_snapshot():
+        return {
+            mid: {**machine, "metrics": MACHINE_METRICS.get(machine.get("machine_type"), [])}
+            for mid, machine in state_store.get_all_machines().items()
+        }
+
     @app.get("/", response_class=HTMLResponse)
     def index():
         return html_file.read_text(encoding="utf-8")
@@ -57,6 +64,7 @@ def create_app(
     @app.get("/api/state")
     def api_state():
         snap = state_store.get_snapshot() if hasattr(state_store, "get_snapshot") else {}
+        snap["machines"] = machine_snapshot()
         if approval is not None and hasattr(approval, "get_pending_actions"):
             snap["actions"] = [
                 {"action_id": a.get("approval_id", a.get("action_id")),
@@ -68,28 +76,36 @@ def create_app(
 
     @app.get("/api/machines")
     def get_machines():
-        return state_store.get_all_machines()
+        return machine_snapshot()
+
+    @app.get("/api/machines/{machine_id}/faults")
+    def get_machine_faults(machine_id: str):
+        machine = (machines_dict or {}).get(machine_id)
+        if machine is None:
+            return JSONResponse({"error": "Không tìm thấy máy"}, status_code=404)
+        return machine.get_fault_config()
+
+    @app.post("/api/machines/{machine_id}/faults")
+    async def set_machine_faults(machine_id: str, request: Request):
+        machine = (machines_dict or {}).get(machine_id)
+        if machine is None:
+            return JSONResponse({"error": "Không tìm thấy máy"}, status_code=404)
+        try:
+            body = await request.json()
+            if not isinstance(body, dict) or "active_faults" not in body:
+                raise ValueError("Cần gửi danh sách active_faults")
+            return machine.set_active_faults(body["active_faults"])
+        except (ValueError, TypeError) as exc:
+            return JSONResponse({"error": str(exc)}, status_code=400)
 
     @app.get("/api/stream")
     async def stream_telemetry():
         async def event_generator():
             while True:
-                data = json.dumps(state_store.get_all_machines())
+                data = json.dumps(machine_snapshot())
                 yield f"data: {data}\n\n"
                 await asyncio.sleep(1.0)
         return StreamingResponse(event_generator(), media_type="text/event-stream")
-
-    @app.post("/api/fault/interval")
-    def set_global_fault_interval(seconds: float):
-        if machines_dict:
-            for m in machines_dict.values():
-                m.set_fault_interval(seconds)
-            if hasattr(state_store, "set_fault_interval"):
-                first_machine = list(machines_dict.values())[0]
-                state_store.set_fault_interval(first_machine.fault_interval_sec)
-            target_sec = list(machines_dict.values())[0].fault_interval_sec
-            return {"success": True, "interval_sec": target_sec}
-        return {"success": False, "error": "No machines registered"}
 
     @app.post("/api/chat")
     async def api_chat(request: Request):
