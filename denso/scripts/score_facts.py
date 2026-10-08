@@ -50,6 +50,8 @@ def parse_number(tok: str) -> float | None:
 
 
 # Units that look like codes after normalisation (cm³ -> cm3): never facts on their own.
+NUMBER_WORDS = {w: i for i, w in enumerate(
+    "zero one two three four five six seven eight nine ten eleven twelve".split())}
 UNIT_TOKENS = {"cm3", "cm2", "mm2", "mm3", "m2", "m3", "km2", "co2"}
 DASHES = re.compile(r"[‐-―−﹘﹣－]")
 
@@ -85,6 +87,8 @@ def score_answer(question: dict, answer: str) -> dict:
     if not codes and not numbers:
         return {"kind": "prose", "score": None}
     _, a_numbers = extract(answer)
+    # "two guide pins" states the fact 2 (Q28 scored 0% for a correct answer).
+    a_numbers |= {float(NUMBER_WORDS[w]) for w in re.findall(r"[a-z]+", answer.lower()) if w in NUMBER_WORDS}
     # Codes are searched in the dash-less answer, so "294009-2150", "2940092150"
     # and "R-134a"/"R134a" all match; the boundaries keep "M12" out of "M120".
     flat = GLUED_UNIT.sub(r"\1 \2", normalize(answer).lower().replace("-", ""))

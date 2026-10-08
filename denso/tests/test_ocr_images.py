@@ -68,3 +68,23 @@ def test_looping_transcriptions_are_collapsed(tmp_path):
     looped = "A can of ND-OIL 11 compressor oil.\n" + "* ND-OIL 11\n" * 60 + "* HFC-134a"
     text = write_markdown("doc", {"a": {"pages": [12], "text": looped}}, tmp_path).read_text(encoding="utf-8")
     assert text.count("* ND-OIL 11") == 1 and "* HFC-134a" in text
+
+
+def test_images_of_a_document_not_recorded_as_level_1_never_leave_the_machine(tmp_path, monkeypatch, capsys):
+    import json
+
+    import ocr_images
+
+    raw, parsed = tmp_path / "raw", tmp_path / "parsed"
+    for stem, level in [("secret", 2), ("unparsed", None)]:
+        raw.mkdir(exist_ok=True)
+        (raw / f"{stem}.pdf").write_bytes(b"%PDF-1.7")
+        if level:
+            (parsed / stem).mkdir(parents=True)
+            (parsed / stem / "meta.json").write_text(json.dumps({"access_level": level}), encoding="utf-8")
+    monkeypatch.setattr(ocr_images, "collect_images", lambda *a, **k: (_ for _ in ()).throw(AssertionError("read")))
+    monkeypatch.setattr("sys.argv", ["ocr_images.py", "--raw", str(raw), "--parsed", str(parsed),
+                                     "--cleaned", str(tmp_path), "--dry-run"])
+    ocr_images.main()
+    out = capsys.readouterr().out
+    assert "secret: skipped (access level 2" in out and "unparsed: skipped (access level unknown" in out

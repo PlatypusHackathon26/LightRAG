@@ -73,7 +73,7 @@ def doc_ids_by_name(client: httpx.Client) -> dict[str, list[str]]:
         page += 1
 
 
-def delete_existing(client: httpx.Client, names: list[str], poll: float) -> None:
+def delete_existing(client: httpx.Client, names: list[str], poll: float, timeout: float = 300) -> None:
     """Delete the server's copies of these files and wait until they are gone (for --replace)."""
     # Also the canonical name: "x.[native-P!].md" and an earlier "x.md" are the same document to LightRAG.
     names = list(dict.fromkeys([*names, *(re.sub(r"\.\[[^\]]*\](?=\.[^.]+$)", "", n) for n in names)]))
@@ -83,10 +83,23 @@ def delete_existing(client: httpx.Client, names: list[str], poll: float) -> None
     ids = list(dict.fromkeys(i for n in names for i in found.get(n, [])))
     if not ids:
         return
-    r = client.request("DELETE", "/documents/delete_document", json={"doc_ids": ids, "delete_file": False})
-    r.raise_for_status()
-    print(f"  deleting {len(ids)} existing document(s): {r.json().get('status')}")
+    # "busy" deletes nothing (another document is indexing); waiting for the old copy to vanish then
+    # hung the upload job forever. Retry for a while, then fail loud.
+    deadline = time.time() + timeout
+    while True:
+        r = client.request("DELETE", "/documents/delete_document", json={"doc_ids": ids, "delete_file": False})
+        r.raise_for_status()
+        status = r.json().get("status")
+        if status in ("deletion_started", "success"):
+            break
+        if status != "busy" or time.time() > deadline:
+            sys.exit(f"could not delete the old copy ({status}); the server is still busy - upload again later")
+        print("  server busy indexing another document; retrying the delete", flush=True)
+        time.sleep(poll)
+    print(f"  deleting {len(ids)} existing document(s): {status}")
     while any(i for n in names for i in doc_ids_by_name(client).get(n, [])):
+        if time.time() > deadline:
+            sys.exit("the old copy is still listed after the delete; check the server log, then upload again")
         time.sleep(poll)
 
 

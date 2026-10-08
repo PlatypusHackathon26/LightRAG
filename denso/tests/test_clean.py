@@ -183,3 +183,10 @@ def test_a_formula_is_not_a_letter_spaced_logo():
     assert not is_letter_spaced("A - B = C")
     assert is_letter_spaced("P r i n t e d i n B")
     assert is_letter_spaced("BOSCH 10 9 8 7,6 5 4 3 2")
+
+
+def test_an_escaped_pipe_stays_inside_its_cell():
+    from clean import clean_table
+
+    md = clean_table(["| Chi tiết | Nm |", "|---|---|", r"| SCV \| bu-lông | 6,9 – 10,8 |"], "vi", [])
+    assert md.splitlines()[2] == r"| SCV \| bu-lông | 6,9 – 10,8 |"

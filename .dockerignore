@@ -67,3 +67,12 @@ TODO.md
 .github
 .gitignore
 .pre-commit-config.yaml
+
+# DENSO: secrets and documents never go into an image (docker-compose bind-mounts denso/ instead)
+**/*.env
+denso/data
+denso/logs
+denso/results
+denso/docs
+denso/gateway/users.json
+denso/compose.env

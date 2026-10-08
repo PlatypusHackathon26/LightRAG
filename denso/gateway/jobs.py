@@ -146,7 +146,7 @@ class JobRunner:
 
     async def _run(self, job: Job) -> None:
         raw = self.data / "raw" / job.name
-        if not await self._healthy(self.docling):
+        if raw.suffix.lower() != ".txt" and not await self._healthy(self.docling):  # parse.py reads text itself
             raise RuntimeError("Docling is not running on " + self.docling +
                                " - start it with denso/start.ps1 -DoclingOnly, then upload again") from None
         job.status, job.stage, job.progress = "parsing", "Docling đang đọc bố cục, bảng và trang", 10

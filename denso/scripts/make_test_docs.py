@@ -1,12 +1,18 @@
-"""Build DOCX / XLSX / TXT test uploads from facts in the existing DENSO documents."""
+"""Build DOCX / XLSX / TXT test uploads from facts in the existing DENSO documents.
 
-import sys
+Usage:
+    python denso/scripts/make_test_docs.py denso/data/samples
+"""
+
+import argparse
 from pathlib import Path
 
 import docx
 import openpyxl
 
-out = Path(sys.argv[1])
+ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+ap.add_argument("out", type=Path, help="Folder to write the three files to")
+out = ap.parse_args().out
 out.mkdir(parents=True, exist_ok=True)
 
 # DOCX: SCV guide (English section, pages 3-4) as a Vietnamese workshop sheet.

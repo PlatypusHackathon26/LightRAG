@@ -44,3 +44,33 @@ def test_replace_with_nothing_to_delete_is_a_no_op():
     with httpx.Client(base_url="http://lightrag", transport=httpx.MockTransport(handler)) as client:
         delete_existing(client, ["new.[native-P!].md"], poll=0)
     assert "/documents/delete_document" not in calls
+
+
+def _busy_server(busy_times: int):
+    state = {"docs": [{"id": "doc-1", "file_path": "manual.md", "metadata": {}}], "busy": busy_times}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/documents/paginated":
+            return httpx.Response(200, json={"documents": state["docs"], "pagination": {"total_pages": 1}})
+        if state["busy"] > 0:
+            state["busy"] -= 1
+            return httpx.Response(200, json={"status": "busy"})
+        state["docs"] = []
+        return httpx.Response(200, json={"status": "deletion_started"})
+    return state, httpx.MockTransport(handler)
+
+
+def test_a_busy_server_is_retried_until_it_deletes():
+    state, transport = _busy_server(2)
+    with httpx.Client(base_url="http://lightrag", transport=transport) as client:
+        delete_existing(client, ["manual.md"], poll=0)
+    assert state["docs"] == []
+
+
+def test_a_server_that_stays_busy_fails_loud_instead_of_hanging():
+    # Seen in review: "busy" deleted nothing and the wait for the old copy never ended.
+    import pytest
+
+    _, transport = _busy_server(10**6)
+    with httpx.Client(base_url="http://lightrag", transport=transport) as client, pytest.raises(SystemExit):
+        delete_existing(client, ["manual.md"], poll=0, timeout=0.05)

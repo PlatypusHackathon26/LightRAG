@@ -182,3 +182,10 @@ def test_fallback_pages_of_a_multilingual_manual_are_the_english_ones():
 
     chunks = ["--- [Trang 44 | ngôn ngữ: tr] ---\nRodaj prosedürü.", "--- [Trang 5 | ngôn ngữ: en] ---\nRun in procedure."]
     assert pages_from_chunks(chunks) == "5"
+
+
+def test_short_plain_ascii_questions_are_english():
+    # Seen live: langdetect read "SCV torque?" as Spanish, so the reranker boosted the Spanish section.
+    for q in ["SCV torque?", "Oil 9 use?", "ND-oil 8 part number?"]:
+        assert question_language(q) == "en"
+        assert language_instruction(q) == ""

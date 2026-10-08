@@ -71,3 +71,10 @@ def test_refusal_with_have_enough():
     assert REFUSAL.search("The documents don't have sufficient data.")
     # Typographic apostrophe, as Nemotron writes it (lookup eval L10).
     assert REFUSAL.search("I don’t have enough information to determine which spark plug fits.")
+
+
+def test_a_number_written_as_a_word_counts():
+    from score_facts import score_answer
+
+    q = {"answerable_from_documents": True, "ground_truth_answer": "Yes - both require 2 guide pins."}
+    assert score_answer(q, "Both sections agree that two guide pins are required.")["score"] == 1.0

@@ -10,13 +10,18 @@ from __future__ import annotations
 
 import argparse
 import re
+import sys
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI
-from langdetect import DetectorFactory, LangDetectException, detect
 from pydantic import BaseModel
 
-DetectorFactory.seed = 0
+# The gateway's detector, so both agree on a question's language (langdetect alone read
+# "SCV torque?" as Spanish here while the gateway's heuristics did not).
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "gateway"))
+from language import question_language  # noqa: E402
+
 CHUNK_LANG = re.compile(r"ngôn ngữ: ([a-z]{2}(?:-[a-z]{2})?)")
 # Language names (English and Vietnamese) -> langdetect codes. A question naming a language
 # other than its own ("the Russian section", "tiếng Đức") is cross-lingual: keep vector order.
@@ -42,13 +47,6 @@ TEXT_FLOOR = 1.0
 MAX_SCORE = TEXT_FLOOR + 1.0 + LANG_BOOST
 IMAGE_CHUNK = re.compile(r"^#{2,3} Ảnh |^# Chữ và hình trong ảnh", re.MULTILINE)
 FALLBACK_LANG = "en"
-
-
-def question_language(query: str) -> str | None:
-    try:
-        return detect(query)
-    except LangDetectException:
-        return None
 
 
 def chunk_languages(text: str) -> set[str]:

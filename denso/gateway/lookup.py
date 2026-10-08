@@ -21,7 +21,9 @@ STOPWORDS = {
     "NUMBER", "WITH", "AND", "OF", "TO", "IN", "DO", "DOES", "USE", "USED", "RECOMMENDED", "SUITABLE",
     "BUGI", "NAO", "LAP", "CHO", "DOI", "XE", "NAM", "DUNG", "LOAI", "GAT", "MUA", "CUA", "LA", "GI",
 }
-MAKES = {"TOYOTA", "HONDA", "NISSAN", "MAZDA", "SUZUKI", "MITSUBISHI", "HYUNDAI", "KIA", "FORD"}
+MAKES = {"TOYOTA", "HONDA", "NISSAN", "MAZDA", "SUZUKI", "MITSUBISHI", "HYUNDAI", "KIA", "FORD", "LADA",
+         "CHEVROLET", "DAEWOO", "ISUZU", "SUBARU", "DAIHATSU", "LEXUS", "BMW", "MERCEDES", "AUDI", "VOLKSWAGEN",
+         "VW", "PEUGEOT", "RENAULT", "CITROEN", "SKODA", "OPEL", "FIAT", "VOLVO", "PROTON", "PERODUA", "VINFAST"}
 
 
 @dataclass(frozen=True)
@@ -81,12 +83,16 @@ def load_rows(paths: list[Path]) -> list[Row]:
     return rows
 
 
+def _has_word(text: str, word: str) -> bool:
+    return bool(re.search(rf"(?<![A-Z0-9]){re.escape(word)}(?![A-Z0-9])", text))
+
+
 def score(row: Row, q: Query) -> float:
     text = row.text
     s = 0.0
     model_hits = 0
     for w in q.words:
-        if re.search(rf"(?<![A-Z0-9]){re.escape(w)}(?![A-Z0-9])", text):
+        if _has_word(text, w):
             has_digit = any(c.isdigit() for c in w)
             s += 4 if has_digit else 3      # codes (NRE180, 1NR-FE) are the strongest evidence
             model_hits += 1
@@ -104,15 +110,41 @@ def score(row: Row, q: Query) -> float:
     return s
 
 
+def unknown_names(rows: list[Row], question: str) -> set[str]:
+    """Capitalised model names in the question that no catalogue row contains anywhere.
+
+    "Lada Niva": no row says NIVA, but one Lada row matched on LADA alone and the answer
+    offered its plugs for the Niva. A named vehicle the catalogue never mentions is not listed.
+    """
+    named = {ascii_upper(w) for w in re.findall(r"\b[A-Z][A-Za-z0-9-]+\b", question)}
+    q = parse_query(question)
+    candidates = (named & q.words) - MAKES
+    vocab = {w for r in rows for w in WORD.findall(r.text)}
+    return {w for w in candidates if w not in vocab}
+
+
 def search(rows: list[Row], question: str, limit: int = 12, min_score: float = 3.0) -> list[tuple[Row, float]]:
     q = parse_query(question)
     if not q.words and not q.makes:
         return []
+    if unknown_names(rows, question):
+        return []  # the gateway then asks the lookup server, whose answer can say "not listed"
     if q.product:
         key = "WIPER" if q.product == "wiper" else "SPARK"
         rows = [r for r in rows if key in r.source.upper()] or rows
+    # A chassis / engine code in the question ("RE3") picks the rows that show it: given a
+    # "CR-V 2008" row without the code too, the model chose it and claimed it covers RE3.
+    codes = {w for w in q.words if any(c.isdigit() for c in w)}
+    with_codes = [r for r in rows if codes and all(_has_word(r.text, c) for c in codes)]
+    rows = with_codes or rows
     scored = [(r, score(r, q)) for r in rows]
     hits = sorted((x for x in scored if x[1] >= min_score), key=lambda x: (-x[1], x[0].page))
+    if not hits and q.years:
+        # The model is listed but not for that year ("Lada Niva 2015": NIVA 2006-2013): its rows
+        # are the evidence that lets the answer say which years are covered.
+        undated = Query(q.words, q.makes, (), q.displacements, q.product)
+        hits = sorted((x for x in ((r, score(r, undated)) for r in rows) if x[1] >= min_score),
+                      key=lambda x: (-x[1], x[0].page))
     seen, out = set(), []
     for r, s in hits:
         if (r.source, r.text) not in seen:
@@ -133,6 +165,8 @@ ANSWER_INSTRUCTIONS = (
     "they are OCR'd table rows whose columns may be shifted (model, engine size and code, specification, "
     "production years, DENSO part numbers, quantity). List every row that matches the vehicle asked about "
     "with its engine, years and DENSO part number(s), and cite the row number like [2] and its page. "
+    "When the question gives a chassis or engine code (e.g. RE3, NRE180), the rows naming that code come "
+    "first; never claim a row covers a code it does not show. "
     "If the asked year falls outside every matching row's years, or no row matches the model, say so plainly "
     "instead of guessing. Answer in the language of the question."
 )

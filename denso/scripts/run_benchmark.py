@@ -22,6 +22,7 @@ import httpx
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "gateway"))
+from app import clean_answer  # noqa: E402  (the answer exactly as the demo shows it)
 from language import language_instruction  # noqa: E402
 
 DEFAULT_BENCH = ROOT / "data" / "evaluation" / "Benchmark_30_QA.json"
@@ -65,7 +66,7 @@ def query(client: httpx.Client, question: str, mode: str, overrides: dict | None
     r.raise_for_status()
     body = r.json()
     return {
-        "answer": body.get("response", ""),
+        "answer": clean_answer(body.get("response", "")) or body.get("response", ""),
         "references": [ref.get("file_path", "") for ref in body.get("references") or []],
         "latency_s": round(time.time() - t0, 1),
         "llm_generated": body.get("llm_generated", True),

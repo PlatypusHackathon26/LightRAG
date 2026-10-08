@@ -29,11 +29,13 @@ INSTRUCTION = {
            "sang tiếng Việt; không chép nguyên câu tiếng nước ngoài. Chỉ giữ nguyên mã sản phẩm, số hiệu, "
            "môi chất lạnh, đơn vị và tên tài liệu. Không trộn hai ngôn ngữ trong cùng một câu. "
            # The example carries no value: a model must never copy a figure from the instruction.
-           "Trả lời thành câu tiếng Việt hoàn chỉnh: nhắc lại đúng điều câu hỏi hỏi, rồi nêu điều tài liệu "
-           "ghi cho chính điều đó; không chỉ ghi con số (ví dụ: \"Phần tiếng Nga ghi mô-men xoắn siết "
-           "bu-lông là … Nm.\")."),
+           # "nhắc lại điều câu hỏi hỏi" made answers start by copying the question ("Câu hỏi hỏi: ...").
+           "Trả lời thành câu tiếng Việt hoàn chỉnh về đúng điều được hỏi, không chép lại câu hỏi và "
+           "không chỉ ghi con số (ví dụ: \"Phần tiếng Nga ghi mô-men xoắn siết bu-lông là … Nm.\")."),
     "ja": ("回答はすべて日本語で書いてください。英語など他の言語の資料の内容は日本語に訳し、外国語の文をそのまま"
-           "引用しないでください。製品コード・型番・冷媒・単位・資料名だけは原文のままにしてください。"),
+           "引用しないでください。製品コード・型番・冷媒・単位・資料名だけは原文のままにしてください。"
+           # Without it a torque came back as a bare "6.9 to 10.8 [Nm]", in English 1 run in 2.
+           "数値だけで答えず、質問に答える完全な日本語の文で書いてください（例:「締め付けトルクは … Nm です。」）。"),
 }
 
 
@@ -99,6 +101,10 @@ def question_language(text: str) -> str | None:
     letters = re.sub(r"[\W\d_]", "", text)
     if len(letters) < 3:
         return None
+    if letters.isascii():
+        # Users write Vietnamese, Japanese or English, and only English is plain ASCII. langdetect
+        # guesses short ones wildly: "SCV torque?" came back as Spanish.
+        return "en"
     try:
         return detect(text)
     except LangDetectException:

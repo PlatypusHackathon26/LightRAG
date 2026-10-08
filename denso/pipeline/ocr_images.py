@@ -221,6 +221,13 @@ def main() -> None:
     pdfs = [p for p in sorted(args.raw.glob("*.pdf"))
             if (not args.docs or p.stem in args.docs) and p.stem not in (args.skip or [])]
     for pdf in pdfs:
+        # The images leave the machine: only documents parse.py recorded as level 1. Uploads of every
+        # level share raw/, so the folder alone says nothing; no meta.json (not parsed) is a skip too.
+        meta_path = args.parsed / pdf.stem / "meta.json"
+        level = json.loads(meta_path.read_text(encoding="utf-8")).get("access_level") if meta_path.exists() else None
+        if level != 1:
+            print(f"{pdf.stem}: skipped (access level {level or 'unknown'} - images are sent only for level 1)")
+            continue
         rng = tiers.get(pdf.stem, {}).get("knowledge_pages")
         images = collect_images(pdf, tuple(rng) if rng else None, args.min_px, args.min_bytes, args.max_repeat)
         cache_path = args.parsed / pdf.stem / "image_text.json"
@@ -239,7 +246,9 @@ def main() -> None:
             continue
         if todo:
             asyncio.run(read_images(todo, cache, cache_path, args, key))
-        out = write_markdown(pdf.stem, {k: v for k, v in cache.items() if k in images}, args.cleaned,
+        # Pages from this parse, not the cache: a re-uploaded file can move a picture.
+        out = write_markdown(pdf.stem, {k: {**v, "pages": images[k]["pages"]} for k, v in cache.items() if k in images},
+                             args.cleaned,
                              args.parsed / pdf.stem / "docling.md")
         print(f"  -> {out.name if out else 'no image text'}", flush=True)
 

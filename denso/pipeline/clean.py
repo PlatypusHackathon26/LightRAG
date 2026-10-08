@@ -165,10 +165,13 @@ def clean_table(lines: list[str], lang: str, log: list[str]) -> str:
     """Re-render a Markdown table compactly with cleaned cell text."""
     rows = []
     for line in lines:
-        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        # Split on unescaped pipes only: a cell may hold "SCV \| bolt" (a | in an Excel cell).
+        body = re.sub(r"^\||(?<!\\)\|$", "", line.strip())
+        cells = [c.strip() for c in re.split(r"(?<!\\)\|", body)]
         if all(re.fullmatch(r":?-{3,}:?", c) for c in cells if c):
             continue  # separator row, re-created below
-        rows.append([clean_inline(c, lang, log) for c in cells])
+        # clean_inline unescapes "\|"; escape it again so the cell stays one cell.
+        rows.append([clean_inline(c, lang, log).replace("|", "\\|") for c in cells])
     if not rows:
         return ""
     width = max(len(r) for r in rows)

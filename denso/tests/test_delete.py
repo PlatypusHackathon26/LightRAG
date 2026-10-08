@@ -63,6 +63,7 @@ def test_delete_removes_the_document_from_every_server_holding_it(tmp_path):
     make_outputs(data)
     r = tc.delete("/agent/documents/doc-bht", headers={"Authorization": "Bearer tok-admin"})
     assert r.status_code == 200 and r.json()["levels"] == ["level_1", "level_2"]
+    assert r.json()["notChecked"] == ["level_3"]  # down: reported, not passed off as deleted
     assert sorted(h for h, _ in state["deletes"]) == ["l1", "l2"]
     assert not (data / "cleaned_md" / "BHT-M60_Manual_demo_40p.md").exists()
     assert not (data / "parsed" / "BHT-M60_Manual_demo_40p").exists()

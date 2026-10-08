@@ -122,3 +122,8 @@ def test_text_files_are_accepted(tmp_path):
     r = FakeRunner(tmp_path, up={"http://docling", "http://l1"})
     job = run(r, name="Ghi chu.txt")
     assert job.status == "vectorized"
+
+
+def test_a_text_file_does_not_need_docling(tmp_path):
+    r = FakeRunner(tmp_path, up={"http://l1"})  # Docling down
+    assert run(r, name="Ghi chu.txt").status == "vectorized"

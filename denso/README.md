@@ -4,15 +4,25 @@ Mọi thứ của DENSO nằm trong thư mục `denso/`; lõi LightRAG không b�
 kéo được bản cập nhật từ upstream.
 
 ```
-PDF/DOCX/ảnh ─► docling-serve (Docker, CPU, 127.0.0.1:5001)   đọc file, OCR, bảng
-                      │  LIGHTRAG_PARSER=pdf:docling-P,...
-                      ▼
-               LightRAG server (127.0.0.1:9621)  WebUI + REST API
-                 ├─ workspace level_1 / level_2 / level_3 (cộng dồn theo quyền)
-                 └─ Ollama (localhost:11434): qwen3:8b (LLM) + bge-m3 (embedding)
+Nạp:  PDF/DOCX/XLSX/TXT/ảnh ─► pipeline/parse.py (docling-serve :5001) ─► pipeline/clean.py
+        (trang + ngôn ngữ) ─► [pipeline/ocr_images.py: chữ trong ảnh] ─► scripts/ingest.py
+Hỏi:  UI ─► Agent Gateway :9700 (quyền, trích dẫn) ─► LightRAG :9621 (level_1) / :9631 (lookup)
+        ─► reranker ngôn ngữ :7998 ─► proxy :8899 ─► LLM API (NVIDIA)
+      Embedding: bge-m3 trên Ollama local (:11434)
 ```
 
-Không có dữ liệu nào rời khỏi máy: mọi service chỉ bind vào localhost.
+Dữ liệu rời khỏi máy: câu hỏi và đoạn tài liệu **cấp 1** đi tới LLM API để sinh câu trả lời;
+ảnh trong tài liệu **cấp 1** đi tới API thị giác để đọc chữ. Tài liệu cấp 2/3 không được gửi
+qua API miễn phí. Mọi service chỉ bind vào localhost (trừ tunnel demo khi bật `-Tunnel`).
+
+## Chạy demo (hỏi đáp)
+
+```powershell
+powershell -ExecutionPolicy Bypass -File denso\scripts\serve_chat.ps1 -WithUI     # UI tại http://localhost:5173
+powershell -ExecutionPolicy Bypass -File denso\scripts\serve_chat.ps1 -Tunnel     # link công khai cho bản Vercel
+```
+
+Cần `NVIDIA_API_KEY` trong `.env`. Upload tài liệu từ giao diện cần thêm Docling: `denso\start.ps1 -DoclingOnly`.
 
 ## Cấu trúc
 
@@ -143,25 +153,30 @@ Tài liệu cấp N được nạp vào các workspace `level_N` … `level_3`; 
 quyền K chỉ truy vấn `level_K`.
 
 ```powershell
-.venv\Scripts\python denso\scripts\ingest.py --level 1 denso\data\raw
+.venv\Scripts\python denso\pipeline\parse.py --level 1 denso\data\raw
+.venv\Scripts\python denso\pipeline\clean.py
+.venv\Scripts\python denso\scripts\ingest.py --level 1 denso\data\cleaned_md
 ```
+
+(Upload từ giao diện chạy đúng chuỗi này cho từng file.)
 
 ## Benchmark
 
 ```powershell
-.venv\Scripts\python denso\scripts\run_benchmark.py --workspace level_3 --modes naive mix
+.venv\Scripts\python denso\scripts\run_benchmark.py --server http://127.0.0.1:9621 --name level_1 --modes naive --judge-model z-ai/glm-5.3-flash --judge-reasoning ""
+.venv\Scripts\python denso\scripts\score_facts.py --name level_1
 ```
 
-Kết quả: `denso/results/benchmark_<workspace>.md` (điểm judge, tỉ lệ trúng nguồn,
-độ trễ, điểm theo từng loại câu hỏi). Judge là chính qwen3:8b chạy local nên chỉ
-dùng để so sánh tương đối giữa các mode, không phải điểm tuyệt đối.
+Kết quả: `denso/results/benchmark_<name>.md` (điểm judge, tỉ lệ trúng nguồn, độ trễ, theo
+loại câu hỏi). Benchmark gửi đúng prompt như gateway, nên điểm là điểm của demo. "Trúng nguồn"
+chỉ đo tài liệu được truy xuất, không đo trang trích dẫn hiển thị trên giao diện.
 
 ## Lưu ý bảo mật
 
-- **Workspace không phải phân quyền.** Ai gọi được API đều tự đặt được header
-  `LIGHTRAG-WORKSPACE`. Khi triển khai cho người dùng thật cần một gateway xác
-  thực người dùng rồi tự gắn header theo `access_level`; đặt `LIGHTRAG_API_KEY`
-  để chặn truy cập trực tiếp.
+- **Phân quyền nằm ở Agent Gateway**: mỗi cấp là một server LightRAG riêng, gateway chọn
+  server theo token trong `gateway/users.json` (không tin cấp do client gửi). Các server
+  LightRAG chỉ bind localhost; đặt `LIGHTRAG_API_KEY` nếu có thể bị gọi trực tiếp.
+- Image Docker không chứa `denso/data`, log, `users.json` hay file `.env` (`.dockerignore`).
 - Không bật MinerU chế độ `official` (gửi file lên cloud).
 
 ## Giới hạn phần cứng (laptop 16GB RAM)

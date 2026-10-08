@@ -148,7 +148,21 @@ CITED_ID = re.compile(r"\[(\d+(?:\s*,\s*\d+)*)\]")
 LEAKED_PAGE_MARK = re.compile(r"-{2,}\s*\[Trang ([\d\s,–-]+?)\s*(?:\|[^\]]*)?\]\s*-{2,}")
 REFUSAL = re.compile(r"(?:do not|don[’']t|does not|doesn[’']t) have enough information|not enough information|"
                      r"(?:context|documents?) (?:does|do) not (?:contain|specify|provide|include|mention|list)|"
-                     r"không (?:có )?(?:đủ )?thông tin|cannot (?:determine|answer)", re.IGNORECASE)
+                     r"\bno (?:relevant )?information (?:is )?(?:available|provided|found|about|on|regarding)|"
+                     r"\b(?:is|are) not (?:specified|listed|mentioned|provided|given|stated) in\b|"
+                     r"không (?:có )?(?:đủ )?thông tin|không (?:được )?(?:nêu|đề cập) (?:trong|tới|đến)|không tìm thấy thông tin|"
+                     r"情報(?:が|は)(?:ありません|見つかりません)|記載(?:が|は)?(?:ありません|されていません)|"
+                     r"cannot (?:determine|answer)", re.IGNORECASE)
+
+
+def is_refusal(answer: str) -> bool:
+    """The answer says the documents do not have it - near the start, not as one gap in a real answer.
+
+    Seen live: "there is no information available about Oil 9" cited three documents, and a pattern
+    anywhere in the text would also strip the sources of "X is 36 months; Y is not specified in...".
+    """
+    first = re.split(r"(?<=[.!?。])\s+|\n", answer.strip(), maxsplit=1)[0]
+    return bool(REFUSAL.search(first[:300]))
 # Decimal figures (6.9, 10,8) or long part numbers (DND08250, 294009-2150): specific enough to locate a source.
 # Distinctive words (7+ letters) to match an answer with no figures to its sources; short words
 # ("system", "seal", "with") appear in every document. English only: the sources are English.
@@ -491,7 +505,7 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
     app = FastAPI(title="DENSO Agent Gateway", lifespan=lifespan)
     app.add_middleware(CORSMiddleware, allow_origins=settings.cors, allow_origin_regex=settings.cors_regex,
                        allow_methods=["*"], allow_headers=["*"])
-    history: dict[str, deque] = defaultdict(lambda: deque(maxlen=HISTORY_TURNS * 2))
+    history: dict[tuple, deque] = defaultdict(lambda: deque(maxlen=HISTORY_TURNS * 2))
     lookup_rows = catalogue.load_rows(settings.lookup_files)
     runner = JobRunner(REPO, settings.level_servers, docling=settings.docling_url) if settings.upload_pipeline else None
 
@@ -522,8 +536,14 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
         content = clean_answer((r.json().get("choices") or [{}])[0].get("message", {}).get("content") or "")
         if not content:
             raise HTTPException(status_code=503, detail="the answering LLM returned no answer - please ask again")
+        if is_refusal(content):
+            return content, []  # "not in the catalogue" must not list the rows it rejected
         cited = {int(i) for m in CITED_ID.finditer(content) for i in re.findall(r"\d+", m.group(1))}
-        used = [row for i, (row, _) in enumerate(hits, 1) if i in cited] or [row for row, _ in hits]
+        # Without [n], the rows whose part numbers the answer quotes - never every matched row.
+        codes = {c for c in CODE_TOKEN.findall(CITED_ID.sub(" ", content).upper()) if any(ch.isdigit() for ch in c)}
+        used = ([row for i, (row, _) in enumerate(hits, 1) if i in cited]
+                or [row for row, _ in hits if any(re.search(rf"(?<![A-Z0-9]){re.escape(c)}(?![A-Z0-9])", row.text)
+                                                  for c in codes)])
         citations = []
         for source in dict.fromkeys(row.source for row in used):
             rows = [row for row in used if row.source == source]
@@ -580,12 +600,28 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
                     "llmGenerated": False,
                     "events": [{"id": f"ev-{uuid.uuid4().hex[:8]}", "timestamp": now, "type": "response_generated",
                                 "label": "Small talk - no document lookup"}]}
+        # History is per user, not per client-chosen id: a guest sending a level-3 user's
+        # conversationId would otherwise get that conversation's answers as context.
+        conversation = (user.level, user.name, req.conversationId)
         target = req.target or classify_target(req.message)
+        unknown = catalogue.unknown_names(lookup_rows, req.message) if target == "lookup" and lookup_rows else set()
+        if unknown:
+            # No catalogue row mentions this vehicle: vector search still found a look-alike row
+            # ("Lada Niva" -> a Lada G4FA row) and the LLM offered its plugs. Say it is not listed.
+            names = " ".join(w.title() for w in sorted(unknown))
+            content = (f"Không tìm thấy xe {names} trong các catalogue DENSO hiện có, nên tôi không thể chỉ ra "
+                       f"mã phụ tùng phù hợp." if question_language(req.message) == "vi" else
+                       f"{names} is not listed in the available DENSO catalogues, so I cannot name a matching part.")
+            now = datetime.now(timezone.utc).isoformat()
+            return {"content": content, "citations": [], "grounded": True, "target": "lookup", "llmGenerated": False,
+                    "events": [{"id": f"ev-{uuid.uuid4().hex[:8]}", "timestamp": now, "type": "knowledge_retrieved",
+                                "label": f"No catalogue row mentions {names} (lookup, keyword, level {user.level})",
+                                "citations": []}]}
         hits = catalogue.search(lookup_rows, req.message) if target == "lookup" and lookup_rows else []
         if hits:
             # Vehicle-application rows look alike to vector search; keyword matching finds the row.
-            content, citations = await answer_from_rows(req.message, hits, list(history[req.conversationId]))
-            history[req.conversationId].extend(
+            content, citations = await answer_from_rows(req.message, hits, list(history[conversation]))
+            history[conversation].extend(
                 [{"role": "user", "content": req.message}, {"role": "assistant", "content": content}])
             now = datetime.now(timezone.utc).isoformat()
             return {"content": content, "citations": citations, "target": "lookup", "llmGenerated": True,
@@ -599,7 +635,7 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
             url, mode = settings.lookup_server, settings.lookup_mode
         else:
             target, url, mode = "knowledge", settings.level_servers[user.level - 1], settings.knowledge_mode
-        past = list(history[req.conversationId])
+        past = list(history[conversation])
         payload = {
             "query": req.message,
             "mode": mode,
@@ -636,13 +672,13 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
             raise HTTPException(status_code=503, detail="the answering LLM returned only its reasoning, no answer "
                                                         "- please ask again")
         # A "not in the documents" answer cites nothing: a listed source would read as support.
-        refused = bool(REFUSAL.search(content))
+        refused = is_refusal(content)
         named = named_languages(req.message)
         listed = listed_reference_ids(strip_reasoning(body.get("response", "")))
         citations = [] if refused else to_citations(only_cited(body.get("references") or [], content, named, listed),
                                                     content, named)
         grounded = refused or bool(citations)
-        history[req.conversationId].extend(
+        history[conversation].extend(
             [{"role": "user", "content": req.message}, {"role": "assistant", "content": content}]
         )
         now = datetime.now(timezone.utc).isoformat()
@@ -773,10 +809,14 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
         if doc is None:
             raise HTTPException(status_code=404, detail="document not found at your access level")
         names = {Path(doc.get("file_path") or "").name, (doc.get("metadata") or {}).get("source_file") or ""} - {""}
-        holders = {}
+        holders, unreachable = {}, []
         for lv, url in enumerate(settings.level_servers, 1):
             ids = await named_documents(url, names)
-            if ids:
+            if ids is None:
+                # Not running: it may still hold the document, and nothing here can tell. Reported,
+                # never passed off as deleted; delete again once that server is up.
+                unreachable.append(f"level_{lv}")
+            elif ids:
                 holders[lv] = (url, ids)
         if min(holders, default=user.level) > user.level:
             raise HTTPException(status_code=403, detail="cannot delete a document above your access level")
@@ -798,7 +838,8 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
         # Earlier answers quoting the document sit in the conversation history the LLM is given; left
         # there, the next question was answered from them (seen live, right after a delete).
         history.clear()
-        return {"status": "deleted", "levels": deleted, "removedFiles": remove_local_files(doc.get("file_path") or "")}
+        return {"status": "deleted", "levels": deleted, "notChecked": unreachable,
+                "removedFiles": remove_local_files(doc.get("file_path") or "")}
 
     @app.get("/agent/incidents")
     async def incidents(user: User = Depends(current_user)) -> list[dict]:

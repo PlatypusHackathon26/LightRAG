@@ -419,3 +419,35 @@ def test_a_vietnamese_refusal_is_a_refusal():
     for text in ["Tôi không có đủ thông tin để trả lời.", "Tôi không có thông tin về điều này.",
                  "Tài liệu không đủ thông tin."]:
         assert REFUSAL.search(text)
+
+
+@pytest.mark.parametrize("text", [
+    "Based on the provided context, there is no information available about an \"Oil 9\" product from DENSO.",
+    "The shelf life of DENSO ND-oil 9 is not specified in the provided context.",
+    "Tài liệu không đề cập đến hạn sử dụng của dầu ND-oil 9.",
+    "資料には記載されていません。",
+])
+def test_refusals_are_recognised(text):
+    # Seen live: "there is no information available about Oil 9" was shown with three sources.
+    from app import is_refusal
+
+    assert is_refusal(text)
+
+
+@pytest.mark.parametrize("text", [
+    "ND-oil 8 has a shelf life of 36 months in its metal can (Brochure, p. 12). " * 4
+    + "The shelf life of ND-oil 12 is not specified in the provided context.",
+    "Không tăng tốc động cơ trong 5 phút đầu; nếu không tìm thấy nút A/C, dùng bảng điều khiển phụ.",
+])
+def test_a_real_answer_with_one_gap_is_not_a_refusal(text):
+    from app import is_refusal
+
+    assert not is_refusal(text)
+
+
+def test_one_users_conversation_history_never_reaches_another_user(client):
+    calls, tc, _ = client
+    tc.post("/agent/chat", json={"conversationId": "shared", "message": "What torque for SCV bolts?"},
+            headers={"Authorization": "Bearer tok-admin"})
+    tc.post("/agent/chat", json={"conversationId": "shared", "message": "What torque for SCV bolts?"})  # a guest
+    assert json.loads(calls[-1].content).get("conversation_history") is None

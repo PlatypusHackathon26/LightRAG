@@ -102,5 +102,70 @@ def test_gateway_falls_back_to_the_lookup_server_without_a_match(tmp_path):
                         actions_log=tmp_path / "a.jsonl", ops_file=tmp_path / "n.json",
                         lookup_files=sorted(tmp_path.glob("* - lookup.*.md")))
     tc = TestClient(create_app(settings, transport=httpx.MockTransport(handler)))
-    r = tc.post("/agent/chat", json={"conversationId": "c", "message": "Which DENSO spark plug fits a 2015 Lada Niva?"})
+    # Lower case: no capitalised model name, so no "not listed" short-cut; no row matches either.
+    r = tc.post("/agent/chat", json={"conversationId": "c", "message": "which denso spark plug fits a 2015 lada niva?"})
     assert r.status_code == 200 and calls == ["lookup"]
+
+
+def _lookup_answer(tmp_path, reply: str) -> dict:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"choices": [{"message": {"content": reply}}]})
+
+    rows(tmp_path)
+    settings = Settings(level_servers=["http://l1", "http://l2", "http://l3"], lookup_server="http://lookup", users={},
+                        actions_log=tmp_path / "a.jsonl", ops_file=tmp_path / "n.json", lookup_llm_base="http://llm/v1",
+                        lookup_files=sorted(tmp_path.glob("* - lookup.*.md")))
+    tc = TestClient(create_app(settings, transport=httpx.MockTransport(handler)))
+    return tc.post("/agent/chat", json={"conversationId": "c", "message": "Which spark plug fits a Toyota Corolla 2015?"}).json()
+
+
+def test_a_lookup_refusal_cites_no_rows(tmp_path):
+    # Every matched row used to be cited when the answer had no [n] - even "not in the catalogue".
+    body = _lookup_answer(tmp_path, "I do not have enough information: no row lists a 2015 Corolla 2.0L.")
+    assert body["citations"] == []
+
+
+def test_a_lookup_answer_without_markers_cites_only_rows_with_its_part_numbers(tmp_path):
+    body = _lookup_answer(tmp_path, "The 1.5L Corolla (2012-2017) uses FK16HR11.")
+    assert len(body["citations"]) == 1 and "FK16HR11" in body["citations"][0]["excerpt"]
+
+
+def test_a_named_vehicle_no_row_mentions_gets_no_keyword_rows(tmp_path):
+    # Seen in review: "Lada Niva" matched a Lada G4FA row on LADA alone and its plugs were offered.
+    extra = "| 90 | LADA | G4FA 1.6L 4CYL 16V | 2015- VXUHC22G |\n"
+    (tmp_path / "x - lookup.[native-P!].md").write_text(extra, encoding="utf-8")
+    all_rows = rows(tmp_path) + load_rows([tmp_path / "x - lookup.[native-P!].md"])
+    assert search(all_rows, "Bugi nào lắp cho xe Lada Niva 2015?") == []
+    assert search(all_rows, "Which DENSO spark plug fits a 2015 Lada Niva?") == []
+    assert search(all_rows, "Which spark plug fits a Toyota Corolla 1.3L 2015?")  # known models still match
+
+
+def test_a_vehicle_no_catalogue_mentions_is_declined_without_any_llm(tmp_path):
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise AssertionError(f"nothing may be asked: {request.url}")
+
+    rows(tmp_path)
+    settings = Settings(level_servers=["http://l1", "http://l2", "http://l3"], lookup_server="http://lookup", users={},
+                        actions_log=tmp_path / "a.jsonl", ops_file=tmp_path / "n.json",
+                        lookup_files=sorted(tmp_path.glob("* - lookup.*.md")))
+    tc = TestClient(create_app(settings, transport=httpx.MockTransport(handler)))
+    body = tc.post("/agent/chat", json={"conversationId": "c", "message": "Bugi nào lắp cho xe Lada Niva 2015?"}).json()
+    assert body["citations"] == [] and "Không tìm thấy xe" in body["content"] and "Niva" in body["content"]
+
+
+def test_rows_showing_the_asked_code_are_the_only_rows_given(tmp_path):
+    # Seen live (L9): given a "CR-V 2008" row without RE3 too, the model chose it and said it covers RE3.
+    wiper = ("| 83 | CR-V (INCL. HYBRID) | 2006-2011 | RE3, RE4 | DCP-026R/L | DCP-017R/L |\n"
+             "| 83 | CR-V | 2008 |  |  | DCS-G024 | DCS-G017 |\n")
+    (tmp_path / "Wiper - lookup.[native-P!].md").write_text(wiper, encoding="utf-8")
+    hits = search(load_rows([tmp_path / "Wiper - lookup.[native-P!].md"]), "Which DENSO wiper blades fit a 2008 Honda CR-V (RE3)?")
+    assert [r.text for r, _ in hits] == [" CR-V (INCL. HYBRID) | 2006-2011 | RE3, RE4 | DCP-026R/L | DCP-017R/L "]
+
+
+def test_a_listed_model_outside_the_asked_year_still_gives_its_rows(tmp_path):
+    # "Lada Niva 2015": the catalogue lists the Niva for 2006-2013 only; that row lets the answer say so.
+    spark = ("| 90 | LADA | G4FA 1.6L 4Cyl 16V |  | 2015- VXUHC22G |\n"
+             "| 90 | NIVA | 21114 11194 | 1600 1600 4x4 | 2006-2013 W20EP-U | W20TT |\n")
+    (tmp_path / "Spark - lookup.[native-P!].md").write_text(spark, encoding="utf-8")
+    hits = search(load_rows([tmp_path / "Spark - lookup.[native-P!].md"]), "Bugi nào lắp cho xe Lada Niva 2015?")
+    assert [r.text.split("|")[0].strip() for r, _ in hits] == ["NIVA"]
