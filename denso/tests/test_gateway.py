@@ -75,7 +75,7 @@ def backend():
         calls.append(request)
         if request.url.path == "/query":
             return httpx.Response(200, json={
-                "response": "Answer.\n\n### References\n- [1] x.md",
+                "response": "Answer [1].\n\n### References\n- [1] x.md",
                 "references": [{"reference_id": "1", "file_path": "x.md", "content": ["--- [Trang 2] ---\nBody"]}],
                 "llm_generated": True,
             })
@@ -112,16 +112,16 @@ def test_chat_uses_the_tokens_level_server(client):
     assert r.status_code == 200
     assert calls[-1].url.host == "l3"
     body = r.json()
-    assert body["content"] == "Answer." and body["citations"][0]["pages"] == "2"
+    assert body["content"] == "Answer [1]." and body["citations"][0]["pages"] == "2"
     sent = json.loads(calls[-1].content)
     assert sent["mode"] == "naive" and sent["include_chunk_content"] is True
 
 
 def test_guest_gets_level_1_and_unknown_token_is_rejected(client):
     calls, tc, _ = client
-    tc.post("/agent/chat", json={"conversationId": "c2", "message": "hello"})
+    tc.post("/agent/chat", json={"conversationId": "c2", "message": "What torque for SCV bolts?"})
     assert calls[-1].url.host == "l1"
-    assert tc.post("/agent/chat", json={"conversationId": "c2", "message": "hi"},
+    assert tc.post("/agent/chat", json={"conversationId": "c2", "message": "What oil for a TV compressor?"},
                    headers={"Authorization": "Bearer forged"}).status_code == 401
 
 
@@ -138,7 +138,7 @@ def test_history_is_sent_on_the_next_turn(client):
     tc.post("/agent/chat", json={"conversationId": "c4", "message": "first"}, headers=h)
     tc.post("/agent/chat", json={"conversationId": "c4", "message": "second"}, headers=h)
     hist = json.loads(calls[-1].content)["conversation_history"]
-    assert hist == [{"role": "user", "content": "first"}, {"role": "assistant", "content": "Answer."}]
+    assert hist == [{"role": "user", "content": "first"}, {"role": "assistant", "content": "Answer [1]."}]
 
 
 def test_lookup_questions_go_to_the_lookup_server_in_naive_mode(client):
@@ -217,14 +217,15 @@ def test_only_cited_references_are_kept():
     refs = [{"reference_id": "1", "file_path": "catalogue.md"}, {"reference_id": "2", "file_path": "guide.md"}]
     assert [r["file_path"] for r in only_cited(refs, "Torque is 6.9 Nm [2].")] == ["guide.md"]
     assert [r["file_path"] for r in only_cited(refs, "See [1, 2].")] == ["catalogue.md", "guide.md"]
-    assert len(only_cited(refs, "No markers at all.")) == 2  # nothing cited: keep everything
+    assert only_cited(refs, "No markers at all.") == []  # nothing points to a source: cite none
+    assert [r["file_path"] for r in only_cited(refs, "No markers.", listed={"1"})] == ["catalogue.md"]
 
 
 def test_without_markers_the_quoted_figures_pick_the_source():
     refs = [{"reference_id": "1", "file_path": "catalogue.md", "content": ["SC20HR11 1.6L 2009-2012"]},
             {"reference_id": "2", "file_path": "guide.md", "content": ["tighten with 6,9 to 10,8 Nm"]}]
     assert [r["file_path"] for r in only_cited(refs, "Tighten to 6.9 - 10.8 Nm.")] == ["guide.md"]
-    assert len(only_cited(refs, "Tighten to 99.9 Nm.")) == 2  # figure found nowhere: keep everything
+    assert only_cited(refs, "Tighten to 99.9 Nm.") == []  # figure found nowhere: no source supports it
 
 
 def test_cors_regex_allows_every_deployment_of_the_vercel_project(tmp_path):
@@ -301,7 +302,10 @@ def test_a_why_answer_without_figures_keeps_only_the_documents_it_draws_on():
     answer = ("Rubber seals become swollen when the system was charged with the wrong refrigerant, or when "
               "additives, conditioners or unsuitable flushing agents were used. Replace the affected components.")
     assert [r["file_path"] for r in only_cited(refs, answer)] == ["brochure.md"]
-    assert len(only_cited(refs, "Gioăng bị phồng do dùng sai môi chất lạnh.")) == 2  # too few words: keep all
+    # Too few English words to judge, and no document named, no code quoted: cite none rather than all.
+    assert only_cited(refs, "Gioăng bị phồng do dùng sai môi chất lạnh.") == []
+    named = "Gioăng bị phồng do dùng sai môi chất lạnh (brochure, p. 3)."
+    assert [r["file_path"] for r in only_cited(refs, named)] == ["brochure.md"]
 
 
 # --- citations follow what the answer was read from (BHT manual upload, seen live) ----------
@@ -368,3 +372,50 @@ def test_an_answer_no_retrieved_chunk_supports_cites_nothing_and_is_flagged(tmp_
         "/agent/chat", json={"conversationId": "c", "message": "How do I stop Google Play auto-updates?"}).json()
     assert body["citations"] == [] and body["grounded"] is False
     assert "Không có đoạn tài liệu nào khớp" in body["events"][0]["label"]
+
+
+# --- Citations for answers no chunk supports (seen live: "xin chào" cited two catalogues) ---
+
+def test_a_greeting_is_answered_without_retrieval_or_sources(tmp_path):
+    from language import small_talk_reply
+
+    assert small_talk_reply("xin chào").startswith("Xin chào")
+    assert small_talk_reply("Hello!").startswith("Hello")
+    assert small_talk_reply("cảm ơn bạn nhé").startswith("Không có gì")
+    assert small_talk_reply("Bạn là ai?").startswith("Xin chào")
+    assert small_talk_reply("Bạn là ai trong nhóm bảo trì?") is None
+    assert small_talk_reply("xin chào, mô-men xoắn SCV là bao nhiêu?") is None
+    assert small_talk_reply("Hi, what oil for a TV compressor?") is None
+
+
+def test_an_answer_that_points_to_nothing_cites_nothing():
+    from app import only_cited
+
+    refs = [{"reference_id": "1", "file_path": "Spark Plug Catalogue 2025.md",
+             "content": ["--- [Trang 2 | ngôn ngữ: en] ---\nIridium Power IK20, gap 0.8 mm."]},
+            {"reference_id": "2", "file_path": "DENSO-AC_brochure_tips-and-tricks_EN.md",
+             "content": ["--- [Trang 1 | ngôn ngữ: en] ---\nCompete with the best in the industry."]}]
+    assert only_cited(refs, "Xin chào! Bạn có thể giúp tôi gì hôm nay?") == []
+
+
+def test_a_vietnamese_answer_cites_the_document_it_names_or_whose_codes_it_quotes():
+    from app import only_cited
+
+    oil = {"reference_id": "1", "file_path": "AC Compressor Leaflet.md",
+           "content": ["--- [Trang 2 | ngôn ngữ: en] ---\nTV compressor, HFC134a: DENSO Oil 9 (DND09250)."]}
+    plug = {"reference_id": "2", "file_path": "Spark_Plug Catalogue 2025.md",
+            "content": ["--- [Trang 7 | ngôn ngữ: en] ---\nM14 plug: 20-30 N·m."]}
+    named = "Máy nén kiểu TV dùng dầu DENSO Oil 9. (AC Compressor Leaflet, p. 2)"
+    assert [r["reference_id"] for r in only_cited([oil, plug], named)] == ["1"]
+    coded = "Bugi M14 cần siết với lực 20-30 N·m."
+    assert [r["reference_id"] for r in only_cited([oil, plug], coded)] == ["2"]
+    named_loosely = "Siết 20-30 N·m theo Spark Plug Catalogue 2025."
+    assert [r["reference_id"] for r in only_cited([oil, plug], named_loosely)] == ["2"]
+
+
+def test_a_vietnamese_refusal_is_a_refusal():
+    from app import REFUSAL
+
+    for text in ["Tôi không có đủ thông tin để trả lời.", "Tôi không có thông tin về điều này.",
+                 "Tài liệu không đủ thông tin."]:
+        assert REFUSAL.search(text)

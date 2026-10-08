@@ -135,3 +135,40 @@ def test_a_comparison_drops_another_document_even_when_the_model_cites_it():
     answer = "Yes, both the German and French language sections agree that two guide pins are required [2][3]."
     kept = only_cited([images, wiper, guide], answer, {"de", "fr"})
     assert sorted(r["reference_id"] for r in kept) == ["1", "3"]
+
+
+def test_a_procedure_answer_cites_the_pages_of_one_language_not_every_translation():
+    # Seen live: a Vietnamese SCV-procedure answer cited "4, 6, 7, 10, 12, 14, ...".
+    from app import to_citations
+
+    chunk = ("--- [Trang 4 | ngôn ngữ: en] ---\nInstall 1 new O-ring. Install the SCV Common Rail pump guide pins.\n"
+             "--- [Trang 6 | ngôn ngữ: de] ---\nNeuen O-Ring einsetzen. SCV Common Rail Pumpe.\n"
+             "--- [Trang 7 | ngôn ngữ: es] ---\nInstalar O-ring nuevo. SCV Common Rail bomba.")
+    ref = {"reference_id": "1", "file_path": "Diesel_SCV.md", "content": [chunk]}
+    answer = "Quy trình lắp SCV lên bơm Common Rail: 1. Lắp O-ring mới. 2. Lắp chốt dẫn hướng. [1]"
+    (c,) = to_citations([ref], answer)
+    assert c["pages"] == "4"
+
+
+def test_a_short_comparison_answer_still_cites_the_document_holding_both_sections():
+    # Seen live (Q28): "both say 2 guide pins" shared too few words with any chunk and got no source.
+    from app import only_cited
+
+    guide = {"reference_id": "3", "file_path": "Diesel_SCV.md",
+             "content": ["--- [Trang 6 | ngôn ngữ: de] ---\nZwei Führungsstifte.\n"
+                         "--- [Trang 10 | ngôn ngữ: fr] ---\nDeux goupilles."]}
+    plug = {"reference_id": "4", "file_path": "Spark Plug Catalogue 2025.md",
+            "content": ["--- [Trang 2 | ngôn ngữ: en] ---\nHeat range table."]}
+    kept = only_cited([plug, guide], "Yes, both say two.", {"de", "fr"})
+    assert [r["reference_id"] for r in kept] == ["3"]
+
+
+def test_tied_pages_prefer_the_english_section():
+    # Seen live: a Vietnamese procedure answer cited the Spanish page 7 instead of English 3-4.
+    from app import to_citations
+
+    chunk = ("--- [Trang 7 | ngôn ngữ: es] ---\nInstalar O-ring nuevo. SCV Common Rail bomba.\n"
+             "--- [Trang 4 | ngôn ngữ: en] ---\nInstall 1 new O-ring. SCV Common Rail pump.")
+    ref = {"reference_id": "1", "file_path": "Diesel_SCV.md", "content": [chunk]}
+    (c,) = to_citations([ref], "Lắp O-ring mới cho SCV trên bơm Common Rail. [1]")
+    assert c["pages"] == "4"

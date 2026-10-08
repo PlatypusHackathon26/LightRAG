@@ -39,7 +39,7 @@ from pydantic import BaseModel
 
 import lookup as catalogue  # noqa: E402  (sibling module; app.py runs as a script)
 from jobs import JobRunner  # noqa: E402
-from language import language_instruction, named_languages, question_language  # noqa: E402
+from language import language_instruction, named_languages, question_language, small_talk_reply  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
@@ -136,6 +136,12 @@ def to_citations(references: list[dict], answer: str = "", prefer: set[str] = fr
     return out
 
 
+def listed_reference_ids(answer: str) -> set[str]:
+    """Ids in the answer's own '### References' block ("- [2] guide.md"): the sources it claims."""
+    parts = re.split(r"\n#{2,4}\s*References\s*\n", answer, maxsplit=1)
+    return set(re.findall(r"^\s*[-*]\s*\[(\d+)\]", parts[1], re.MULTILINE)) if len(parts) > 1 else set()
+
+
 def strip_reference_section(answer: str) -> str:
     """The UI renders citations itself; drop LightRAG's trailing '### References' block."""
     return re.split(r"\n#{2,4}\s*References\s*\n", answer, maxsplit=1)[0].rstrip()
@@ -149,7 +155,7 @@ CITED_ID = re.compile(r"\[(\d+(?:\s*,\s*\d+)*)\]")
 LEAKED_PAGE_MARK = re.compile(r"-{2,}\s*\[Trang ([\d\s,–-]+?)\s*(?:\|[^\]]*)?\]\s*-{2,}")
 REFUSAL = re.compile(r"(?:do not|don[’']t|does not|doesn[’']t) have enough information|not enough information|"
                      r"(?:context|documents?) (?:does|do) not (?:contain|specify|provide|include|mention|list)|"
-                     r"không (?:có|đủ) thông tin|cannot (?:determine|answer)", re.IGNORECASE)
+                     r"không (?:có )?(?:đủ )?thông tin|cannot (?:determine|answer)", re.IGNORECASE)
 # Decimal figures (6.9, 10,8) or long part numbers (DND08250, 294009-2150): specific enough to locate a source.
 # Distinctive words (7+ letters) to match an answer with no figures to its sources; short words
 # ("system", "seal", "with") appear in every document. English only: the sources are English.
@@ -201,14 +207,17 @@ def answer_terms(answer: str) -> tuple[set[str], set[str]]:
             {f.replace(",", ".") for f in ANSWER_FIGURE.findall(body)})
 
 
-def only_cited(references: list[dict], answer: str, prefer: set[str] = frozenset()) -> list[dict]:
+def only_cited(references: list[dict], answer: str, prefer: set[str] = frozenset(),
+               listed: set[str] = frozenset()) -> list[dict]:
     """See _only_cited; a question about a language section keeps the sources holding that section.
 
     The SCV guide and its image-text document share a name; for "the Russian section" the
     image document (English/German pages only) was kept and the guide itself dropped.
     """
-    kept = _only_cited(references, answer, judge_grounding=not prefer)
-    if prefer and kept:
+    kept = _only_cited(references, answer, judge_grounding=not prefer, listed=listed)
+    if prefer:
+        # The document holding the sections asked about is the evidence here: a short "both say 2
+        # guide pins" answer shares too few words with any chunk and was left with no source.
         # The sources covering most of the languages asked about (the guide itself holds both the
         # Russian and the English section; its image-text document only English and German pages).
         langs = {id(r): {m.group(2) for t in chunk_texts(r) for m in PAGE_LANG.finditer(t)} & prefer
@@ -219,8 +228,7 @@ def only_cited(references: list[dict], answer: str, prefer: set[str] = frozenset
         # Language sections belong to one document (with its image-text file): the one holding
         # most of the languages asked about, cited ones winning ties. The wiper catalogue (German
         # pages only) was cited, by the model too, for the SCV guide's German section.
-        def base(r: dict) -> str:
-            return display_name(r.get("file_path", "")).removesuffix(" - images")
+        base = _base_name
         held: dict[str, set[str]] = {}
         for r in references:
             held.setdefault(base(r), set()).update(langs[id(r)])
@@ -240,7 +248,40 @@ def only_cited(references: list[dict], answer: str, prefer: set[str] = frozenset
     return kept
 
 
-def _only_cited(references: list[dict], answer: str, judge_grounding: bool = True) -> list[dict]:
+def _base_name(ref: dict) -> str:
+    return display_name(ref.get("file_path", "")).removesuffix(" - images")
+
+
+def _loose(text: str) -> str:
+    return re.sub(r"[\s_]+", " ", text).lower()
+
+
+def named_in_answer(references: list[dict], answer: str) -> list[dict]:
+    """References whose document the answer names, as the prompt asks: "(Name, p. N)"."""
+    text = _loose(answer)
+    return [r for r in references if len(_base_name(r)) >= 6 and _loose(_base_name(r)) in text]
+
+
+# Codes and figures that survive translation: R-134a, DCRS300260, M14, 6,9, 140cc. Brand and unit
+# words are in every document and prove nothing.
+CODE_TOKEN = re.compile(r"\b(?=[A-Za-z0-9-]*\d)[A-Za-z0-9][A-Za-z0-9-]*[A-Za-z0-9]\b|\b[A-Z]{2,}\b")
+CODE_STOPWORDS = {"DENSO", "NM", "OK", "EN", "PDF", "AC"}
+
+
+def sharing_codes(references: list[dict], answer: str) -> list[dict]:
+    """The references holding most of the answer's codes and figures; none when it has none."""
+    codes = {c for c in CODE_TOKEN.findall(CITED_ID.sub(" ", answer).replace(",", "."))
+             if c.upper() not in CODE_STOPWORDS}
+    if not codes:
+        return []
+    score = {id(r): max((sum(1 for c in codes if c in t.replace(",", ".")) for t in chunk_texts(r)), default=0)
+             for r in references}
+    best = max(score.values(), default=0)
+    return [r for r in references if best and score[id(r)] == best]
+
+
+def _only_cited(references: list[dict], answer: str, judge_grounding: bool = True,
+                listed: set[str] = frozenset()) -> list[dict]:
     """The references the answer draws on: never none, never one that does not support it.
 
     LightRAG returns every document that contributed a context chunk (a whole catalogue next
@@ -254,7 +295,10 @@ def _only_cited(references: list[dict], answer: str, judge_grounding: bool = Tru
     words, figures = answer_terms(answer)
     score = {id(r): max((evidence(t, words, figures) for t in chunk_texts(r)), default=0) for r in references}
     best = max(score.values())
-    ids = {i for m in CITED_ID.finditer(answer) for i in re.findall(r"\d+", m.group(1))}
+    # [n] in the text, or the answer's own References block (stripped before the answer is shown):
+    # accurate for Vietnamese / Japanese answers, empty for off-topic ones. Greetings and "who are
+    # you" never get here (small_talk_reply), they listed two catalogues.
+    ids = {i for m in CITED_ID.finditer(answer) for i in re.findall(r"\d+", m.group(1))} | set(listed)
     cited = [r for r in references if str(r.get("reference_id")) in ids]
     # A substantive (English) answer that no retrieved chunk supports came from somewhere else -
     # conversation history, the model's own knowledge. Citing a chunk would present it as
@@ -269,7 +313,9 @@ def _only_cited(references: list[dict], answer: str, judge_grounding: bool = Tru
         if support < max(3, 0.2 * len(terms)):
             return []
     if best < 3:
-        return cited or references  # too little text to judge (short or Vietnamese answer)
+        # Too little English text to judge (short or Vietnamese answer): keep only what the answer
+        # itself points to. Returning every reference cited two catalogues for "Xin chào!".
+        return cited or named_in_answer(references, answer) or sharing_codes(references, answer)
     supported = [r for r in references if score[id(r)] >= max(3, best * 0.5)]
     kept = [r for r in cited if r in supported]
     return kept or supported or references
@@ -311,6 +357,21 @@ def supporting_pages(chunks: list[str], answer: str, prefer: set[str] = frozense
                 if picked:
                     return ", ".join(map(str, sorted(picked)[:MAX_PAGES_SHOWN]))
             scores = in_lang
+    else:
+        # A multilingual guide repeats each step once per language, and words like "SCV", "O-ring",
+        # "Common Rail" are on every translation's page: a Vietnamese procedure answer cited
+        # "4, 6, 7, 10, 12, 14, ...". Keep the pages of the best-scoring language, English (the
+        # manuals' source language) on a tie - the first chunk's language picked the Spanish page.
+        lang_of = {int(m.group(1)): m.group(2) for c in chunks for m in PAGE_LANG.finditer(c)}
+        by_lang: dict[str, int] = {}
+        for p, v in scores.items():
+            if lang_of.get(p) not in (None, "mixed"):
+                by_lang[lang_of[p]] = max(by_lang.get(lang_of[p], 0), v)
+        first = max(by_lang, key=lambda lang: (by_lang[lang], lang == "en"), default=None)
+        if first and len(by_lang) > 1:
+            own = {p: v for p, v in scores.items() if lang_of.get(p) in (first, "mixed", None)}
+            if own and max(own.values()) >= 2:
+                scores = own
     best = max(scores.values(), default=0)
     if best < 2:
         return None
@@ -518,6 +579,14 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
 
     @app.post("/agent/chat")
     async def chat(req: ChatRequest, user: User = Depends(current_user)) -> dict:
+        reply = small_talk_reply(req.message)
+        if reply:
+            # A greeting is not a question about the documents: no retrieval, no sources.
+            now = datetime.now(timezone.utc).isoformat()
+            return {"content": reply, "citations": [], "grounded": True, "target": "knowledge",
+                    "llmGenerated": False,
+                    "events": [{"id": f"ev-{uuid.uuid4().hex[:8]}", "timestamp": now, "type": "response_generated",
+                                "label": "Small talk - no document lookup"}]}
         target = req.target or classify_target(req.message)
         hits = catalogue.search(lookup_rows, req.message) if target == "lookup" and lookup_rows else []
         if hits:
@@ -576,7 +645,8 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
         # A "not in the documents" answer cites nothing: a listed source would read as support.
         refused = bool(REFUSAL.search(content))
         named = named_languages(req.message)
-        citations = [] if refused else to_citations(only_cited(body.get("references") or [], content, named),
+        listed = listed_reference_ids(strip_reasoning(body.get("response", "")))
+        citations = [] if refused else to_citations(only_cited(body.get("references") or [], content, named, listed),
                                                     content, named)
         grounded = refused or bool(citations)
         history[req.conversationId].extend(

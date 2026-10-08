@@ -37,6 +37,39 @@ INSTRUCTION = {
 }
 
 
+# A whole message that is only a greeting or thanks. Sent to LightRAG, "xin chào" came back as
+# "Xin chào! Bạn có thể giúp tôi gì hôm nay?" with two catalogues cited.
+GREETING = re.compile(r"^\s*(xin chào|chào( bạn| em| anh| chị)?|hello|hi|hey|good (morning|afternoon|evening)|"
+                      r"こんにちは|おはよう(ございます)?|こんばんは|"
+                      # "Who are you?" cited two catalogues through the model's References block.
+                      r"(bạn|em) là ai|(bạn|em) (làm|giúp) được gì|who are you|what can you do|あなたは誰)"
+                      r"[\s!.?。！~]*$", re.IGNORECASE)
+THANKS = re.compile(r"^\s*(cảm ơn|cám ơn|thanks|thank you|ok|oke|okay|ありがとう(ございます)?)"
+                    r"( bạn| nhé| nha| nhiều)*[\s!.?。！~]*$", re.IGNORECASE)
+SMALL_TALK = {
+    "greet": {"vi": "Xin chào! Tôi là trợ lý tra cứu tài liệu kỹ thuật DENSO. Bạn cần tìm thông tin gì "
+                    "(mô-men xoắn, mã sản phẩm, quy trình lắp đặt, xử lý sự cố...)?",
+              "ja": "こんにちは。DENSOの技術資料アシスタントです。締め付けトルク、品番、取付手順など、何をお調べしますか?",
+              "en": "Hello! I answer questions about DENSO technical documents - torques, part numbers, "
+                    "installation procedures, troubleshooting. What would you like to look up?"},
+    "thanks": {"vi": "Không có gì! Bạn cần tra cứu thêm gì cứ hỏi nhé.",
+               "ja": "どういたしまして。ほかにお調べすることがあればどうぞ。",
+               "en": "You're welcome! Ask me anything else about the documents."},
+}
+
+
+def small_talk_reply(message: str) -> str | None:
+    """A canned reply when the whole message is a greeting or thanks; None for a real question."""
+    kind = "greet" if GREETING.match(message) else "thanks" if THANKS.match(message) else None
+    if not kind:
+        return None
+    lang = question_language(message)
+    if lang not in SMALL_TALK[kind]:
+        lang = "vi" if re.search(r"[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]",
+                                 message, re.IGNORECASE) else "en"
+    return SMALL_TALK[kind][lang]
+
+
 # Language sections a question can ask about ("the Russian section", "phần tiếng Đức").
 NAMED = {
     "english": "en", "russian": "ru", "german": "de", "french": "fr", "spanish": "es", "italian": "it",
