@@ -189,3 +189,31 @@ def test_short_plain_ascii_questions_are_english():
     for q in ["SCV torque?", "Oil 9 use?", "ND-oil 8 part number?"]:
         assert question_language(q) == "en"
         assert language_instruction(q) == ""
+
+
+def test_a_vietnamese_answer_cites_the_vietnamese_slide_that_says_it():
+    # Seen live: an alpha-beta answer cited p.40 ("200 million node evaluations ... alpha-beta"),
+    # the only page sharing English words with it, not the Vietnamese slides that define it.
+    from app import to_citations
+
+    chunk = ("--- [Trang 35 | ngôn ngữ: vi] ---\n- α là giá trị tốt nhất (giá trị cao nhất) tính đến thời điểm hiện "
+             "tại cho người chơi MAX.\n- β là giá trị tốt nhất (giá trị thấp nhất) cho người chơi MIN.\n"
+             "--- [Trang 40 | ngôn ngữ: en] ---\n- Baseline system: 200 million node evaluations per move, minimax "
+             "with alpha-beta pruning.")
+    ref = {"reference_id": "1", "file_path": "Bai 5.md", "content": [chunk]}
+    answer = ("Alpha-beta pruning dùng hai giá trị: α là giá trị tốt nhất (cao nhất) mà người chơi MAX có được, "
+              "β là giá trị tốt nhất (thấp nhất) cho người chơi MIN, để bỏ các nhánh minimax không cần thiết.")
+    (c,) = to_citations([ref], answer)
+    assert c["pages"] == "35"
+
+
+def test_a_bare_formula_answer_cites_the_page_it_is_printed_on():
+    from app import only_cited, to_citations
+
+    ref = {"reference_id": "1", "file_path": "Bai 5.md", "content": [
+        "--- [Trang 26 | ngôn ngữ: en] ---\n- Time complexity? O(b m)\n"
+        "--- [Trang 34 | ngôn ngữ: vi] ---\n- Với một \"sắp xếp hoàn hảo\", time complexity = O(b m/2) từ O(b m)."]}
+    other = {"reference_id": "2", "file_path": "Spark Plug Catalogue 2025.md", "content": ["--- [Trang 3] ---\nHeat range"]}
+    kept = only_cited([ref, other], "O(b m/2)")
+    assert [r["reference_id"] for r in kept] == ["1"]
+    assert to_citations(kept, "O(b m/2)")[0]["pages"] == "34"

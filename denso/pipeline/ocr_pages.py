@@ -69,12 +69,17 @@ def scan_pages(raw: Path) -> dict[int, bytes]:
 PREAMBLE = re.compile(r"^\s*(?:here is|here's|the text|below is|transcription)\b[^\n]*:\s*$", re.IGNORECASE)
 
 
+NO_TEXT = re.compile(r"^\W*(?:there is |there's )?no (?:legible |readable |visible )?text\b[^\n]{0,60}$", re.IGNORECASE)
+
+
 def clean_transcription(text: str) -> str:
     """The page text without the model's framing: "The text ... is transcribed as follows:" and ``` fences."""
     lines = [ln for ln in text.strip().splitlines() if not ln.strip().startswith("```")]
     while lines and (PREAMBLE.match(lines[0]) or not lines[0].strip()):
         lines.pop(0)
-    return "\n".join(lines).strip()
+    text = "\n".join(lines).strip()
+    # A picture-only page: "There is no text on the scanned page." is not the page's content.
+    return "" if NO_TEXT.match(text) else text
 
 
 def replace_pages(docling_md: str, texts: dict[int, str], total: int | None = None) -> str:

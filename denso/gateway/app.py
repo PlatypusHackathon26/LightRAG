@@ -322,10 +322,43 @@ def _only_cited(references: list[dict], answer: str, judge_grounding: bool = Tru
     if best < 3:
         # Too little English text to judge (short or Vietnamese answer): keep only what the answer
         # itself points to. Returning every reference cited two catalogues for "Xin chào!".
-        return cited or named_in_answer(references, answer) or sharing_codes(references, answer)
+        return (cited or named_in_answer(references, answer) or quoting_references(references, answer)
+                or sharing_codes(references, answer))
     supported = [r for r in references if score[id(r)] >= max(3, best * 0.5)]
     kept = [r for r in cited if r in supported]
     return kept or supported or references
+
+
+UNICODE_WORD = re.compile(r"[^\W\d_]+")
+
+
+def _squash(text: str) -> str:
+    return re.sub(r"\s+", " ", re.sub(r"[*_`#>|]", " ", text)).strip().lower()
+
+
+def answer_core(answer: str) -> str:
+    """A short answer without its "(document, p. N)" and [n]: e.g. "o(b m/2)". Empty for long answers."""
+    core = _squash(re.sub(r"\([^()]*\b(?:p\.|trang|ページ)\s*\d+[^()]*\)", " ", CITED_ID.sub(" ", answer))).strip(" .")
+    return core if 4 <= len(core) <= 120 else ""
+
+
+def quoting_references(references: list[dict], answer: str) -> list[dict]:
+    """References a short answer quotes verbatim ("O(b m/2)" shares no word with anything)."""
+    core = answer_core(answer)
+    return [r for r in references if core and any(core in _squash(t) for t in chunk_texts(r))] if core else []
+
+
+def page_terms(text: str) -> set[str]:
+    """Words a page and an answer can share, in any language.
+
+    English words of 4+ letters, plus pairs of consecutive words: Vietnamese words are
+    syllables ("giá trị", "cắt cụt"), so one syllable says little but a pair does. With English
+    words only, a Vietnamese answer about alpha-beta scored 0 on the Vietnamese slides that
+    define it and cited an English slide (p. 40) that merely mentions it.
+    """
+    english = {w.lower() for w in PAGE_WORD.findall(text)} - PAGE_STOPWORDS
+    words = [w.lower() for w in UNICODE_WORD.findall(text)]
+    return english | {f"{a} {b}" for a, b in zip(words, words[1:]) if not (a.isascii() and b.isascii())}
 
 
 def supporting_pages(chunks: list[str], answer: str, prefer: set[str] = frozenset()) -> str | None:
@@ -338,14 +371,20 @@ def supporting_pages(chunks: list[str], answer: str, prefer: set[str] = frozense
         return None
     # Within one document shorter words are safe to compare ("power", "hold", "menu").
     _, figures = answer_terms(answer)
-    words = {w.lower() for w in PAGE_WORD.findall(CITED_ID.sub(" ", answer))} - PAGE_STOPWORDS
-    scores: dict[int, int] = {}
+    words = page_terms(CITED_ID.sub(" ", answer))
+    # A page's marker repeats after each heading, so its text comes in several parts: score it whole.
+    page_text: dict[int, str] = {}
     for chunk in chunks:
         parts = PAGE_MARK.split(chunk)  # [before, page, text, page, text, ...]
         for page, text in zip(parts[1::2], parts[2::2]):
-            t = text.replace(",", ".")
-            v = len(words & {w.lower() for w in PAGE_WORD.findall(t)}) + 3 * sum(1 for f in figures if f in t)
-            scores[int(page)] = max(scores.get(int(page), 0), v)
+            page_text[int(page)] = page_text.get(int(page), "") + "\n" + text
+    scores: dict[int, int] = {}
+    core = answer_core(answer)
+    for page, text in page_text.items():
+        t = text.replace(",", ".")
+        scores[page] = len(words & page_terms(text)) + 3 * sum(1 for f in figures if f in t)
+        if core and core in _squash(text):
+            scores[page] += 10  # the short answer is printed on this page
     # A question about a language section ("phần tiếng Nga") cites that section: the same figure is
     # on every translation's page (a Russian-section question cited the English and German pages).
     if prefer:

@@ -89,6 +89,9 @@ def test_the_models_framing_is_not_part_of_the_page():
     assert clean_transcription(text) == "| Oil | Code |"
     assert clean_transcription("Here is the transcription:\nĐánh dấu") == "Đánh dấu"
     assert clean_transcription("The text below says 2 pins.") == "The text below says 2 pins."  # no colon: content
+    # Seen live on a picture-only slide.
+    assert clean_transcription("There is no text on the scanned page.") == ""
+    assert clean_transcription("NO TEXT") == ""
 
 
 def test_unusual_image_formats_are_sent_as_png():
