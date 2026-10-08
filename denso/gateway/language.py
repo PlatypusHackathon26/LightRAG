@@ -108,7 +108,9 @@ def question_language(text: str) -> str | None:
 def language_instruction(question: str) -> str:
     """Instruction appended to the answer prompt for this question (empty if undetectable)."""
     lang = question_language(question)
-    if not lang:
+    # None for English, the documents' language: the extra text alone turned "oil for a TV
+    # compressor" from DENSO Oil 9 (right) to ND-oil 8 (wrong), 3 runs out of 3.
+    if not lang or lang == "en":
         return ""
     if lang in INSTRUCTION:
         return INSTRUCTION[lang]

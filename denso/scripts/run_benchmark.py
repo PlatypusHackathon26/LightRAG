@@ -21,6 +21,9 @@ from pathlib import Path
 import httpx
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "gateway"))
+from language import language_instruction  # noqa: E402
+
 DEFAULT_BENCH = ROOT / "data" / "evaluation" / "Benchmark_30_QA.json"
 DEFAULT_OUT = ROOT / "results"
 
@@ -53,10 +56,12 @@ NO_RERANK = {"enable_rerank": False, "chunk_top_k": 10}
 
 def query(client: httpx.Client, question: str, mode: str, overrides: dict | None = None) -> dict:
     t0 = time.time()
-    r = client.post(
-        "/query",
-        json={"query": question, "mode": mode, "include_references": True, **(overrides or {})},
-    )
+    payload = {"query": question, "mode": mode, "include_references": True}
+    # The prompt the Agent Gateway sends, so the benchmark measures what the demo answers.
+    instruction = language_instruction(question)
+    if instruction:
+        payload["user_prompt"] = "\n" + instruction
+    r = client.post("/query", json={**payload, **(overrides or {})})
     r.raise_for_status()
     body = r.json()
     return {

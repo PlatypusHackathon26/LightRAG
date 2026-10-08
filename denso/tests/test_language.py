@@ -31,6 +31,8 @@ def test_instructions_name_the_language():
     assert "日本語" in language_instruction("慣らし運転の手順を教えてください。")
     assert "Deutsch" in language_instruction("Welches Öl wird für den TV-Kompressor verwendet?")
     assert language_instruction("?? 12") == ""
+    # English questions get none: it flipped a correct table answer (Oil 9 -> ND-oil 8).
+    assert language_instruction("What oil is used for a TV compressor with R-134a?") == ""
 
 
 def test_the_gateway_sends_the_instruction_with_each_question(tmp_path):
