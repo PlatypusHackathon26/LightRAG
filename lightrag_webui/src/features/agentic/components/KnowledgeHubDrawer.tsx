@@ -2,6 +2,8 @@ import { useCallback } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { useAgenticStore } from '../stores/agenticStore'
 import type { KnowledgeDocument } from '../types/agentic'
+import { agentClient } from '../../../api/agent'
+import { uploadLive } from '../uploadLive'
 import {
   XIcon,
   UploadCloudIcon,
@@ -99,6 +101,14 @@ function DocumentRow({
             </span>
           ))}
         </div>
+        {doc.statusNote && (
+          <div
+            className="mt-0.5 max-w-[260px]"
+            style={{ fontSize: 11, color: doc.indexStatus === 'error' ? '#EF4444' : '#5B6575', fontFamily: 'Inter, sans-serif' }}
+          >
+            {doc.statusNote}
+          </div>
+        )}
       </td>
       <td className="py-2 pr-3 whitespace-nowrap">
         <span style={{ fontSize: 12, color: '#5B6575', fontFamily: 'Roboto Mono, monospace' }}>
@@ -231,6 +241,7 @@ export default function KnowledgeHubDrawer() {
     setKnowledgeDrawerOpen,
     documents,
     addDocument,
+    updateDocument,
     updateDocumentStatus,
     deleteDocument,
     previewDocumentId,
@@ -241,6 +252,10 @@ export default function KnowledgeHubDrawer() {
 
   const onDrop = useCallback(
     (accepted: File[]) => {
+      if (agentClient.live) {
+        accepted.forEach((file) => uploadLive(file, addDocument, updateDocument))
+        return
+      }
       accepted.forEach((file) => {
         const id = `doc-upload-${Date.now()}-${Math.random().toString(36).slice(2)}`
         const newDoc: KnowledgeDocument = {
@@ -257,17 +272,28 @@ export default function KnowledgeHubDrawer() {
         simulateUploadPipeline(id, updateDocumentStatus)
       })
     },
-    [addDocument, updateDocumentStatus]
+    [addDocument, updateDocument, updateDocumentStatus]
   )
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: {
-      'application/pdf': ['.pdf'],
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
-      'text/plain': ['.txt'],
-      'text/csv': ['.csv'],
-    },
+    // Live: what the gateway pipeline accepts (denso/gateway/jobs.py ALLOWED).
+    accept: agentClient.live
+      ? {
+        'application/pdf': ['.pdf'],
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+        'text/html': ['.html'],
+        'text/markdown': ['.md'],
+        'image/*': ['.png', '.jpg', '.jpeg', '.tiff', '.bmp', '.webp'],
+      }
+      : {
+        'application/pdf': ['.pdf'],
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+        'text/plain': ['.txt'],
+        'text/csv': ['.csv'],
+      },
     multiple: true,
   })
 

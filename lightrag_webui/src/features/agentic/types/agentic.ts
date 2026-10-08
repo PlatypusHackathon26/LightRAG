@@ -180,6 +180,8 @@ export interface KnowledgeDocument {
   indexStatus: DocumentIndexStatus
   extractedText?: string
   progress?: number
+  /** Live uploads: the pipeline step in progress, shown under the row. */
+  statusNote?: string
 }
 
 // ─── Sidebar Filter ───────────────────────────────────────────────────────────

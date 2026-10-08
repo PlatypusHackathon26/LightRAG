@@ -84,4 +84,21 @@ describe('agent client', () => {
     expect(calls[0].url).toBe('http://gw/agent/documents')
     expect('Authorization' in (calls[0].init?.headers as Record<string, string>)).toBe(false)
   })
+
+  test('upload sends multipart with the token, without a JSON content type', async () => {
+    const job = { id: 'j1', name: 'manual.pdf', level: 1, status: 'uploading', progress: 0, stage: 'queued',
+      images: 'pending', error: null, elapsedSeconds: 0 }
+    const { calls, fetchImpl } = stubFetch((url) => json(url.endsWith('/agent/documents') ? { jobId: 'j1', job } : job))
+    const client = createAgentClient({ live: true, baseUrl: 'http://gw', token: 'tok' }, fetchImpl)
+    const got = await client.uploadDocument(new File(['%PDF'], 'manual.pdf'), 1)
+    expect(got.id).toBe('j1')
+    const init = calls[0].init as RequestInit
+    const headers = init.headers as Record<string, string>
+    expect(calls[0].url).toBe('http://gw/agent/documents')
+    expect(init.body instanceof FormData).toBe(true)
+    expect(headers['Content-Type'] === undefined).toBe(true) // the browser adds the multipart boundary
+    expect(headers.Authorization).toBe('Bearer tok')
+    await client.fetchUploadJob('j1')
+    expect(calls[1].url).toBe('http://gw/agent/documents/jobs/j1')
+  })
 })

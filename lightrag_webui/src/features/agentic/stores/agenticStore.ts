@@ -79,6 +79,7 @@ interface AgenticStore {
   documents: KnowledgeDocument[]
   addDocument: (doc: KnowledgeDocument) => void
   updateDocumentStatus: (id: string, status: KnowledgeDocument['indexStatus'], progress?: number) => void
+  updateDocument: (id: string, patch: Partial<KnowledgeDocument>) => void
   deleteDocument: (id: string) => void
   previewDocumentId: string | null
   setPreviewDocumentId: (id: string | null) => void
@@ -256,6 +257,8 @@ export const useAgenticStore = create<AgenticStore>((set, get) => ({
   setKnowledgeDrawerOpen: (open) => set({ knowledgeDrawerOpen: open }),
   documents: agentConfig.live ? [] : mockDocuments,
   addDocument: (doc) => set((s) => ({ documents: [doc, ...s.documents] })),
+  updateDocument: (id, patch) =>
+    set((s) => ({ documents: s.documents.map((d) => (d.id === id ? { ...d, ...patch } : d)) })),
   updateDocumentStatus: (id, status, progress) => {
     set((s) => ({
       documents: s.documents.map((d) =>

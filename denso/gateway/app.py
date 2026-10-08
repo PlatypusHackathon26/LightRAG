@@ -36,6 +36,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 import lookup as catalogue  # noqa: E402  (sibling module; app.py runs as a script)
+from jobs import JobRunner  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
@@ -238,6 +239,10 @@ class Settings:
     lookup_files: list[Path] = field(default_factory=list)
     lookup_llm_base: str = "http://127.0.0.1:8899/v1"   # OpenAI-compatible; the proxy adds the API key
     lookup_llm_model: str = "nvidia/nemotron-3-super-120b-a12b"
+    # Uploads go through the DENSO pipeline (gateway/jobs.py) so their answers cite pages;
+    # False sends the raw file straight to LightRAG (no Docling available, e.g. a server).
+    upload_pipeline: bool = True
+    docling_url: str = "http://127.0.0.1:5001"
     # Extra request fields, e.g. {"chat_template_kwargs": {"enable_thinking": false}} for Nemotron.
     lookup_llm_extra_body: dict = field(default_factory=dict)
 
@@ -263,6 +268,8 @@ class Settings:
             lookup_llm_base=os.environ.get("DENSO_LOOKUP_LLM_BASE", "http://127.0.0.1:8899/v1"),
             lookup_llm_model=os.environ.get("DENSO_LOOKUP_LLM_MODEL", "nvidia/nemotron-3-super-120b-a12b"),
             lookup_llm_extra_body=json.loads(os.environ.get("DENSO_LOOKUP_LLM_EXTRA_BODY") or "{}"),
+            upload_pipeline=os.environ.get("DENSO_UPLOAD_PIPELINE", "1") != "0",
+            docling_url=os.environ.get("DENSO_DOCLING_URL", "http://127.0.0.1:5001"),
         )
 
 
@@ -297,6 +304,12 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
                        allow_methods=["*"], allow_headers=["*"])
     history: dict[str, deque] = defaultdict(lambda: deque(maxlen=HISTORY_TURNS * 2))
     lookup_rows = catalogue.load_rows(settings.lookup_files)
+    runner = JobRunner(REPO, settings.level_servers, docling=settings.docling_url) if settings.upload_pipeline else None
+
+    def job_document(job) -> dict:
+        return {"id": f"job-{job.id}", "name": Path(job.name).stem, "tags": ["#Uploaded", f"level_{job.level}"],
+                "sizeBytes": job.size, "importedAt": datetime.fromtimestamp(job.created, timezone.utc).isoformat(),
+                "indexStatus": job.status, "progress": job.progress, "extractedText": job.error or job.stage}
 
     async def answer_from_rows(question: str, hits: list, past: list[dict]) -> tuple[str, list[dict]]:
         """Ask the LLM with the keyword-matched catalogue rows; cite the rows it used."""
@@ -435,10 +448,19 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
         return {"content": content, "citations": citations, "events": events,
                 "target": target, "llmGenerated": body.get("llm_generated", True)}
 
+    @app.get("/agent/documents/jobs/{job_id}")
+    async def upload_job(job_id: str, user: User = Depends(current_user)) -> dict:
+        job = runner.get(job_id) if runner else None
+        if job is None:
+            raise HTTPException(status_code=404, detail="upload job not found")
+        return job.public()
+
     @app.get("/agent/documents")
     async def documents(user: User = Depends(current_user)) -> list[dict]:
         url = settings.level_servers[user.level - 1]
-        out, page = [], 1
+        # Uploads still in the pipeline first, so the Knowledge Hub shows their progress.
+        out = [job_document(j) for j in (runner.active() if runner else []) if j.level <= user.level]
+        page = 1
         while True:
             r = await client.post(f"{url}/documents/paginated", json={"page": page, "page_size": 100})
             if r.status_code != 200:
@@ -458,6 +480,12 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
         if not 1 <= level <= user.level:
             raise HTTPException(status_code=403, detail=f"cannot upload a level-{level} document as level {user.level}")
         data = await file.read()
+        if runner:
+            try:
+                job = runner.submit(file.filename or "upload", data, level)
+            except ValueError as exc:
+                raise HTTPException(status_code=415, detail=str(exc)) from None
+            return {"status": "accepted", "jobId": job.id, "job": job.public()}
         tracks = {}
         for lv in range(level, MAX_LEVEL + 1):  # cumulative: a level-N document is visible to N..3
             r = await client.post(f"{settings.level_servers[lv - 1]}/documents/upload",

@@ -100,6 +100,7 @@ def client(backend, tmp_path):
         users={"tok-op": {"name": "op", "level": 1}, "tok-admin": {"name": "admin", "level": 3, "can_upload": True}},
         actions_log=tmp_path / "actions.jsonl",
         ops_file=tmp_path / "missing.json",
+        upload_pipeline=False,  # direct-to-LightRAG uploads; the pipeline route is in test_jobs.py
     )
     return calls, TestClient(create_app(settings, transport=transport)), settings
 

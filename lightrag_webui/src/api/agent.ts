@@ -10,6 +10,8 @@
  *   GET  /agent/incidents/{id}
  *   POST /agent/chat
  *   GET  /agent/documents
+ *   POST /agent/documents              (multipart: file, level) -> upload job
+ *   GET  /agent/documents/jobs/{id}    pipeline progress of an upload
  *   POST /agent/actions/{id}/approve
  *   POST /agent/actions/{id}/reject
  *   GET  /agent/telemetry/{deviceId}
@@ -42,6 +44,25 @@ export interface AgentChatResponse {
   llmGenerated?: boolean
 }
 
+/** An upload going through the DENSO pipeline (denso/gateway/jobs.py). */
+export interface UploadJob {
+  id: string
+  name: string
+  level: number
+  status: KnowledgeDocument['indexStatus']
+  progress: number
+  /** Human-readable current step, e.g. "Docling đang đọc bố cục, bảng và trang". */
+  stage: string
+  /** Second pass that reads text inside images: pending | running | done | skipped | error. */
+  images: string
+  error: string | null
+  elapsedSeconds: number
+}
+
+/** True while the job still has work to do (the image pass runs after the document is searchable). */
+export const uploadJobActive = (job: UploadJob) =>
+  job.status !== 'error' && (job.status !== 'vectorized' || job.images === 'running' || job.images === 'pending')
+
 export class AgentApiError extends Error {
   constructor(
     message: string,
@@ -64,7 +85,8 @@ export function createAgentClient(config: AgentConfig, fetchImpl: FetchLike = (i
   async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const res = await fetchImpl(`${config.baseUrl}${path}`, {
       ...init,
-      headers: headers(init?.body ? { 'Content-Type': 'application/json' } : undefined),
+      // JSON bodies only: a FormData upload must let the browser set its multipart boundary.
+      headers: headers(typeof init?.body === 'string' ? { 'Content-Type': 'application/json' } : undefined),
     })
     if (!res.ok) {
       let detail = ''
@@ -109,6 +131,19 @@ export function createAgentClient(config: AgentConfig, fetchImpl: FetchLike = (i
       return request<KnowledgeDocument[]>('/agent/documents')
     },
 
+    /** Live only: send a raw file through the DENSO pipeline (needs an upload-enabled token). */
+    async uploadDocument(file: File, level = 1): Promise<UploadJob> {
+      const form = new FormData()
+      form.append('file', file)
+      form.append('level', String(level))
+      const res = await request<{ jobId: string; job: UploadJob }>('/agent/documents', { method: 'POST', body: form })
+      return res.job
+    },
+
+    fetchUploadJob(jobId: string): Promise<UploadJob> {
+      return request<UploadJob>(`/agent/documents/jobs/${encodeURIComponent(jobId)}`)
+    },
+
     approveAction(actionId: string): Promise<{ ack: string }> {
       if (!config.live) return Promise.resolve({ ack: 'ACK 200' })
       return request<{ ack: string }>(`/agent/actions/${encodeURIComponent(actionId)}/approve`, { method: 'POST' })
@@ -138,6 +173,8 @@ export const fetchIncidents = () => agentClient.fetchIncidents()
 export const fetchIncident = (id: string) => agentClient.fetchIncident(id)
 export const postAgentChat = (req: AgentChatRequest) => agentClient.postAgentChat(req)
 export const fetchDocuments = () => agentClient.fetchDocuments()
+export const uploadDocument = (file: File, level?: number) => agentClient.uploadDocument(file, level)
+export const fetchUploadJob = (jobId: string) => agentClient.fetchUploadJob(jobId)
 export const approveAction = (actionId: string) => agentClient.approveAction(actionId)
 export const rejectAction = (actionId: string) => agentClient.rejectAction(actionId)
 export const fetchTelemetry = (incidentId: string) => agentClient.fetchTelemetry(incidentId)
