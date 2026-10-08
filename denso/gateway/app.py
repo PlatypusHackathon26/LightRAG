@@ -213,10 +213,25 @@ def only_cited(references: list[dict], answer: str, prefer: set[str] = frozenset
         # Russian and the English section; its image-text document only English and German pages).
         langs = {id(r): {m.group(2) for t in chunk_texts(r) for m in PAGE_LANG.finditer(t)} & prefer
                  for r in references}
-        # Greedy cover, cited sources first: "German and French" kept only the image-text document
-        # (German pages) and dropped the guide holding the French section.
+        # Greedy cover, document text before picture descriptions, then cited sources first:
+        # "German and French" kept only the image-text document (its OCR pages carry both tags)
+        # and dropped the guide whose text holds the French section.
+        # Language sections belong to one document (with its image-text file): the one holding
+        # most of the languages asked about, cited ones winning ties. The wiper catalogue (German
+        # pages only) was cited, by the model too, for the SCV guide's German section.
+        def base(r: dict) -> str:
+            return display_name(r.get("file_path", "")).removesuffix(" - images")
+        held: dict[str, set[str]] = {}
+        for r in references:
+            held.setdefault(base(r), set()).update(langs[id(r)])
+        top = max((len(v) for v in held.values()), default=0)
+        tied = {b for b, v in held.items() if len(v) == top}
+        family = (tied & {base(r) for r in kept}) or tied
+        same = [r for r in references if base(r) in family]
         holding, covered = [], set()
-        for r in sorted(references, key=lambda r: (r not in kept, -len(langs[id(r)]))):
+        order = sorted(same, key=lambda r: (" - images" in (r.get("file_path") or ""),
+                                            r not in kept, -len(langs[id(r)])))
+        for r in order:
             if langs[id(r)] - covered:
                 holding.append(r)
                 covered |= langs[id(r)]

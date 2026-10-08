@@ -28,8 +28,10 @@ INSTRUCTION = {
     "vi": ("Trả lời HOÀN TOÀN bằng tiếng Việt. Dịch mọi nội dung lấy từ tài liệu tiếng Anh hay tiếng khác "
            "sang tiếng Việt; không chép nguyên câu tiếng nước ngoài. Chỉ giữ nguyên mã sản phẩm, số hiệu, "
            "môi chất lạnh, đơn vị và tên tài liệu. Không trộn hai ngôn ngữ trong cùng một câu. "
-           "Trả lời thành câu tiếng Việt hoàn chỉnh nhắc lại điều được hỏi, không chỉ ghi con số "
-           "(ví dụ: \"Phần tiếng Nga ghi mô-men xoắn siết bu-lông là 6,9-10,8 Nm.\")."),
+           # The example carries no value: a model must never copy a figure from the instruction.
+           "Trả lời thành câu tiếng Việt hoàn chỉnh: nhắc lại đúng điều câu hỏi hỏi, rồi nêu điều tài liệu "
+           "ghi cho chính điều đó; không chỉ ghi con số (ví dụ: \"Phần tiếng Nga ghi mô-men xoắn siết "
+           "bu-lông là … Nm.\")."),
     "ja": ("回答はすべて日本語で書いてください。英語など他の言語の資料の内容は日本語に訳し、外国語の文をそのまま"
            "引用しないでください。製品コード・型番・冷媒・単位・資料名だけは原文のままにしてください。"),
 }

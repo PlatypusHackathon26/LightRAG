@@ -89,4 +89,49 @@ def test_a_comparison_keeps_a_source_for_each_language_asked_about():
              "content": ["--- [Trang 2 | ngôn ngữ: en] ---\nSpark plug heat range table."]}
     answer = "Yes, both the German and French language sections agree that two guide pins are required [1]."
     kept = only_cited([images, other, guide], answer, {"de", "fr"})
-    assert [r["reference_id"] for r in kept] == ["1", "3"]
+    assert [r["reference_id"] for r in kept] == ["3", "1"]  # the guide's text first
+
+
+def test_a_comparison_cites_the_document_text_before_its_picture_descriptions():
+    # Seen live (Q28): the image-text document carries both German and French tags (OCR of
+    # those pages), so it alone "covered" the question and the guide holding the French text
+    # was never cited.
+    from app import only_cited
+
+    images = {"reference_id": "1", "file_path": "Diesel_SCV - images.md",
+              "content": ["--- [Trang 5 | ngôn ngữ: de] ---\nZwei Führungsstifte: two guide pins.\n"
+                          "--- [Trang 10 | ngôn ngữ: fr] ---\nDeux goupilles: two guide pins."]}
+    guide = {"reference_id": "3", "file_path": "Diesel_SCV.md",
+             "content": ["--- [Trang 7 | ngôn ngữ: fr] ---\nInstaller les 2 goupilles de guidage."]}
+    answer = "Yes, both the German and French language sections agree that two guide pins are required [1]."
+    kept = only_cited([images, guide], answer, {"de", "fr"})
+    assert [r["reference_id"] for r in kept] == ["3", "1"]
+
+
+def test_a_comparison_never_cites_another_document_for_a_language():
+    # Seen live (Q28): the wiper catalogue's German pages were cited for the SCV guide's German section.
+    from app import only_cited
+
+    images = {"reference_id": "1", "file_path": "Diesel_SCV - images.md",
+              "content": ["--- [Trang 5 | ngôn ngữ: de] ---\nZwei Führungsstifte: two guide pins required for installation."]}
+    wiper = {"reference_id": "2", "file_path": "WiperBlade-Cat26.md",
+             "content": ["--- [Trang 14 | ngôn ngữ: de] ---\nInstallation Type Availability: guide pins required."]}
+    guide = {"reference_id": "3", "file_path": "Diesel_SCV.md",
+             "content": ["--- [Trang 7 | ngôn ngữ: fr] ---\nInstaller les 2 goupilles de guidage."]}
+    answer = "Yes, both the German and French language sections agree that two guide pins are required [1]."
+    kept = only_cited([images, wiper, guide], answer, {"de", "fr"})
+    assert [r["reference_id"] for r in kept] == ["3", "1"]
+
+
+def test_a_comparison_drops_another_document_even_when_the_model_cites_it():
+    from app import only_cited
+
+    images = {"reference_id": "1", "file_path": "Diesel_SCV - images.md",
+              "content": ["--- [Trang 5 | ngôn ngữ: de] ---\nZwei Führungsstifte: two guide pins required for installation."]}
+    wiper = {"reference_id": "2", "file_path": "WiperBlade-Cat26.md",
+             "content": ["--- [Trang 14 | ngôn ngữ: de] ---\nInstallation: two guide pins required for installation."]}
+    guide = {"reference_id": "3", "file_path": "Diesel_SCV.md",
+             "content": ["--- [Trang 7 | ngôn ngữ: fr] ---\nInstaller les 2 goupilles de guidage."]}
+    answer = "Yes, both the German and French language sections agree that two guide pins are required [2][3]."
+    kept = only_cited([images, wiper, guide], answer, {"de", "fr"})
+    assert sorted(r["reference_id"] for r in kept) == ["1", "3"]
