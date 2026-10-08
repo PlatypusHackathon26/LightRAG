@@ -111,18 +111,20 @@ def excerpt_from_chunks(chunks: list[str], limit: int = 300) -> str | None:
     return None
 
 
-def to_citations(references: list[dict]) -> list[dict]:
-    """LightRAG references (with include_chunk_content) -> UI Citation objects."""
+def to_citations(references: list[dict], answer: str = "") -> list[dict]:
+    """LightRAG references (with include_chunk_content) -> UI Citation objects.
+
+    With the answer, pages and excerpt come from the chunks that support it, not from every
+    chunk of the document (a 40-page manual listed "Pages 1, 2, 3, 4, 5, 6, ...").
+    """
     out = []
     for ref in references:
-        chunks = ref.get("content") or []
-        if isinstance(chunks, str):
-            chunks = [chunks]
+        chunks = supporting_chunks(ref, answer) if answer else chunk_texts(ref)
         out.append({
             "id": f"cit-{ref.get('reference_id', len(out) + 1)}",
             "documentId": display_name(ref.get("file_path", "")),
             "documentName": display_name(ref.get("file_path", "")),
-            "pages": pages_from_chunks(chunks),
+            "pages": supporting_pages(chunks, answer) or pages_from_chunks(chunks),
             "excerpt": excerpt_from_chunks(chunks),
         })
     return out
@@ -137,9 +139,18 @@ def strip_reference_section(answer: str) -> str:
 BRACKET_CITATION = re.compile(r"\s*【\s*(\d+)[^】]*】")
 OTHER_BRACKET = re.compile(r"\s*【[^】]*】")
 CITED_ID = re.compile(r"\[(\d+(?:\s*,\s*\d+)*)\]")
+# Page marker lines the model sometimes copies from the context into its answer.
+LEAKED_PAGE_MARK = re.compile(r"-{2,}\s*\[Trang ([\d\s,–-]+?)\s*(?:\|[^\]]*)?\]\s*-{2,}")
+REFUSAL = re.compile(r"(?:do not|don[’']t|does not|doesn[’']t) have enough information|not enough information|"
+                     r"(?:context|documents?) (?:does|do) not (?:contain|specify|provide|include|mention|list)|"
+                     r"không (?:có|đủ) thông tin|cannot (?:determine|answer)", re.IGNORECASE)
 # Decimal figures (6.9, 10,8) or long part numbers (DND08250, 294009-2150): specific enough to locate a source.
 # Distinctive words (7+ letters) to match an answer with no figures to its sources; short words
 # ("system", "seal", "with") appear in every document. English only: the sources are English.
+PAGE_WORD = re.compile(r"(?<![A-Za-z])[A-Za-z][A-Za-z-]{3,}(?![A-Za-z])")
+PAGE_STOPWORDS = {"that", "this", "with", "from", "have", "will", "your", "when", "then", "they", "them", "there",
+                  "their", "into", "also", "must", "should", "which", "what", "about", "after", "before", "using",
+                  "used", "each", "only", "than", "more", "such", "these", "those", "page", "trang"}
 CONTENT_WORD = re.compile(r"\b[A-Za-z][A-Za-z-]{6,}\b")
 ANSWER_FIGURE = re.compile(r"\b\d+[.,]\d+\b|\b[A-Z]{2,}\d{4,}\b|\b\d{5,}(?:-\d+)?\b")
 
@@ -162,37 +173,85 @@ def clean_answer(answer: str) -> str:
     """Strip reasoning and the references block; normalise model-specific citation markers to [n]."""
     text = strip_reference_section(strip_reasoning(answer))
     text = BRACKET_CITATION.sub(lambda m: f" [{m.group(1)}]", text)
+    text = LEAKED_PAGE_MARK.sub(lambda m: f"(trang {m.group(1).strip()})", text)
     return OTHER_BRACKET.sub("", text)
 
 
+def chunk_texts(ref: dict) -> list[str]:
+    c = ref.get("content") or []
+    return [c] if isinstance(c, str) else list(c)
+
+
+def evidence(text: str, words: set[str], figures: set[str]) -> int:
+    """How much of the answer a chunk supports: shared distinctive words, figures count triple."""
+    t = text.replace(",", ".")
+    return (len(words & {w.lower() for w in CONTENT_WORD.findall(t)})
+            + 3 * sum(1 for f in figures if f in t))
+
+
+def answer_terms(answer: str) -> tuple[set[str], set[str]]:
+    body = CITED_ID.sub(" ", answer)
+    return ({w.lower() for w in CONTENT_WORD.findall(body)},
+            {f.replace(",", ".") for f in ANSWER_FIGURE.findall(body)})
+
+
 def only_cited(references: list[dict], answer: str) -> list[dict]:
-    """Keep the references the answer cites; all of them when it cites none.
+    """The references the answer draws on: never none, never one that does not support it.
 
-    LightRAG returns every document that contributed a context chunk, which lists a
-    whole catalogue next to the one guide the answer came from.
+    LightRAG returns every document that contributed a context chunk (a whole catalogue next
+    to the guide the answer came from), and the model sometimes cites the wrong [n] - a BHT
+    kitting answer cited the A/C brochure. A cited reference is kept only when its chunks
+    support the answer about as well as the best one; with no usable [n], the best-supported
+    references are kept.
     """
+    if not references:
+        return []
+    words, figures = answer_terms(answer)
+    score = {id(r): max((evidence(t, words, figures) for t in chunk_texts(r)), default=0) for r in references}
+    best = max(score.values())
     ids = {i for m in CITED_ID.finditer(answer) for i in re.findall(r"\d+", m.group(1))}
-    kept = [r for r in references if str(r.get("reference_id")) in ids]
-    if kept:
-        return kept
-    def text(r: dict) -> str:
-        c = r.get("content") or ""
-        return (" ".join(c) if isinstance(c, list) else str(c)).replace(",", ".")
+    cited = [r for r in references if str(r.get("reference_id")) in ids]
+    if best < 3:  # too little to judge (a short or Vietnamese answer): trust the markers
+        return cited or references
+    supported = [r for r in references if score[id(r)] >= max(3, best * 0.5)]
+    kept = [r for r in cited if r in supported]
+    return kept or supported or references
 
-    # No [n] in the answer: keep the documents that contain the figures the answer quotes.
-    figures = {f.replace(",", ".") for f in ANSWER_FIGURE.findall(CITED_ID.sub(" ", answer))}
-    if figures:
-        kept = [r for r in references if any(f in text(r) for f in figures)]
-        if kept:
-            return kept
-    # No figures either (a "why" answer): keep the documents sharing most of the answer's
-    # distinctive words; a catalogue that only shares "system" and "seal" drops out.
-    words = {w.lower() for w in CONTENT_WORD.findall(answer)}
-    if len(words) >= 5 and len(references) > 1:
-        overlap = [(r, len(words & {w.lower() for w in CONTENT_WORD.findall(text(r))})) for r in references]
-        best = max(n for _, n in overlap)
-        kept = [r for r, n in overlap if n >= max(3, best * 0.5)]
-    return kept or references
+
+def supporting_pages(chunks: list[str], answer: str) -> str | None:
+    """Pages, within the supporting chunks, whose text supports the answer best.
+
+    A chunk of a long manual runs across several pages (power-off sits on one page of a
+    chunk covering pages 4-18); scoring each page's text keeps the citation on that page.
+    """
+    if not answer:
+        return None
+    # Within one document shorter words are safe to compare ("power", "hold", "menu").
+    _, figures = answer_terms(answer)
+    words = {w.lower() for w in PAGE_WORD.findall(CITED_ID.sub(" ", answer))} - PAGE_STOPWORDS
+    scores: dict[int, int] = {}
+    for chunk in chunks:
+        parts = PAGE_MARK.split(chunk)  # [before, page, text, page, text, ...]
+        for page, text in zip(parts[1::2], parts[2::2]):
+            t = text.replace(",", ".")
+            v = len(words & {w.lower() for w in PAGE_WORD.findall(t)}) + 3 * sum(1 for f in figures if f in t)
+            scores[int(page)] = max(scores.get(int(page), 0), v)
+    best = max(scores.values(), default=0)
+    if best < 2:
+        return None
+    pages = sorted(p for p, v in scores.items() if v >= best * 0.6)
+    return ", ".join(map(str, pages[:MAX_PAGES_SHOWN])) + (", …" if len(pages) > MAX_PAGES_SHOWN else "")
+
+
+def supporting_chunks(ref: dict, answer: str) -> list[str]:
+    """The chunks of a reference the answer was read from (for its pages and excerpt)."""
+    chunks = chunk_texts(ref)
+    words, figures = answer_terms(answer)
+    scored = [(evidence(t, words, figures), t) for t in chunks]
+    best = max((s for s, _ in scored), default=0)
+    if best < 3:
+        return chunks
+    return [t for s, t in sorted(scored, key=lambda x: -x[0]) if s >= best * 0.5]
 
 
 def classify_target(message: str) -> str:
@@ -433,7 +492,8 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
             # Only reasoning came back (cut off before the answer): an LLM failure, not an empty answer.
             raise HTTPException(status_code=503, detail="the answering LLM returned only its reasoning, no answer "
                                                         "- please ask again")
-        citations = to_citations(only_cited(body.get("references") or [], content))
+        # A "not in the documents" answer cites nothing: a listed source would read as support.
+        citations = [] if REFUSAL.search(content) else to_citations(only_cited(body.get("references") or [], content), content)
         history[req.conversationId].extend(
             [{"role": "user", "content": req.message}, {"role": "assistant", "content": content}]
         )

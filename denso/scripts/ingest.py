@@ -86,7 +86,10 @@ def delete_existing(client: httpx.Client, names: list[str], poll: float) -> None
     """Delete the server's copies of these files and wait until they are gone (for --replace)."""
     # Also the canonical name: "x.[native-P!].md" and an earlier "x.md" are the same document to LightRAG.
     names = list(dict.fromkeys([*names, *(re.sub(r"\.\[[^\]]*\](?=\.[^.]+$)", "", n) for n in names)]))
-    ids = [i for n in names for i in doc_ids_by_name(client).get(n, [])]
+    found = doc_ids_by_name(client)
+    # One document is listed under both its canonical and its uploaded name: dedupe, LightRAG
+    # refuses a delete with repeated ids (422 "Document IDs must be unique").
+    ids = list(dict.fromkeys(i for n in names for i in found.get(n, [])))
     if not ids:
         return
     r = client.request("DELETE", "/documents/delete_document", json={"doc_ids": ids, "delete_file": False})

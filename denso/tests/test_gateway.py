@@ -302,3 +302,51 @@ def test_a_why_answer_without_figures_keeps_only_the_documents_it_draws_on():
               "additives, conditioners or unsuitable flushing agents were used. Replace the affected components.")
     assert [r["file_path"] for r in only_cited(refs, answer)] == ["brochure.md"]
     assert len(only_cited(refs, "Gioăng bị phồng do dùng sai môi chất lạnh.")) == 2  # too few words: keep all
+
+
+# --- citations follow what the answer was read from (BHT manual upload, seen live) ----------
+
+BHT = {"reference_id": "1", "file_path": "BHT-M60_Manual_demo_40p.md", "content": [
+    "--- [Trang 12 | ngôn ngữ: en] ---\nKitting flow: determine and verify the system configuration, prepare "
+    "the materials, run automatic kitting with BHTKitting or BHT DMS, then confirm the results.",
+    "--- [Trang 30 | ngôn ngữ: en] ---\nPower OFF: press and hold the power key for one second."]}
+BROCHURE = {"reference_id": "2", "file_path": "DENSO-AC_brochure_tips-and-tricks_EN.md", "content": [
+    "--- [Trang 3 | ngôn ngữ: en] ---\nCompressor replacement: flushing the refrigerant circuit and replacing "
+    "the receiver drier."]}
+KITTING = ("The kitting flow is: determine and verify the system configuration, prepare the materials, run "
+           "automatic kitting with BHTKitting or BHT DMS, then confirm the results [2].")
+
+
+def test_a_wrongly_cited_document_is_replaced_by_the_one_that_supports_the_answer():
+    assert [r["file_path"] for r in only_cited([BHT, BROCHURE], KITTING)] == ["BHT-M60_Manual_demo_40p.md"]
+
+
+def test_pages_come_from_the_chunks_that_support_the_answer():
+    (c,) = to_citations([BHT], KITTING)
+    assert c["pages"] == "12" and c["excerpt"].startswith("Kitting flow")
+
+
+def test_page_markers_copied_into_the_answer_become_plain_page_references():
+    assert clean_answer("Confirm the results.\n--- [Trang 14-15 | ngôn ngữ: en] ---") == "Confirm the results.\n(trang 14-15)"
+
+
+def test_a_not_in_the_documents_answer_lists_no_sources(tmp_path):
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"response": "I do not have enough information to answer.",
+                                         "references": [BHT, BROCHURE]})
+
+    settings = Settings(level_servers=SERVERS, users={}, actions_log=tmp_path / "a.jsonl", ops_file=tmp_path / "n.json")
+    r = TestClient(create_app(settings, transport=httpx.MockTransport(handler))).post(
+        "/agent/chat", json={"conversationId": "c", "message": "What is the battery capacity of the BHT-M60?"})
+    assert r.status_code == 200 and r.json()["citations"] == []
+
+
+def test_a_chunk_spanning_pages_cites_the_page_the_answer_is_on():
+    chunk = ("--- [Trang 16 | ngôn ngữ: en] ---\nPower ON: press and hold the power key until the screen lights.\n"
+             "--- [Trang 17 | ngôn ngữ: en] ---\nThe home screen shows the launcher and the status bar.\n"
+             "--- [Trang 18 | ngôn ngữ: en] ---\nPower OFF: press and hold the power key for one second; a pop-up "
+             "menu appears, tap Power off to shut the terminal down.")
+    ref = {"reference_id": "1", "file_path": "BHT.md", "content": [chunk]}
+    answer = "Press and hold the power key for one second; a pop-up menu appears, then tap Power off to shut down."
+    (c,) = to_citations([ref], answer)
+    assert c["pages"] == "18"
