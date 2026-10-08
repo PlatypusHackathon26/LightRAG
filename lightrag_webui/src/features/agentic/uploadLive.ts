@@ -4,6 +4,7 @@
  */
 import { agentClient, AgentApiError, uploadJobActive, type UploadJob } from '../../api/agent'
 import type { KnowledgeDocument } from './types/agentic'
+import { UPLOAD_ROW_PREFIX } from './stores/agenticStore'
 
 export const POLL_MS = 3000
 
@@ -19,9 +20,11 @@ export async function uploadLive(
   addDocument: (doc: KnowledgeDocument) => void,
   updateDocument: (id: string, patch: Partial<KnowledgeDocument>) => void,
   client: Pick<typeof agentClient, 'uploadDocument' | 'fetchUploadJob'> = agentClient,
-  wait: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms))
+  wait: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms)),
+  /** Called once the job is finished: reload the list so the row carries the document's real id. */
+  onDone?: () => Promise<void>
 ): Promise<void> {
-  const id = `doc-upload-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  const id = `${UPLOAD_ROW_PREFIX}${Date.now()}-${Math.random().toString(36).slice(2)}`
   addDocument({
     id,
     name: file.name,
@@ -36,7 +39,10 @@ export async function uploadLive(
     let job = await client.uploadDocument(file)
     for (;;) {
       updateDocument(id, { indexStatus: job.status, progress: job.progress, statusNote: jobNote(job) })
-      if (!uploadJobActive(job)) return
+      if (!uploadJobActive(job)) {
+        if (job.status === 'vectorized' && onDone) await onDone().catch(() => undefined)
+        return
+      }
       await wait(POLL_MS)
       job = await client.fetchUploadJob(job.id)
     }
@@ -59,6 +65,11 @@ export async function deleteLive(
   updateDocument: (id: string, patch: Partial<KnowledgeDocument>) => void,
   client: Pick<typeof agentClient, 'deleteDocument'> = agentClient
 ): Promise<void> {
+  if (id.startsWith(UPLOAD_ROW_PREFIX)) {
+    // Still the browser's placeholder: the gateway does not know this id until the upload is done.
+    updateDocument(id, { statusNote: 'Tài liệu đang được xử lý – đợi xong rồi mới xóa được' })
+    return
+  }
   updateDocument(id, { statusNote: 'Đang xóa khỏi kho tri thức…' })
   try {
     await client.deleteDocument(id)

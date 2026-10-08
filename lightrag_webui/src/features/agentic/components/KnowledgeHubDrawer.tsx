@@ -242,6 +242,7 @@ export default function KnowledgeHubDrawer() {
     documents,
     addDocument,
     updateDocument,
+    refreshDocuments,
     updateDocumentStatus,
     deleteDocument,
     previewDocumentId,
@@ -253,7 +254,9 @@ export default function KnowledgeHubDrawer() {
   const onDrop = useCallback(
     (accepted: File[]) => {
       if (agentClient.live) {
-        accepted.forEach((file) => uploadLive(file, addDocument, updateDocument))
+        accepted.forEach((file) =>
+          uploadLive(file, addDocument, updateDocument, agentClient, undefined, () => refreshDocuments(() => agentClient.fetchDocuments()))
+        )
         return
       }
       accepted.forEach((file) => {
@@ -272,7 +275,7 @@ export default function KnowledgeHubDrawer() {
         simulateUploadPipeline(id, updateDocumentStatus)
       })
     },
-    [addDocument, updateDocument, updateDocumentStatus]
+    [addDocument, updateDocument, updateDocumentStatus, refreshDocuments]
   )
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({

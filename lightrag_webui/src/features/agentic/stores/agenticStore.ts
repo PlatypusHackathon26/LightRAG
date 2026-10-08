@@ -80,10 +80,15 @@ interface AgenticStore {
   addDocument: (doc: KnowledgeDocument) => void
   updateDocumentStatus: (id: string, status: KnowledgeDocument['indexStatus'], progress?: number) => void
   updateDocument: (id: string, patch: Partial<KnowledgeDocument>) => void
+  /** Live: reload the list from the gateway, keeping rows of uploads still in progress. */
+  refreshDocuments: (fetch: () => Promise<KnowledgeDocument[]>) => Promise<void>
   deleteDocument: (id: string) => void
   previewDocumentId: string | null
   setPreviewDocumentId: (id: string | null) => void
 }
+
+/** Rows created in the browser for an upload, before the gateway knows the document's id. */
+export const UPLOAD_ROW_PREFIX = 'doc-upload-'
 
 export const useAgenticStore = create<AgenticStore>((set, get) => ({
   isDemoMode: DEMO_MODE,
@@ -257,6 +262,15 @@ export const useAgenticStore = create<AgenticStore>((set, get) => ({
   setKnowledgeDrawerOpen: (open) => set({ knowledgeDrawerOpen: open }),
   documents: agentConfig.live ? [] : mockDocuments,
   addDocument: (doc) => set((s) => ({ documents: [doc, ...s.documents] })),
+  refreshDocuments: async (fetch) => {
+    const fresh = await fetch()
+    set((s) => ({
+      documents: [
+        ...s.documents.filter((d) => d.id.startsWith(UPLOAD_ROW_PREFIX) && d.indexStatus !== 'vectorized' && d.indexStatus !== 'error'),
+        ...fresh,
+      ],
+    }))
+  },
   updateDocument: (id, patch) =>
     set((s) => ({ documents: s.documents.map((d) => (d.id === id ? { ...d, ...patch } : d)) })),
   updateDocumentStatus: (id, status, progress) => {

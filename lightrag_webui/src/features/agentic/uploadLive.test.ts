@@ -76,3 +76,33 @@ describe('deleteLive', () => {
     expect(notes[notes.length - 1]).toBe('Xóa lỗi: DELETE failed: 409 - busy')
   })
 })
+
+describe('upload row ids (seen live: deleting a fresh upload sent its placeholder id, 404)', () => {
+  test('a finished upload reloads the list so the row gets the real document id', async () => {
+    let reloaded = 0
+    const client = {
+      uploadDocument: async () => job({ status: 'vectorized', progress: 100, images: 'done' }),
+      fetchUploadJob: async () => job({}),
+    }
+    const h = harness()
+    await uploadLive(new File(['%PDF'], 'manual.pdf'), h.add, h.update, client, async () => {}, async () => { reloaded++ })
+    expect(reloaded).toBe(1)
+  })
+
+  test('a failed upload does not reload', async () => {
+    let reloaded = 0
+    const client = { uploadDocument: async () => job({ status: 'error', error: 'boom' }), fetchUploadJob: async () => job({}) }
+    const h = harness()
+    await uploadLive(new File(['%PDF'], 'manual.pdf'), h.add, h.update, client, async () => {}, async () => { reloaded++ })
+    expect(reloaded).toBe(0)
+  })
+
+  test('deleting a placeholder row never reaches the gateway', async () => {
+    let called = false
+    const notes: string[] = []
+    const client = { deleteDocument: async () => { called = true; return { status: 'deleted', levels: [] } } }
+    await deleteLive('doc-upload-123-abc', () => {}, (_id, p) => notes.push(p.statusNote ?? ''), client)
+    expect(called).toBe(false)
+    expect(notes[0].startsWith('Tài liệu đang được xử lý')).toBe(true)
+  })
+})
