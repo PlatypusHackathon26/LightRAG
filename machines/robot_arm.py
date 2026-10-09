@@ -23,7 +23,9 @@ class RobotArm(BaseMachine):
         self.speed_override_pct = 100.0
         self.servo_power_enabled = True
         self.gripper_command = "CLAMP"
-        self.payload_kg = 3.5
+        self.payload_kg = self.nominal("Payload_Kg")
+        self.overload_payload_kg = 12.0   # Phôi quá tải: khối lượng gắp vượt định mức
+        self.overload_gripper_bar = 8.0   # Tăng lực kẹp để giữ phôi nặng
 
         # 2. Trạng thái vật lý
         self.joint_3_current_a = self.nominal("Joint_3_Current_A")
@@ -47,13 +49,19 @@ class RobotArm(BaseMachine):
             dt = max(0.1, min(current_time - self.last_update_time, 2.5))
             self.last_update_time = current_time
 
+            # --- TẢI TRỌNG GẮP (phôi quá tải: khối lượng đặt tăng, số đo hội tụ dần) ---
+            payload_target = (
+                self.overload_payload_kg
+                if self.active_faults["PAYLOAD_OVERLOAD"]
+                else self.nominal("Payload_Kg")
+            )
+            self.payload_kg = self.ramp(self.payload_kg, payload_target, dt, 2.0)
+
             # --- DÒNG ĐIỆN SERVO KHỚP 3 ---
             if self.state == "RUNNING" and self.servo_power_enabled:
-                base_target_j3 = 5.0 * (self.speed_override_pct / 100.0) + (self.payload_kg / 7.0) * 4.5 + 2.0
+                base_target_j3 = 5.0 * (self.speed_override_pct / 100.0) + (payload_target / 7.0) * 4.5 + 2.0
                 if self.active_faults["GEARBOX_LACK_OF_GREASE"]:
                     base_target_j3 += 8.5  # Ma sát khô bánh răng làm động cơ kéo dòng lớn
-                if self.active_faults["PAYLOAD_OVERLOAD"]:
-                    base_target_j3 += 5.5
                 target_j3 = base_target_j3
             elif self.state == "PAUSED":
                 target_j3 = 2.0
@@ -85,8 +93,13 @@ class RobotArm(BaseMachine):
                 if self.active_faults["GRIPPER_PNEUMATIC_LEAK"]:
                     self.actual_gripper_pressure_bar = max(0.8, self.actual_gripper_pressure_bar - 1.2 * dt)
                 else:
+                    grip_target = (
+                        self.overload_gripper_bar
+                        if self.active_faults["PAYLOAD_OVERLOAD"]
+                        else 6.0
+                    )
                     self.actual_gripper_pressure_bar = self.ramp(
-                        self.actual_gripper_pressure_bar, 6.0, dt, 1.2
+                        self.actual_gripper_pressure_bar, grip_target, dt, 1.2
                     )
             else:
                 self.actual_gripper_pressure_bar = max(0.0, self.actual_gripper_pressure_bar - 8.0 * dt)

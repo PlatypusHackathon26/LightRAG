@@ -8,7 +8,7 @@
 
 ## 1. Tổng quan kiến trúc mô phỏng
 
-### 1.1. Ba lớp trong `generate_telemetry()` (gọi mỗi 1 giây/máy)
+### 1.1. Ba lớp trong `generate_telemetry()` (vòng lặp gọi cả 5 máy rồi nghỉ 1 giây ≈ 1 chu kỳ/s)
 
 ```
 ① ĐỘNG HỌC VẬT LÝ   x += (heat_in − heat_out) × dt     ← chỉ số lao về ĐIỂM CÂN BẰNG
@@ -29,7 +29,7 @@ nên máy chạy bình thường thì chỉ số **nằm yên quanh mức**, kh�
 | CNC | `Spindle_Temp_C` | **38 °C** | `cool_coeff = 0.045 × (áp tưới/20)`: 0.54/0.045 = +12°C → 38°C |
 | Robot | `Motor_Temp_C` | **40 °C** | `cool_coeff = (9.25/10)² × 1.5 / 14 ≈ 0.091674`: cân bằng chính xác ở 40°C |
 | AMR | `Battery_Temp_C` | **33.6 °C** | điểm cân bằng pin đầy tải khi di chuyển |
-| AOI | `Optics_Cleanliness_Pct` | **99 %** | trần hồi phục `min(99, +0.1·dt)` |
+| AOI | `Optics_Cleanliness_Pct` | **99 %** | hồi phục bằng `ramp` về trần 99 (0.1%/s thường, 0.5%/s sau hiệu chuẩn) |
 
 Khi **có sự cố**, heat_in nhảy vọt → điểm cân bằng mới cao/thấp hơn hẳn →
 chỉ số **trồi/tụt sang mức mới**; áp suất/tải có thể đổi trong vài giây, nhiệt cần hàng chục giây đến vài phút. Lỗi nhẹ không nhất thiết vượt ngưỡng tĩnh.
@@ -47,11 +47,11 @@ Chỉ thay **giá trị đích** khi chọn/hủy lỗi, không gán trực ti�
 
 Các thông số chuyển tiếp cụ thể:
 
-- CNC: tải `τ=5s`, rung `τ=4s`, RPM khi tăng/khôi phục `τ=3s`; áp làm mát mất **8 Bar/s**, phục hồi **3 Bar/s**. Nhiệt tuân theo sinh nhiệt và tỏa nhiệt, tích phân bậc nhất với `τ=1/cool_coeff` (khoảng 22.2s khi áp 20 Bar).
+- CNC: tải `τ=5s`, rung `τ=4s`, RPM khi tăng/khôi phục `τ=3s`; áp làm mát mất **8 Bar/s**, phục hồi **3 Bar/s**. Nhiệt tuân theo sinh nhiệt và tỏa nhiệt, tích phân bậc nhất với `τ=1/cool_coeff` (khoảng 22.2s khi áp 20 Bar). Nhiệt chỉ tích phân khi trục chính quay trên 500 RPM; khi RPM ≤ 1000, mục tiêu rung hạ về 0.05 mm/s.
 - Robot: dòng điện `τ=4s`; áp kẹp rò/khôi phục **1.2 Bar/s**; nhiệt có `τ≈10.9s` và vẫn phụ thuộc dòng điện thực đang biến đổi, cộng sinh nhiệt do lỗi.
 - AMR: vận tốc `τ=4s`; LiDAR giảm/tăng **2%/s**; nhiệt pin `τ≈33.3s` khi di chuyển. Pin tiếp tục xả theo thời gian, không nhảy xuống mức thấp khi bật lỗi chai pin.
 - AOI: độ sạch giảm **0.5%/s**, tự hồi phục **0.1%/s** sau hủy lỗi, hoặc **0.5%/s** sau lệnh hiệu chuẩn; LED giảm/tăng **350 Lux/s**; FRR hội tụ theo độ sạch/ánh sáng với `τ=4s`. Băng chuyền giảm/tăng **0.2 m/phút mỗi giây** (1.2→0 trong 6s), chỉ số chu kỳ giảm/tăng **0.7s mỗi giây**. Khi kẹt, bộ đếm bo dừng ngay dù tốc độ đang giảm dần.
-- Máy ép: áp kẹp và áp phun `τ=5s`; lỗi nhiệt tăng **1.2°C/s** tới trần 280°C. Sau hủy lỗi, nhiệt hội tụ về setpoint với `τ=15s`, tốc độ hồi phục tối đa **1.2°C/s**. Áp phun đồng thời giảm theo nhiệt tăng qua `viscosity_offset = (220 − T)×0.35`.
+- Máy ép: áp kẹp và áp phun `τ=5s`; lỗi nhiệt tăng **1.2°C/s** tới trần 280°C. Sau hủy lỗi, nhiệt hội tụ về setpoint với `τ=15s`, tốc độ hồi phục tối đa **1.2°C/s**. Áp phun đồng thời giảm theo nhiệt tăng qua `viscosity_offset = (220 − T)×0.35`. Áp phun chỉ được tạo khi áp kẹp khuôn >80 Bar; dưới mức đó (hoặc khi máy không chạy) áp phun giảm về 0.
 
 Nhiễu chỉ cộng vào **giá trị xuất ra**, không tích lũy vào trạng thái vật lý. Vì vậy số đọc vẫn rung nhẹ quanh đường tăng/giảm; tính đơn điệu được kiểm tra trên trạng thái không nhiễu, không yêu cầu mọi mẫu có nhiễu phải cùng chiều.
 
@@ -116,9 +116,11 @@ Nhiễu chỉ cộng vào **giá trị xuất ra**, không tích lũy vào trạ
 |---|---|---|---|
 | `GEARBOX_LACK_OF_GREASE` — Khô mỡ hộp số giảm tốc | Dòng **+8.5A**, sinh nhiệt thêm **+4.0°C/s** | Dòng →17.75A (>16.5 quá dòng), Temp →**~121°C** (>80) | `REFILL_GEARBOX_GREASE` |
 | `GRIPPER_PNEUMATIC_LEAK` — Rò khí nén tay gắp | Áp kẹp **−1.2 Bar/s** | Áp →0.8 Bar (<3.5 mất áp) | `REPAIR_PNEUMATIC_SYSTEM` |
-| `PAYLOAD_OVERLOAD` — Quá tải trọng gắp | Dòng **+5.5A**, sinh nhiệt thêm **+1.5°C/s** | Dòng →14.75A (>12.5), Temp →~78°C | `RESET_PAYLOAD` (về 3.5kg) |
+| `PAYLOAD_OVERLOAD` — Quá tải trọng gắp | Tải gắp **3.5→~12 kg** (dòng theo tải **↑~5.5A**), sinh nhiệt thêm **+1.5°C/s**, áp kẹp **↑~8 Bar** | Dòng →**~14.7A** (>12.5), Temp →~78°C, Tải **3.5→~12 kg**, Áp kẹp **6.0→~8 Bar** | `RESET_PAYLOAD` (về 3.5kg) |
 
 **Ngưỡng:** Dòng >12.5 (cảnh báo), >16.5 (nghiêm trọng); Temp >65, >80; Áp <3.5.
+
+Lỗi `PAYLOAD_OVERLOAD` mô phỏng gắp phôi vượt định mức nên cả **tải trọng gắp** lẫn **áp kẹp gắp** đều tăng (3.5→~12 kg, 6.0→~8 Bar); dòng servo suy ra từ khối lượng đặt nên đạt ~14.7A. Khi hủy lỗi, tải trọng và áp kẹp **hồi về mức danh nghĩa theo động học** (không gán tức thời); `RESET_PAYLOAD` đưa tải trọng về đúng 3.5 kg.
 
 ### 2.3. MC-AMR-01 — Xe tự hành (`AMR_VEHICLE`)
 
