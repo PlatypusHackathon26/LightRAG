@@ -179,6 +179,8 @@ export interface KnowledgeDocument {
   importedAt: string
   indexStatus: DocumentIndexStatus
   extractedText?: string
+  fileUrl?: string
+  file?: File
   progress?: number
 }
 
