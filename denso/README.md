@@ -16,75 +16,132 @@ Dữ liệu rời khỏi máy: câu hỏi và đoạn tài liệu **cấp 1** đ
 ảnh trong tài liệu **cấp 1** đi tới API thị giác để đọc chữ. Tài liệu cấp 2/3 không được gửi
 qua API miễn phí. Mọi service chỉ bind vào localhost (trừ tunnel demo khi bật `-Tunnel`).
 
-## Chạy demo (hỏi đáp)
+## Chạy từ A đến Z (cho thành viên mới)
+
+Kết quả cuối: chatbot ở http://localhost:5173 trả lời từ cùng kho tài liệu với máy demo.
+Cần Windows, khoảng 16 GB RAM (RAM trống ít nhất 4 GB khi chạy), mạng Internet.
+
+### 1. Cài phần mềm (một lần)
+
+| Phần mềm | Dùng để | Ghi chú |
+|---|---|---|
+| Git, Python 3.11 | code, backend | |
+| [uv](https://docs.astral.sh/uv/) | cài thư viện Python | |
+| [Bun](https://bun.sh) | giao diện web | |
+| [Ollama](https://ollama.com) | tạo vector (bge-m3) | chạy nền sau khi cài |
+| Docker Desktop | Docling (đọc PDF, OCR) | chỉ cần khi upload tài liệu |
+| cloudflared | link công khai | chỉ cần khi cho người ngoài vào |
+
+### 2. Lấy code và cài thư viện
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File denso\scripts\serve_chat.ps1 -WithUI     # UI tại http://localhost:5173
-powershell -ExecutionPolicy Bypass -File denso\scripts\serve_chat.ps1 -Tunnel     # link công khai cho bản Vercel
+git clone https://github.com/PlatypusHackathon26/LightRAG.git
+cd LightRAG
+git checkout feat/rag-backend
+uv sync --extra api
+uv pip install --python .venv\Scripts\python.exe -r denso\requirements.txt
+ollama pull bge-m3
 ```
 
-Cần `NVIDIA_API_KEY` trong `.env`. Upload tài liệu từ giao diện cần thêm Docling: `denso\start.ps1 -DoclingOnly`.
+`uv sync` lần sau sẽ gỡ các gói thêm ở dòng thứ năm: chạy lại dòng đó sau mỗi lần `uv sync`.
 
-## Cấu trúc
+### 3. Dữ liệu và cấu hình (không có trên GitHub)
 
-| Đường dẫn | Nội dung |
+| Thứ | Lấy ở đâu | Đặt ở đâu |
+|---|---|---|
+| Kho tri thức + tài liệu | file `denso_data_bundle_<ngày>.zip` do nhóm gửi | giải nén vào thư mục gốc repo (tạo `rag_storage/` và `denso/data/`) |
+| `.env` | tự tạo (dưới đây) hoặc xin nhóm qua kênh kín | thư mục gốc repo |
+| API key NVIDIA | đăng ký miễn phí tại https://build.nvidia.com | dòng `NVIDIA_API_KEY=` trong `.env` |
+| `users.json` | chép `denso\gateway\users.example.json` | `denso\gateway\users.json`, đổi các token thành chuỗi ngẫu nhiên dài |
+
+Tự tạo `.env` (mọi giá trị DENSO nằm trong `denso/env.denso`, dòng sau ghi đè dòng trước):
+
+```powershell
+Copy-Item env.example .env
+Get-Content denso\env.denso | Add-Content .env
+notepad .env      # thay NVIDIA_API_KEY=nvapi-put-your-own-key-here bằng key của bạn
+```
+
+Không có kho dữ liệu thì vẫn chạy được nhưng chatbot chưa có tài liệu: upload ở bước 6.
+Kho chỉ dùng được với đúng embedding `bge-m3` (1024 chiều); đổi model là phải nạp lại từ đầu.
+
+### 4. Cấu hình giao diện
+
+```powershell
+cd lightrag_webui
+bun install --frozen-lockfile
+cd ..
+```
+
+Tạo `lightrag_webui\.env.development.local` (gitignored):
+
+```
+VITE_AGENT_LIVE=true
+VITE_AGENT_BASE_URL=http://127.0.0.1:9700
+VITE_AGENT_TOKEN=<token có "can_upload": true trong users.json>
+```
+
+### 5. Chạy
+
+```powershell
+powershell -ExecutionPolicy Bypass -File denso\scripts\serve_chat.ps1 -WithUI
+```
+
+Lệnh bật lần lượt proxy NVIDIA (:8899), reranker ngôn ngữ (:7998), LightRAG kho tri thức (:9621)
+và kho tra cứu (:9631), Agent Gateway (:9700) và giao diện (:5173), rồi in trạng thái từng dịch vụ.
+Mở http://localhost:5173 và hỏi thử: "Mô-men xoắn siết bu-lông SCV là bao nhiêu?" → 6,9–10,8 Nm,
+trích hướng dẫn SCV trang 4.
+
+| Tuỳ chọn của `serve_chat.ps1` | Tác dụng |
 |---|---|
-| `docling/docker-compose.yml` | docling-serve bản CPU |
-| `scripts/ingest.py` | Upload tài liệu theo cấp quyền và chờ index xong |
-| `scripts/run_benchmark.py` | Chạy bộ 30 câu QA, so sánh các mode (`naive`, `mix`, …) |
-| `start.ps1` | Khởi động Docling → Ollama → LightRAG |
-| `data/raw/`, `data/evaluation/` | Tài liệu và benchmark (gitignored) |
-| `results/` | Kết quả benchmark |
-| `../.env` | Cấu hình LightRAG (gitignored) |
+| `-WithUI` | bật thêm giao diện dev :5173 |
+| `-Restart` | khởi động lại LightRAG và gateway (sau khi sửa `.env`, prompt hay code gateway) |
+| `-Tunnel` | link công khai qua Cloudflare; dòng `demo link` là link Vercel dùng được ngay |
+| `-GuestUpload` | khách (không token) được upload và xoá tài liệu – chỉ dùng khi cả nhóm test |
+| `-CorsRegex '<regex>'` | cho phép thêm tên miền giao diện khác (ví dụ project Vercel riêng) |
 
-## Cài đặt lần đầu
-
-1. Docker Desktop đang chạy; Ollama đã cài.
-2. Kéo model và image:
-   ```powershell
-   ollama pull qwen3:8b
-   ollama pull bge-m3
-   docker compose -f denso/docling/docker-compose.yml pull
-   ```
-3. Môi trường Python (Python 3.11):
-   ```powershell
-   uv sync --extra api --python 3.11
-   uv pip install --python .venv\Scripts\python.exe "ollama>=0.5.4,<1.0.0"
-   ```
-   Gói `ollama` không nằm trong extra `api`; LightRAG cố tự cài bằng pip nhưng
-   venv của uv không có pip nên server sẽ crash nếu thiếu. (`uv sync` lần sau sẽ
-   gỡ nó — cài lại bằng lệnh trên.)
-4. Ollama: bật flash attention + nén KV cache để context 32K vừa 8GB VRAM
-   (biến môi trường user `OLLAMA_FLASH_ATTENTION=1`, `OLLAMA_KV_CACHE_TYPE=q8_0`).
-   Trên máy này app Ollama hay báo "server not ready" vì dò GPU Vulkan mất ~13s;
-   `start.ps1` tự chạy `ollama serve` nếu API chưa lên.
-5. WebUI: `cd lightrag_webui; bun install --frozen-lockfile; bun run build`
-
-### Sự cố Docker Desktop trên máy này
-
-Nếu Docker bị tắt đột ngột, nó để lại socket hỏng và lần sau báo
-"initializing Inference manager … The file cannot be accessed by the system".
-Cách sửa: thoát Docker, đổi tên `%LOCALAPPDATA%\Docker\run` (và
-`%LOCALAPPDATA%\docker-secrets-engine` nếu lỗi nhắc tới nó), rồi mở lại Docker.
-Luôn thoát Docker bằng Quit ở khay hệ thống.
-
-6. Cấu hình: `.env` không được commit, các giá trị DENSO nằm ở `denso/env.denso`:
-   ```powershell
-   Copy-Item env.example .env
-   Get-Content denso\env.denso | Add-Content .env
-   ```
-   Quan trọng nhất: `OLLAMA_LLM_NUM_PREDICT=8192`. Mặc định của LightRAG cho
-   Ollama là 128 token output, cắt JSON trích xuất thực thể sau ~2 entity →
-   log báo "JSON extraction result is empty or unrecoverable" và đồ thị rỗng.
-
-## Chạy
+### 6. Upload tài liệu (cần Docling)
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File denso\start.ps1
+powershell -ExecutionPolicy Bypass -File denso\start.ps1 -DoclingOnly
 ```
 
-Mở http://127.0.0.1:9621. Chọn workspace ở góc WebUI (hoặc gửi header
-`LIGHTRAG-WORKSPACE`).
+Sau đó kéo file vào Knowledge Hub trên giao diện: PDF, DOCX, XLSX, TXT, ảnh. Trang scan và ảnh
+chụp của tài liệu cấp 1 được đọc bằng mô hình thị giác NVIDIA (1–4 phút mỗi trang). Docling
+chiếm khoảng 2 GB RAM: tắt bằng `docker stop docling-serve` khi không upload.
+
+### 7. Kiểm tra lại độ chính xác
+
+```powershell
+.venv\Scripts\python denso\scripts\eval_lookup.py --name thu      # 10 câu tra cứu theo xe
+.venv\Scripts\python denso\scripts\eval_language.py --name thu    # trả lời đúng ngôn ngữ
+.venv\Scripts\python -m pytest denso\tests -q -o addopts=""       # test tự động
+```
+
+Benchmark 30 câu: xem mục Benchmark bên dưới. Kết quả nằm trong `denso/results/`.
+
+### 8. Giao diện trên Vercel
+
+Vercel chỉ chứa giao diện; backend vẫn chạy trên máy có `serve_chat.ps1`. Project Vercel cần
+Root Directory `lightrag_webui` và hai biến môi trường `VITE_DEMO_MODE=true`,
+`VITE_AGENT_LIVE=true` (thêm biến xong phải Redeploy). Mở link kèm `?gateway=<link tunnel>`.
+Tên miền Vercel khác project gốc phải được cho phép bằng `-CorsRegex`, nếu không trình duyệt chặn.
+
+### Sự cố thường gặp
+
+| Hiện tượng | Cách xử lý |
+|---|---|
+| Giao diện Vercel ra dữ liệu mẫu / bản cũ | thiếu `VITE_DEMO_MODE` / `VITE_AGENT_LIVE` hoặc chưa Redeploy; link thiếu `?gateway=` |
+| "the answering LLM returned nothing" | hết hạn mức hoặc API chậm: xem `denso/logs/llm_proxy_nvidia_api_key.jsonl`, hỏi lại sau ít phút |
+| Upload báo "Docling is not running" | chạy `denso\start.ps1 -DoclingOnly` |
+| `start.ps1` báo Docker không lên | mở Docker Desktop xem có hộp thoại cần bấm; sau lần tắt máy đột ngột script tự dời socket hỏng |
+| Cổng đã bị chiếm | `serve_chat.ps1 -Restart`, hoặc tắt tiến trình đang giữ cổng |
+| Máy chậm / treo | đóng bớt ứng dụng; không chạy LLM trả lời trên máy (xem mục bên dưới) |
+| "Tài khoản này không có quyền upload tài liệu" | dùng token có `can_upload` trong `.env.development.local`, hoặc chạy gateway với `-GuestUpload` |
+
+Docker Desktop trên máy này: nếu bị tắt đột ngột, nó để lại socket hỏng và lần sau báo
+"The file cannot be accessed by the system". `start.ps1` tự đổi tên `%LOCALAPPDATA%\Docker\run`
+(và `docker-secrets-engine`) trước khi bật lại; nên thoát Docker bằng Quit ở khay hệ thống.
 
 ## Pipeline xử lý dữ liệu (raw → sạch → kho tri thức)
 
@@ -268,6 +325,9 @@ Cross-encoder bge-reranker-v2-m3 trên CPU chậm (~84 s/câu) và kém hơn ở
 không dùng. So sánh offline: `scripts/eval_rerank.py --strategies baseline lang lang-pref`.
 
 ## Chạy bằng Docker
+
+> **Chưa dùng được cho demo:** compose còn theo cấu hình cũ (proxy Cerebras, reranker
+> Infinity) và chưa có reranker ngôn ngữ, chưa chạy thử trọn vẹn. Dùng `serve_chat.ps1` ở trên.
 
 `denso/docker-compose.yml` (chạy từ thư mục gốc repo). Image LightRAG build từ
 `Dockerfile` gốc (đã có WebUI, gồm trang agentic); pipeline/gateway/proxy dùng
