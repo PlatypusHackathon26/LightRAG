@@ -1,27 +1,130 @@
-# DENSO A3 – RAG chatbot chạy local
+# DENSO A3 – Knowledge Agent (RAG chatbot)
 
-Mọi thứ của DENSO nằm trong thư mục `denso/`; lõi LightRAG không bị sửa, nên vẫn
-kéo được bản cập nhật từ upstream.
+Agent đọc tài liệu kỹ thuật đa định dạng (PDF, bản scan, ảnh chụp, DOCX, XLSX, TXT; tiếng Việt,
+Anh, Nhật) và chatbot trả lời bằng ngôn ngữ người hỏi, **luôn kèm tài liệu và số trang**, nói rõ
+khi tài liệu không có câu trả lời. Đề A3 – DENSO Factory Hacks 2026.
+
+Mọi phần riêng của DENSO nằm trong `denso/`; lõi LightRAG (`lightrag/`) không bị sửa.
+
+## Mục lục
+
+1. [Kiến trúc](#1-kiến-trúc)
+2. [Cây thư mục](#2-cây-thư-mục)
+3. [Chạy từ A đến Z](#3-chạy-từ-a-đến-z)
+4. [Sử dụng hằng ngày](#4-sử-dụng-hằng-ngày)
+5. [Pipeline xử lý tài liệu](#5-pipeline-xử-lý-tài-liệu)
+6. [Đánh giá độ chính xác](#6-đánh-giá-độ-chính-xác)
+7. [Agent Gateway (API cho giao diện)](#7-agent-gateway-api-cho-giao-diện)
+8. [Bảo mật và phân quyền](#8-bảo-mật-và-phân-quyền)
+9. [Giới hạn và lưu ý](#9-giới-hạn-và-lưu-ý)
+10. [Sự cố thường gặp](#10-sự-cố-thường-gặp)
+11. [Docker (chưa dùng cho demo)](#11-docker-chưa-dùng-cho-demo)
+
+---
+
+## 1. Kiến trúc
 
 ```
-Nạp:  PDF/DOCX/XLSX/TXT/ảnh ─► pipeline/parse.py (docling-serve :5001)
-        ─► [pipeline/ocr_pages.py: trang scan / ảnh chụp, NVIDIA 90B vision, cấp 1] ─► pipeline/clean.py
-        (trang + ngôn ngữ) ─► [pipeline/ocr_images.py: chữ trong ảnh] ─► scripts/ingest.py
-Hỏi:  UI ─► Agent Gateway :9700 (quyền, trích dẫn) ─► LightRAG :9621 (level_1) / :9631 (lookup)
-        ─► reranker ngôn ngữ :7998 ─► proxy :8899 ─► LLM API (NVIDIA)
-      Embedding: bge-m3 trên Ollama local (:11434)
+NẠP TÀI LIỆU (một lần, khi upload)
+  PDF/DOCX/XLSX/TXT/ảnh ─► parse.py ─► ocr_pages.py ─► clean.py ─► [ocr_images.py] ─► ingest.py ─► LightRAG
+                           Docling      trang scan,     gắn trang    chữ trong ảnh                kho theo cấp
+                           :5001        Vision 90B      + ngôn ngữ   của PDF (cấp 1)
+                                        (chỉ cấp 1)
+
+HỎI ĐÁP (mỗi câu hỏi)
+  Giao diện ─► Agent Gateway :9700 ─► LightRAG :9621 (tri thức) / :9631 (tra cứu theo xe)
+  :5173 /       phân quyền,            │
+  Vercel        chỉ dẫn ngôn ngữ,      ├─► embedding bge-m3 (Ollama :11434, trên máy)
+                chọn trích dẫn          ├─► reranker ngôn ngữ :7998
+                                        └─► proxy :8899 ─► LLM NVIDIA Nemotron 120B (API)
 ```
 
-Dữ liệu rời khỏi máy: câu hỏi và đoạn tài liệu **cấp 1** đi tới LLM API để sinh câu trả lời;
-ảnh trong tài liệu **cấp 1** đi tới API thị giác để đọc chữ. Tài liệu cấp 2/3 không được gửi
-qua API miễn phí. Mọi service chỉ bind vào localhost (trừ tunnel demo khi bật `-Tunnel`).
+| Thành phần | Công nghệ | Vai trò |
+|---|---|---|
+| Đọc tài liệu | Docling (Docker) | bố cục, bảng, OCR cơ bản |
+| Đọc trang scan, ảnh chụp | NVIDIA Llama 3.2 Vision 90B | giữ dấu tiếng Việt (98% ký tự so với 89% của OCR thường) |
+| Kho tri thức | LightRAG, chế độ `naive` | mỗi cấp quyền một kho riêng |
+| Embedding | bge-m3 qua Ollama, chạy trên máy | 1024 chiều, đa ngôn ngữ |
+| Reranker | `tools/lang_rerank.py` | ưu tiên đoạn cùng ngôn ngữ câu hỏi, rồi tiếng Anh |
+| Trả lời | NVIDIA Nemotron 120B (API miễn phí) | qua proxy giới hạn tốc độ |
+| Gateway | FastAPI `gateway/app.py` | phân quyền, chọn tài liệu + trang để trích, từ chối khi thiếu dữ liệu |
 
-## Chạy từ A đến Z (cho thành viên mới)
+**Dữ liệu rời khỏi máy:** câu hỏi và đoạn tài liệu **cấp 1** đi tới API NVIDIA để sinh câu trả
+lời; ảnh và trang scan của tài liệu **cấp 1** đi tới API thị giác. Tài liệu cấp 2/3 không bao giờ
+đi qua API miễn phí. Mọi dịch vụ chỉ nghe trên `127.0.0.1`, trừ khi bật tunnel (`-Tunnel`).
+
+---
+
+## 2. Cây thư mục
+
+```
+denso/
+├── README.md                    tài liệu này
+├── env.denso                    mẫu cấu hình DENSO, ghép vào .env (không chứa key)
+├── requirements.txt             thư viện Python thêm cho denso (cài sau uv sync)
+├── start.ps1                    bật Docker Desktop + Docling (dùng -DoclingOnly)
+│
+├── scripts/
+│   ├── serve_chat.ps1           ★ bật toàn bộ backend (+ giao diện, + tunnel)
+│   ├── ingest.py                nạp tài liệu đã làm sạch vào LightRAG theo cấp
+│   ├── run_benchmark.py         benchmark 30 câu (LLM giám khảo)
+│   ├── score_facts.py           chấm benchmark theo dữ kiện (không dùng LLM)
+│   ├── eval_lookup.py           10 câu tra cứu theo xe
+│   ├── eval_language.py         trả lời đúng ngôn ngữ câu hỏi
+│   ├── eval_retrieval.py        đo tìm kiếm (hit@k), không gọi LLM
+│   ├── eval_rerank.py           so sánh các chiến lược rerank
+│   ├── make_test_docs.py        tạo file DOCX/XLSX/TXT thử
+│   └── make_scan_samples.py     tạo bản scan / ảnh chụp thử
+│
+├── pipeline/                    xử lý tài liệu: raw → sạch → kho
+│   ├── parse.py                 bước 1: Docling (TXT đọc trực tiếp, XLSX mỗi sheet một trang)
+│   ├── ocr_pages.py             bước 1b: đọc trang scan / ảnh bằng Vision 90B (cấp 1)
+│   ├── clean.py                 bước 2: làm sạch, gắn "--- [Trang N | ngôn ngữ: xx] ---"
+│   ├── ocr_images.py            bước 2b: chữ trong ảnh của PDF (cấp 1)
+│   ├── textutils.py             hàm làm sạch dùng chung
+│   ├── tiers.json               catalogue nào tách tầng tri thức / tầng tra cứu
+│   ├── check_evidence.py        kiểm tra bằng chứng benchmark còn sau làm sạch
+│   ├── find_duplicates.py       báo đoạn trùng lặp
+│   └── preview_chunks.py        xem trước cách LightRAG chia đoạn
+│
+├── gateway/                     backend của giao diện agentic
+│   ├── app.py                   API, phân quyền, trích dẫn, xoá tài liệu
+│   ├── jobs.py                  hàng đợi upload: parse → clean → ingest → ảnh
+│   ├── language.py              nhận diện ngôn ngữ, chỉ dẫn trả lời, câu chào
+│   ├── lookup.py                tra cứu từ khoá trong catalogue theo xe
+│   ├── users.example.json       mẫu token → cấp quyền (chép thành users.json)
+│   └── sample_ops.json          sự cố / telemetry MẪU cho giao diện
+│
+├── tools/
+│   ├── llm_rate_proxy.py        proxy API: giới hạn tốc độ, chèn key, đếm hạn mức
+│   └── lang_rerank.py           reranker ưu tiên ngôn ngữ (:7998)
+│
+├── prompts/
+│   ├── user_prompt/denso_answer.md   quy tắc trả lời (trích nguồn, giữ nguyên mã, đọc bảng)
+│   └── entity_type/denso.yml         loại thực thể cho trích xuất đồ thị
+│
+├── tests/                       test tự động (pytest)
+├── docs/AGENT_GATEWAY_SPEC.md   đặc tả API gateway
+├── docling/docker-compose.yml   Docling bản CPU
+├── docker-compose.yml, Dockerfile, compose.env.example, requirements.docker.txt,
+├── reranker/docker-compose.yml  Docker – chưa cập nhật (xem mục 11)
+│
+├── data/            (gitignored) raw/ parsed/ cleaned_md/ cleaned_json/ evaluation/ samples/
+├── logs/            (gitignored) log dịch vụ, log upload, log proxy
+└── results/         (gitignored) kết quả các bài đo
+
+../rag_storage/      (gitignored) kho LightRAG: level_1/, level_1_lookup/
+../.env              (gitignored) cấu hình + API key
+```
+
+---
+
+## 3. Chạy từ A đến Z
 
 Kết quả cuối: chatbot ở http://localhost:5173 trả lời từ cùng kho tài liệu với máy demo.
-Cần Windows, khoảng 16 GB RAM (RAM trống ít nhất 4 GB khi chạy), mạng Internet.
+Cần Windows, khoảng 16 GB RAM (còn trống ít nhất 4 GB khi chạy) và mạng Internet.
 
-### 1. Cài phần mềm (một lần)
+### 3.1. Cài phần mềm (một lần)
 
 | Phần mềm | Dùng để | Ghi chú |
 |---|---|---|
@@ -29,10 +132,10 @@ Cần Windows, khoảng 16 GB RAM (RAM trống ít nhất 4 GB khi chạy), mạ
 | [uv](https://docs.astral.sh/uv/) | cài thư viện Python | |
 | [Bun](https://bun.sh) | giao diện web | |
 | [Ollama](https://ollama.com) | tạo vector (bge-m3) | chạy nền sau khi cài |
-| Docker Desktop | Docling (đọc PDF, OCR) | chỉ cần khi upload tài liệu |
+| Docker Desktop | Docling | chỉ cần khi upload tài liệu |
 | cloudflared | link công khai | chỉ cần khi cho người ngoài vào |
 
-### 2. Lấy code và cài thư viện
+### 3.2. Lấy code và cài thư viện
 
 ```powershell
 git clone https://github.com/PlatypusHackathon26/LightRAG.git
@@ -45,27 +148,25 @@ ollama pull bge-m3
 
 `uv sync` lần sau sẽ gỡ các gói thêm ở dòng thứ năm: chạy lại dòng đó sau mỗi lần `uv sync`.
 
-### 3. Dữ liệu và cấu hình (không có trên GitHub)
+### 3.3. Dữ liệu và cấu hình (không có trên GitHub)
 
 | Thứ | Lấy ở đâu | Đặt ở đâu |
 |---|---|---|
 | Kho tri thức + tài liệu | file `denso_data_bundle_<ngày>.zip` do nhóm gửi | giải nén vào thư mục gốc repo (tạo `rag_storage/` và `denso/data/`) |
-| `.env` | tự tạo (dưới đây) hoặc xin nhóm qua kênh kín | thư mục gốc repo |
+| `.env` | tự tạo (dưới đây) | thư mục gốc repo |
 | API key NVIDIA | đăng ký miễn phí tại https://build.nvidia.com | dòng `NVIDIA_API_KEY=` trong `.env` |
-| `users.json` | chép `denso\gateway\users.example.json` | `denso\gateway\users.json`, đổi các token thành chuỗi ngẫu nhiên dài |
-
-Tự tạo `.env` (mọi giá trị DENSO nằm trong `denso/env.denso`, dòng sau ghi đè dòng trước):
+| `users.json` | chép `denso\gateway\users.example.json` | `denso\gateway\users.json`, đổi token thành chuỗi ngẫu nhiên dài |
 
 ```powershell
 Copy-Item env.example .env
-Get-Content denso\env.denso | Add-Content .env
-notepad .env      # thay NVIDIA_API_KEY=nvapi-put-your-own-key-here bằng key của bạn
+Get-Content denso\env.denso | Add-Content .env    # dòng sau ghi đè dòng trước
+notepad .env                                      # thay NVIDIA_API_KEY=nvapi-put-your-own-key-here
 ```
 
-Không có kho dữ liệu thì vẫn chạy được nhưng chatbot chưa có tài liệu: upload ở bước 6.
-Kho chỉ dùng được với đúng embedding `bge-m3` (1024 chiều); đổi model là phải nạp lại từ đầu.
+Không có kho dữ liệu thì vẫn chạy được nhưng chatbot chưa có tài liệu nào (upload ở mục 4.2).
+Kho chỉ dùng được với đúng embedding `bge-m3`; đổi model là phải nạp lại từ đầu.
 
-### 4. Cấu hình giao diện
+### 3.4. Cấu hình giao diện
 
 ```powershell
 cd lightrag_webui
@@ -81,274 +182,181 @@ VITE_AGENT_BASE_URL=http://127.0.0.1:9700
 VITE_AGENT_TOKEN=<token có "can_upload": true trong users.json>
 ```
 
-### 5. Chạy
+### 3.5. Chạy
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File denso\scripts\serve_chat.ps1 -WithUI
 ```
 
-Lệnh bật lần lượt proxy NVIDIA (:8899), reranker ngôn ngữ (:7998), LightRAG kho tri thức (:9621)
-và kho tra cứu (:9631), Agent Gateway (:9700) và giao diện (:5173), rồi in trạng thái từng dịch vụ.
-Mở http://localhost:5173 và hỏi thử: "Mô-men xoắn siết bu-lông SCV là bao nhiêu?" → 6,9–10,8 Nm,
+Mở http://localhost:5173 và hỏi thử: *"Mô-men xoắn siết bu-lông SCV là bao nhiêu?"* → 6,9–10,8 Nm,
 trích hướng dẫn SCV trang 4.
 
-| Tuỳ chọn của `serve_chat.ps1` | Tác dụng |
+---
+
+## 4. Sử dụng hằng ngày
+
+### 4.1. Bật, tắt, khởi động lại
+
+| Việc | Lệnh |
 |---|---|
-| `-WithUI` | bật thêm giao diện dev :5173 |
-| `-Restart` | khởi động lại LightRAG và gateway (sau khi sửa `.env`, prompt hay code gateway) |
-| `-Tunnel` | link công khai qua Cloudflare; dòng `demo link` là link Vercel dùng được ngay |
-| `-GuestUpload` | khách (không token) được upload và xoá tài liệu – chỉ dùng khi cả nhóm test |
-| `-CorsRegex '<regex>'` | cho phép thêm tên miền giao diện khác (ví dụ project Vercel riêng) |
+| Bật backend + giao diện | `serve_chat.ps1 -WithUI` |
+| Khởi động lại sau khi sửa `.env`, prompt hay code gateway | `serve_chat.ps1 -Restart` |
+| Cho người ngoài vào (link công khai) | `serve_chat.ps1 -Tunnel` – dòng `demo link` dùng được ngay |
+| Cho khách upload / xoá (cả nhóm test) | thêm `-GuestUpload` – **ai có link cũng xoá được tài liệu** |
+| Cho phép tên miền giao diện khác | thêm `-CorsRegex '<regex>'` |
+| Bật Docling (cần khi upload) | `denso\start.ps1 -DoclingOnly` |
+| Tắt Docling (trả lại ~2 GB RAM) | `docker stop docling-serve` |
 
-### 6. Upload tài liệu (cần Docling)
+Các lệnh `.ps1` chạy bằng `powershell -ExecutionPolicy Bypass -File denso\scripts\<tên>.ps1 …`.
+Dịch vụ đang chạy thì `serve_chat.ps1` giữ nguyên, chỉ bật những gì chưa chạy.
 
-```powershell
-powershell -ExecutionPolicy Bypass -File denso\start.ps1 -DoclingOnly
-```
+| Cổng | Dịch vụ |
+|---|---|
+| 5173 | giao diện dev |
+| 9700 | Agent Gateway |
+| 9621 / 9631 | LightRAG kho tri thức / kho tra cứu theo xe |
+| 8899 | proxy API NVIDIA |
+| 7998 | reranker ngôn ngữ |
+| 5001 | Docling |
+| 11434 | Ollama |
 
-Sau đó kéo file vào Knowledge Hub trên giao diện: PDF, DOCX, XLSX, TXT, ảnh. Trang scan và ảnh
-chụp của tài liệu cấp 1 được đọc bằng mô hình thị giác NVIDIA (1–4 phút mỗi trang). Docling
-chiếm khoảng 2 GB RAM: tắt bằng `docker stop docling-serve` khi không upload.
+### 4.2. Upload và xoá tài liệu
 
-### 7. Kiểm tra lại độ chính xác
+Kéo file vào **Knowledge Hub**: PDF, DOCX, PPTX, XLSX, HTML, MD, TXT, ảnh. Một PDF 40 trang hỏi
+được sau khoảng 2–3 phút; trang scan và ảnh chụp (cấp 1) thêm 1–4 phút mỗi trang. Xoá trong
+Knowledge Hub gỡ tài liệu khỏi mọi kho đang chạy; file gốc trong `data/raw/` được giữ lại.
 
-```powershell
-.venv\Scripts\python denso\scripts\eval_lookup.py --name thu      # 10 câu tra cứu theo xe
-.venv\Scripts\python denso\scripts\eval_language.py --name thu    # trả lời đúng ngôn ngữ
-.venv\Scripts\python -m pytest denso\tests -q -o addopts=""       # test tự động
-```
-
-Benchmark 30 câu: xem mục Benchmark bên dưới. Kết quả nằm trong `denso/results/`.
-
-### 8. Giao diện trên Vercel
+### 4.3. Giao diện trên Vercel
 
 Vercel chỉ chứa giao diện; backend vẫn chạy trên máy có `serve_chat.ps1`. Project Vercel cần
-Root Directory `lightrag_webui` và hai biến môi trường `VITE_DEMO_MODE=true`,
-`VITE_AGENT_LIVE=true` (thêm biến xong phải Redeploy). Mở link kèm `?gateway=<link tunnel>`.
-Tên miền Vercel khác project gốc phải được cho phép bằng `-CorsRegex`, nếu không trình duyệt chặn.
+Root Directory `lightrag_webui` và hai biến `VITE_DEMO_MODE=true`, `VITE_AGENT_LIVE=true`
+(thêm biến xong phải **Redeploy**). Mở link kèm `?gateway=<link tunnel>`; tên miền Vercel ngoài
+project gốc phải được cho phép bằng `-CorsRegex`.
 
-### Sự cố thường gặp
+---
 
-| Hiện tượng | Cách xử lý |
-|---|---|
-| Giao diện Vercel ra dữ liệu mẫu / bản cũ | thiếu `VITE_DEMO_MODE` / `VITE_AGENT_LIVE` hoặc chưa Redeploy; link thiếu `?gateway=` |
-| "the answering LLM returned nothing" | hết hạn mức hoặc API chậm: xem `denso/logs/llm_proxy_nvidia_api_key.jsonl`, hỏi lại sau ít phút |
-| Upload báo "Docling is not running" | chạy `denso\start.ps1 -DoclingOnly` |
-| `start.ps1` báo Docker không lên | mở Docker Desktop xem có hộp thoại cần bấm; sau lần tắt máy đột ngột script tự dời socket hỏng |
-| Cổng đã bị chiếm | `serve_chat.ps1 -Restart`, hoặc tắt tiến trình đang giữ cổng |
-| Máy chậm / treo | đóng bớt ứng dụng; không chạy LLM trả lời trên máy (xem mục bên dưới) |
-| "Tài khoản này không có quyền upload tài liệu" | dùng token có `can_upload` trong `.env.development.local`, hoặc chạy gateway với `-GuestUpload` |
+## 5. Pipeline xử lý tài liệu
 
-Docker Desktop trên máy này: nếu bị tắt đột ngột, nó để lại socket hỏng và lần sau báo
-"The file cannot be accessed by the system". `start.ps1` tự đổi tên `%LOCALAPPDATA%\Docker\run`
-(và `docker-secrets-engine`) trước khi bật lại; nên thoát Docker bằng Quit ở khay hệ thống.
-
-## Pipeline xử lý dữ liệu (raw → sạch → kho tri thức)
-
-```
-data/raw/[level_N/]*  ─► pipeline/parse.py  ─► data/parsed/<tên>/docling.{md,json}, meta.json
-                      ─► pipeline/clean.py  ─► data/cleaned_md/<tên>.md      (nạp vào LightRAG)
-                                             ─► data/cleaned_json/<tên>.json  (schema A3 output_format.json)
-                                             ─► data/parsed/<tên>/clean_report.json (đã bỏ/sửa gì)
-                      ─► scripts/ingest.py  ─► LightRAG workspace level_N … level_3
-```
+Upload trên giao diện tự chạy chuỗi này cho từng file. Chạy tay cho cả thư mục:
 
 ```powershell
-.venv\Scripts\python denso\pipeline\parse.py denso\data\raw      # cần docling-serve đang chạy
+.venv\Scripts\python denso\pipeline\parse.py --level 1 denso\data\raw      # cần Docling
+.venv\Scripts\python denso\pipeline\ocr_pages.py --docs "<tên file không đuôi>"   # trang scan (cấp 1)
 .venv\Scripts\python denso\pipeline\clean.py
-.venv\Scripts\python -m pytest denso\tests -q -o addopts=""
+.venv\Scripts\python denso\scripts\ingest.py --level 1 denso\data\cleaned_md
 ```
 
-`access_level` lấy từ thư mục `level_N` gần nhất (mặc định 1) hoặc `--level`.
+| Bước | Đầu vào → đầu ra | Ghi chú |
+|---|---|---|
+| `parse.py` | `data/raw/*` → `data/parsed/<tên>/docling.md, docling.json, meta.json` | PDF dài chia đoạn 20 trang, chạy lại tiếp được sau khi máy tắt đột ngột |
+| `ocr_pages.py` | trang không có lớp chữ → thay chữ Docling bằng chữ Vision 90B | bản Docling giữ ở `docling_ocr.md`; chỉ tài liệu cấp 1 |
+| `clean.py` | → `data/cleaned_md/<tên>.md` (nạp LightRAG), `cleaned_json/<tên>.json` (schema A3), `clean_report.json` | mỗi trang gắn `--- [Trang N \| ngôn ngữ: xx] ---` |
+| `ocr_images.py` | ảnh trong PDF → mô tả + chữ trong ảnh | chỉ tài liệu cấp 1 |
+| `ingest.py` | → kho LightRAG `level_N … level_3` | `--replace` thay bản cũ cùng tên |
 
-### Catalogue lớn và máy bị tắt đột ngột
-
-PDF dài hơn `--chunk-pages` (mặc định 20) được parse theo từng đoạn trang, mỗi
-đoạn lưu ngay vào `data/parsed/<tên>/parts/`. File được ghi qua tên tạm rồi
-đổi tên; `meta.json` ghi cuối cùng = file đã xong. docling-serve bị giới hạn
-6 CPU (`docker-compose.yml`) để giảm nhiệt.
-
-Nếu máy tắt giữa chừng:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File denso\start.ps1 -DoclingOnly   # tự dọn socket Docker hỏng
-.venv\Scripts\python denso\pipeline\parse.py --chunk-pages 20 --cooldown 15 denso\data\raw   # chạy lại y nguyên lệnh cũ
-```
-
-Chỉ mất đoạn trang đang dở; log nằm ở `denso/logs/parse_catalogues.log`.
+Cấp quyền lấy từ `--level`, hoặc thư mục `level_N` gần nhất (mặc định 1). Tài liệu cấp N được nạp
+vào kho cấp N đến 3; người dùng cấp K chỉ hỏi được kho cấp K.
 
 Quy tắc làm sạch (`clean.py`), rút từ lỗi thật trong output Docling:
 
 | Lỗi | Xử lý |
 |---|---|
-| `&gt;`, `\_` | unescape HTML / Markdown |
-| `<!-- image -->` | bỏ |
-| `P r i n t e d i n B`, `D E A` | bỏ dòng chữ tách rời (không tính ký hiệu gạch đầu dòng) |
-| `0`, `o`, `审` | bỏ dòng ≤ 2 ký tự chữ/số, ký tự CJK lạc trong trang không phải CJK |
-| `Ref ri gerant`, `t ype:`, `comfort able` | ghép từ khi có bằng chứng từ điển (wordfreq), không áp dụng cho tiếng Việt |
-| `A /C` | `A/C` |
-| header/footer lặp | bỏ dòng ngắn lặp ≥ nửa số trang |
-| bảng | chuẩn hoá Markdown gọn, ghi `tables[].page` |
+| `&gt;`, `\_` | bỏ escape HTML / Markdown |
+| `P r i n t e d i n B` | bỏ dòng chữ tách rời (công thức có `=` được giữ) |
+| dòng ≤ 2 ký tự, ký tự CJK lạc | bỏ |
+| `Ref ri gerant`, `comfort able` | ghép từ khi có bằng chứng từ điển; không áp dụng tiếng Việt |
+| header/footer lặp | bỏ dòng ngắn lặp ở ≥ nửa số trang |
+| bảng | chuẩn hoá Markdown, giữ `\|` trong ô |
 
-Không lọc ngôn ngữ: benchmark hỏi đối chiếu phần tiếng Nga/Đức/Pháp. Mỗi trang
-được gắn `--- [Trang N | ngôn ngữ: xx] ---` trong `.md`; `cleaned_text` của JSON
-giữ đúng định dạng `--- [Trang N] ---` của schema.
+Không lọc ngôn ngữ: hướng dẫn đa ngôn ngữ giữ mọi phần, mỗi trang được gắn ngôn ngữ của nó.
 
-Hạn chế đã biết: từ IN HOA bị cắt ở mép cột trong lớp text của PDF gốc
-(`LEAKAG`, `INSTALLATIO`) chưa được sửa.
+---
 
-### Không chạy LLM trả lời trên máy local
+## 6. Đánh giá độ chính xác
 
-Ba lần tắt nguồn đột ngột ngày 2026-10-07 đều xảy ra khi qwen3:8b trả lời câu hỏi
-(prompt ~16K token): runner của Ollama chiếm thêm ~4.75 GB RAM hệ thống ngay lúc bắt đầu
-suy luận, RAM trống tụt dưới 1 GB rồi máy tắt cứng. Vai trò QUERY/KEYWORD chỉ chạy qua API
-(proxy `tools/llm_rate_proxy.py`); Ollama local chỉ giữ bge-m3 cho embedding. Trước khi
-chạy dài: đóng bớt tab trình duyệt và app nặng; không chạy Docling (Docker) cùng lúc.
+| Bài đo | Lệnh | Kết quả gần nhất |
+|---|---|---|
+| Benchmark 30 câu (tiếng Anh) | `run_benchmark.py --name <tên> --modes naive` (model giám khảo: `--judge-model`, xem `--help`) | LLM giám khảo 98%, tìm đúng tài liệu 100% |
+| Chấm benchmark theo dữ kiện | `score_facts.py --name <tên>` | đủ dữ kiện 84% |
+| Tra cứu theo xe (10 câu) | `eval_lookup.py --name <tên>` | 10/10 |
+| Đúng ngôn ngữ (10 câu Việt/Anh/Nhật) | `eval_language.py --name <tên>` | 9–10/10 |
+| Tìm kiếm, không gọi LLM | `eval_retrieval.py`, `eval_rerank.py` | reranker ngôn ngữ: hit@1 68% → 75% |
+| Test tự động | `.venv\Scripts\python -m pytest denso\tests -q -o addopts=""` | |
 
-## Nạp tài liệu
+Các script nằm trong `denso\scripts\` và chạy bằng `.venv\Scripts\python`. Kết quả ghi vào
+`denso/results/`. Benchmark gửi đúng prompt như gateway, nên điểm là điểm của demo; "tìm đúng tài
+liệu" chỉ đo tài liệu được truy xuất, không đo trang trích dẫn trên giao diện. Bộ 30 câu đã dùng
+để chọn cấu hình, nên con số trên một bộ câu chưa từng dùng (lần chạy đầu: 89% đủ dữ kiện, 87%
+đúng trang) phản ánh thực tế hơn.
 
-Tài liệu cấp N được nạp vào các workspace `level_N` … `level_3`; người dùng có
-quyền K chỉ truy vấn `level_K`.
+---
 
-```powershell
-.venv\Scripts\python denso\pipeline\parse.py --level 1 denso\data\raw
-.venv\Scripts\python denso\pipeline\clean.py
-.venv\Scripts\python denso\scripts\ingest.py --level 1 denso\data\cleaned_md
-```
+## 7. Agent Gateway (API cho giao diện)
 
-(Upload từ giao diện chạy đúng chuỗi này cho từng file.)
+`gateway/app.py` (FastAPI, :9700) là backend mà `lightrag_webui/src/api/agent.ts` gọi; giao diện
+không bao giờ gọi LightRAG trực tiếp. Đặc tả đầy đủ: `docs/AGENT_GATEWAY_SPEC.md`.
 
-## Benchmark
-
-```powershell
-.venv\Scripts\python denso\scripts\run_benchmark.py --server http://127.0.0.1:9621 --name level_1 --modes naive --judge-model z-ai/glm-5.3-flash --judge-reasoning ""
-.venv\Scripts\python denso\scripts\score_facts.py --name level_1
-```
-
-Kết quả: `denso/results/benchmark_<name>.md` (điểm judge, tỉ lệ trúng nguồn, độ trễ, theo
-loại câu hỏi). Benchmark gửi đúng prompt như gateway, nên điểm là điểm của demo. "Trúng nguồn"
-chỉ đo tài liệu được truy xuất, không đo trang trích dẫn hiển thị trên giao diện.
-
-## Lưu ý bảo mật
-
-- **Phân quyền nằm ở Agent Gateway**: mỗi cấp là một server LightRAG riêng, gateway chọn
-  server theo token trong `gateway/users.json` (không tin cấp do client gửi). Các server
-  LightRAG chỉ bind localhost; đặt `LIGHTRAG_API_KEY` nếu có thể bị gọi trực tiếp.
-- Image Docker không chứa `denso/data`, log, `users.json` hay file `.env` (`.dockerignore`).
-- Không bật MinerU chế độ `official` (gửi file lên cloud).
-
-## Giới hạn phần cứng (laptop 16GB RAM)
-
-- Chạy tuần tự: Docling parse xong rồi mới index. `MAX_ASYNC_LLM=1`,
-  `MAX_PARALLEL_INSERT=1` trong `.env`.
-- Catalogue vài trăm trang (Spark Plug, Wiper, AC Components) rất lâu trên CPU;
-  nên thử với các tài liệu nhỏ trước.
-
-## Agent Gateway (backend cho UI agentic)
-
-`denso/gateway/app.py` (FastAPI, cổng 9700) là backend mà `lightrag_webui/src/api/agent.ts`
-gọi tới; UI không bao giờ gọi LightRAG trực tiếp.
-
-| Endpoint | Nguồn |
+| Endpoint | Tác dụng |
 |---|---|
-| `POST /agent/chat` | LightRAG `/query` của server theo cấp quyền (`naive`, đổi bằng `DENSO_KNOWLEDGE_MODE`); câu hỏi tra xe/mã ("fits a 2018 Toyota…", "cross reference", "lắp cho xe nào") → server tra cứu (`naive`). Trả `content`, `citations` (documentName, pages từ dấu trang, excerpt), `events` |
-| `GET/POST /agent/documents` | danh sách tài liệu (KnowledgeDocument) / upload cộng dồn level N..3 (cần `can_upload`) |
-| `GET /agent/incidents`, `/agent/telemetry/{id}` | `gateway/sample_ops.json` (dữ liệu MẪU) |
-| `POST /agent/actions/{id}/approve|reject` | chỉ ghi `logs/actions.jsonl` – **không bao giờ gửi lệnh PLC** |
-| `GET /agent/health` | trạng thái các server LightRAG |
+| `POST /agent/chat` | hỏi đáp: chọn kho theo cấp, câu hỏi tra xe sang tầng tra cứu; trả `content`, `citations` (tài liệu, trang, trích đoạn), `events`, `grounded` |
+| `GET /agent/documents` | danh sách tài liệu, kể cả upload đang xử lý |
+| `POST /agent/documents` | upload qua pipeline (cần `can_upload`); `GET /agent/documents/jobs/{id}` theo dõi |
+| `DELETE /agent/documents/{id}` | xoá khỏi mọi kho đang chạy; báo cấp nào chưa kiểm tra được |
+| `GET /agent/incidents`, `/agent/telemetry/{id}` | dữ liệu MẪU (`sample_ops.json`) |
+| `POST /agent/actions/{id}/approve\|reject` | chỉ ghi log – **không bao giờ gửi lệnh PLC** |
+| `GET /agent/health` | trạng thái các kho LightRAG |
 
-Cấp quyền lấy từ `Authorization: Bearer <token>` tra trong `gateway/users.json`
-(gitignored; mẫu ở `users.example.json`); không có token → `DENSO_GUEST_LEVEL`.
-Client không thể tự chọn cấp quyền.
+---
 
-```powershell
-$env:PYTHONIOENCODING="utf-8"; .venv\Scripts\python denso\gateway\app.py
-```
+## 8. Bảo mật và phân quyền
 
-Phía UI cần: thêm `/agent` vào `VITE_API_ENDPOINTS` (proxy dev tới :9700) và cho
-`agenticStore.ts` gọi `api/agent.ts` thay vì mock.
+- **Phân quyền ở gateway:** cấp lấy từ `Authorization: Bearer <token>` tra trong
+  `gateway/users.json`; không có token là khách (`DENSO_GUEST_LEVEL`, mặc định 1). Trình duyệt
+  không tự chọn được cấp. Mỗi cấp là một kho LightRAG riêng.
+- **Lịch sử hội thoại** tách theo người dùng; xoá tài liệu xoá luôn lịch sử có thể trích nó.
+- **API miễn phí chỉ cho cấp 1:** trả lời, đọc ảnh và trang scan; cấp 2/3 không gửi ra ngoài.
+- **Không commit bí mật:** `.env`, `users.json`, `data/`, `rag_storage/` đều gitignored;
+  `.dockerignore` loại chúng khỏi image.
 
-## Benchmark: kết quả và cách chạy lại
+---
 
-Kết quả lượt đầu (`results/benchmark_level_1_knowledge.*`): naive 30/30 câu, mix
-dừng ở Q25 vì Cerebras hết quota ngày. Trên 24 câu chạy cả hai mode: naive judge 98% /
-dữ kiện 91%, mix 83% / 73% – nhưng mix bị thiệt: với `MAX_TOTAL_TOKENS=16000`, ngân
-sách mặc định 6000 (entity) + 8000 (relation) chỉ chừa 2 chunk văn bản gốc.
+## 9. Giới hạn và lưu ý
 
-Chạy lại mix công bằng (naive giữ nguyên trong `benchmark_level_1_budgetfix.json`):
+- **Không chạy LLM trả lời trên laptop:** ba lần máy tắt đột ngột (2026-10-07) khi Ollama chạy
+  qwen3:8b với prompt khoảng 16K token – RAM trống tụt dưới 1 GB. Ollama chỉ giữ bge-m3.
+- **RAM:** Docling khoảng 2 GB; giữ RAM trống trên 2 GB, đóng bớt trình duyệt khi upload nhiều.
+- **API miễn phí:** khoảng 20–25 giây một câu qua giao diện, có lúc 1–3 phút.
+- **Câu trả lời có thể ghép sai** hai dữ kiện đúng thành một ý sai; luôn kiểm tra trang được trích.
+- **Chưa có:** chữ viết tay (chưa có mẫu đo), âm thanh, kho cấp 2/3 đang chạy.
 
-```powershell
-# 1. key mới trong .env (EXTRACT_LLM_BINDING_API_KEY=csk-..., không kèm < >)
-# 2. proxy với hạn mức mới, không fallback
-.venv\Scripts\python denso\tools\llm_rate_proxy.py --fresh-key --fallback-model ""
-# 3. khởi động lại server level_1 để nhận MAX_ENTITY_TOKENS=3000 / MAX_RELATION_TOKENS=4000
-$env:WORKSPACE="level_1"; $env:PORT="9621"; $env:PYTHONIOENCODING="utf-8"; .venv\Scripts\lightrag-server.exe
-# 4. chỉ chạy mix (naive đã có sẵn trong file); --no-rerank giữ đúng cách truy xuất
-#    của lượt naive (không reranker, chunk_top_k=10) dù .env đã bật reranker
-.venv\Scripts\python denso\scripts\run_benchmark.py --name level_1_budgetfix --modes mix --no-rerank
-.venv\Scripts\python denso\scripts\score_facts.py --name level_1_budgetfix
-```
+---
 
-Đo hiệu quả reranker đầu-cuối: chạy cả hai mode **không** có `--no-rerank` với tên
-khác (ví dụ `level_1_langpref`) rồi so với `level_1_budgetfix`.
+## 10. Sự cố thường gặp
 
-Thí nghiệm prompt (`USER_PROMPT_PREFIX_FILE=denso_answer.md`) ảnh hưởng mọi mode nên
-chạy riêng với tên khác, cả naive lẫn mix.
-
-## Reranker ưu tiên ngôn ngữ
-
-Catalogue/hướng dẫn đa ngôn ngữ lặp cùng một mục bằng tối đa 17 thứ tiếng; embedding
-đa ngôn ngữ xếp bản dịch ngang bản gốc nên đẩy chunk đúng ngôn ngữ ra khỏi ngữ cảnh.
-`tools/lang_rerank.py` (endpoint `/rerank` kiểu Cohere, cổng 7998) giữ thứ tự vector
-nhưng đưa chunk có `ngôn ngữ: xx` trùng ngôn ngữ câu hỏi lên trước – trừ khi câu hỏi
-nhắc tới ngôn ngữ khác ("the Russian section", "tiếng Đức", "other languages"), khi
-đó giữ nguyên thứ tự. Không gọi LLM, không cần GPU, ~0 ms/câu.
-
-```powershell
-.venv\Scripts\python denso\tools\lang_rerank.py      # start.ps1 tự bật
-# .env: RERANK_BINDING=cohere, RERANK_MODEL=denso-lang-pref,
-#       RERANK_BINDING_HOST=http://127.0.0.1:7998/rerank, CHUNK_TOP_K=30
-```
-
-`CHUNK_TOP_K=30` là tập ứng viên để sắp xếp lại; `MAX_TOTAL_TOKENS` vẫn quyết định số
-chunk vào LLM (~10–12). Service tắt thì LightRAG giữ thứ tự vector (chỉ log cảnh báo).
-
-Kết quả trên 28 câu có đáp án (naive, đo trực tiếp qua `/query/data` của server):
-
-| | hit@1 | trích dẫn nằm trong ngữ cảnh | đủ mọi trích dẫn |
-|---|---|---|---|
-| không reranker (`chunk_top_k=10`) | 68% | 93% | 93% |
-| ưu tiên ngôn ngữ | 75% | 100% | 100% |
-
-Q6, Q20 từ ngoài ngữ cảnh lên hạng 7; câu hỏi chéo ngôn ngữ Q11/Q27/Q28 giữ nguyên.
-Cross-encoder bge-reranker-v2-m3 trên CPU chậm (~84 s/câu) và kém hơn ở hit@1 nên
-không dùng. So sánh offline: `scripts/eval_rerank.py --strategies baseline lang lang-pref`.
-
-## Chạy bằng Docker
-
-> **Chưa dùng được cho demo:** compose còn theo cấu hình cũ (proxy Cerebras, reranker
-> Infinity) và chưa có reranker ngôn ngữ, chưa chạy thử trọn vẹn. Dùng `serve_chat.ps1` ở trên.
-
-`denso/docker-compose.yml` (chạy từ thư mục gốc repo). Image LightRAG build từ
-`Dockerfile` gốc (đã có WebUI, gồm trang agentic); pipeline/gateway/proxy dùng
-`denso/Dockerfile`. Dữ liệu nằm trên host: `rag_storage/` (index có sẵn được dùng lại),
-`denso/data`, `denso/results`, `denso/logs`. Mọi cổng chỉ bind `127.0.0.1`.
-
-```powershell
-Copy-Item env.example .env; Get-Content denso\env.denso | Add-Content .env   # cấu hình host
-Copy-Item denso\compose.env.example denso\compose.env                        # override cho container
-docker compose -f denso/docker-compose.yml --profile proxy up -d             # LightRAG level_1 + gateway + proxy
-```
-
-| Profile | Thêm gì |
+| Hiện tượng | Cách xử lý |
 |---|---|
-| (mặc định) | `lightrag-level1` :9621, `gateway` :9700 |
-| `proxy` | rate proxy free-tier (cần khi EXTRACT/QUERY/KEYWORD dùng API – xem `compose.env`) |
-| `parse` | `docling` :5001 + job `pipeline` (parse/clean/check_evidence) |
-| `rerank` | Infinity + bge-reranker-v2-m3 :7997 (CPU, chậm ~5 s/chunk) |
-| `lookup` | server tầng tra cứu :9631 |
-| `levels` | server level_2 :9622, level_3 :9623 |
-| `local-llm` | Ollama CPU trong container (máy không có Ollama trên host) |
+| Giao diện Vercel ra dữ liệu mẫu / bản cũ | thiếu `VITE_DEMO_MODE` / `VITE_AGENT_LIVE` hoặc chưa Redeploy; link thiếu `?gateway=` |
+| "the answering LLM returned nothing" | hết hạn mức hoặc API chậm: xem `denso/logs/llm_proxy_nvidia_api_key.jsonl`, hỏi lại sau ít phút |
+| Upload báo "Docling is not running" | `denso\start.ps1 -DoclingOnly` |
+| Docker Desktop không lên | mở Docker Desktop xem hộp thoại cần bấm; sau lần tắt máy đột ngột `start.ps1` tự dời socket hỏng (`%LOCALAPPDATA%\Docker\run`) |
+| Cổng đã bị chiếm | `serve_chat.ps1 -Restart`, hoặc tắt tiến trình đang giữ cổng |
+| "Tài khoản này không có quyền upload tài liệu" | token có `can_upload` trong `.env.development.local`, hoặc gateway chạy `-GuestUpload` |
+| Trình duyệt báo lỗi CORS | tên miền giao diện chưa được cho phép: `-CorsRegex` |
+| Máy chậm / treo | đóng bớt ứng dụng, tắt Docling khi không upload |
 
-`.env` giữ giá trị chạy trực tiếp trên máy (localhost); `compose.env` chỉ ghi đè tên
-service/đường dẫn container (đúng quy ước AGENTS.md).
+Nên thoát Docker bằng **Quit** ở khay hệ thống, không tắt ngang.
+
+---
+
+## 11. Docker (chưa dùng cho demo)
+
+`docker-compose.yml`, `Dockerfile`, `compose.env.example` dựng LightRAG + gateway + proxy trong
+container, dữ liệu để trên máy (`rag_storage/`, `denso/data`). **Bộ này còn theo cấu hình cũ**
+(proxy Cerebras, reranker Infinity), chưa có reranker ngôn ngữ và chưa chạy thử trọn vẹn – dùng
+`serve_chat.ps1` cho demo. Cập nhật Docker là việc cần làm cho yêu cầu "tài liệu tái lập" và chạy
+trên máy chủ.
+
+```powershell
+Copy-Item denso\compose.env.example denso\compose.env
+docker compose -f denso/docker-compose.yml --profile proxy up -d
+```
