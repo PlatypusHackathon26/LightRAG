@@ -8,17 +8,27 @@ Mọi phần riêng của DENSO nằm trong `denso/`; lõi LightRAG (`lightrag/`
 
 ## Mục lục
 
-1. [Kiến trúc](#1-kiến-trúc)
-2. [Cây thư mục](#2-cây-thư-mục)
-3. [Chạy từ A đến Z](#3-chạy-từ-a-đến-z)
-4. [Sử dụng hằng ngày](#4-sử-dụng-hằng-ngày)
-5. [Pipeline xử lý tài liệu](#5-pipeline-xử-lý-tài-liệu)
-6. [Đánh giá độ chính xác](#6-đánh-giá-độ-chính-xác)
-7. [Agent Gateway (API cho giao diện)](#7-agent-gateway-api-cho-giao-diện)
-8. [Bảo mật và phân quyền](#8-bảo-mật-và-phân-quyền)
-9. [Giới hạn và lưu ý](#9-giới-hạn-và-lưu-ý)
-10. [Sự cố thường gặp](#10-sự-cố-thường-gặp)
-11. [Docker (chưa dùng cho demo)](#11-docker-chưa-dùng-cho-demo)
+- [DENSO A3 – Knowledge Agent (RAG chatbot)](#denso-a3--knowledge-agent-rag-chatbot)
+  - [Mục lục](#mục-lục)
+  - [1. Kiến trúc](#1-kiến-trúc)
+  - [2. Cây thư mục](#2-cây-thư-mục)
+  - [3. Hướng dẫn chạy](#3-hướng-dẫn-chạy)
+    - [3.1. Cài phần mềm (một lần)](#31-cài-phần-mềm-một-lần)
+    - [3.2. Lấy code và cài thư viện](#32-lấy-code-và-cài-thư-viện)
+    - [3.3. Dữ liệu và cấu hình (không có trên GitHub)](#33-dữ-liệu-và-cấu-hình-không-có-trên-github)
+    - [3.4. Cấu hình giao diện](#34-cấu-hình-giao-diện)
+    - [3.5. Chạy](#35-chạy)
+  - [4. Sử dụng hằng ngày](#4-sử-dụng-hằng-ngày)
+    - [4.1. Bật, tắt, khởi động lại](#41-bật-tắt-khởi-động-lại)
+    - [4.2. Upload và xoá tài liệu](#42-upload-và-xoá-tài-liệu)
+    - [4.3. Giao diện trên Vercel](#43-giao-diện-trên-vercel)
+  - [5. Pipeline xử lý tài liệu](#5-pipeline-xử-lý-tài-liệu)
+  - [6. Đánh giá độ chính xác](#6-đánh-giá-độ-chính-xác)
+  - [7. Agent Gateway (API cho giao diện)](#7-agent-gateway-api-cho-giao-diện)
+  - [8. Bảo mật và phân quyền](#8-bảo-mật-và-phân-quyền)
+  - [9. Giới hạn và lưu ý](#9-giới-hạn-và-lưu-ý)
+  - [10. Sự cố thường gặp](#10-sự-cố-thường-gặp)
+  - [11. Docker (chưa dùng cho demo)](#11-docker-chưa-dùng-cho-demo)
 
 ---
 
@@ -119,7 +129,7 @@ denso/
 
 ---
 
-## 3. Chạy từ A đến Z
+## 3. Hướng dẫn chạy
 
 Kết quả cuối: chatbot ở http://localhost:5173 trả lời từ cùng kho tài liệu với máy demo.
 Cần Windows, khoảng 16 GB RAM (còn trống ít nhất 4 GB khi chạy) và mạng Internet.
