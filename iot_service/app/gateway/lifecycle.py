@@ -3,28 +3,38 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
+from app.agent.agent_analyzer import AgentAnalyzer
 from app.agent.rule_analyzer import RuleAnalyzer
 from app.commands import command_dispatcher, validate_command_guardrails
 from app.config import evaluate_metric_status, load_machines_config, settings
 from app.db import DatabaseManager
 from app.gateway.actions import ActionService
+from app.stream import broadcaster
 
 logger = logging.getLogger("app.gateway.lifecycle")
 
 
 class IncidentLifecycleManager:
     """
-    Manages the lifecycle of incidents, automatic playbook analysis,
+    Manages the lifecycle of incidents, automatic ReAct Agent or playbook analysis,
     HITL gates, autonomy modes, and background monitoring.
     """
 
     def __init__(self, db: DatabaseManager, action_service: ActionService):
         self.db = db
         self.action_service = action_service
-        self.analyzer = RuleAnalyzer(playbooks_path="config/playbooks.yaml")
+        self.rule_analyzer = RuleAnalyzer(playbooks_path="config/playbooks.yaml")
+        self.agent_analyzer = AgentAnalyzer(rule_analyzer=self.rule_analyzer)
         self.running = False
         self._loop_task: Optional[asyncio.Task] = None
         self._lock = asyncio.Lock()
+
+    @property
+    def analyzer(self):
+        """Dynamically select analyzer based on AGENT_MODE setting."""
+        if settings.AGENT_MODE == "rules":
+            return self.rule_analyzer
+        return self.agent_analyzer
 
     async def start(self):
         self.running = True
@@ -73,12 +83,15 @@ class IncidentLifecycleManager:
                         "detail": event_dict.get("message", ""),
                     },
                 )
+                inc_obj = await self.db.get_incident(inc_id)
+                if inc_obj:
+                    broadcaster.broadcast_incident("updated", inc_obj)
                 return
 
             # No open incident exists for this machine: create a new one
             logger.info(f"Opening new incident for machine {machine_id} on event {event_dict.get('error_code')}")
 
-            # Run Rule Analyzer
+            # Run Active Analyzer (AgentAnalyzer with fallback, or RuleAnalyzer)
             analysis = await self.analyzer.analyze_incident(
                 machine_id=machine_id,
                 trigger_event=event_dict,
@@ -109,6 +122,10 @@ class IncidentLifecycleManager:
                 "tags": analysis.tags,
             })
 
+            inc_obj = await self.db.get_incident(inc_id)
+            if inc_obj:
+                broadcaster.broadcast_incident("created", inc_obj)
+
             # Audit log for incident creation
             await self.db.insert_audit_log(
                 actor="system",
@@ -138,6 +155,10 @@ class IncidentLifecycleManager:
                     "expires_at": expires_at,
                     "auto_executed": False,
                 })
+
+                act_obj = await self.db.get_action(action_id)
+                if act_obj:
+                    broadcaster.broadcast_action("proposed", act_obj)
 
                 await self.db.insert_audit_log(
                     actor="agent",
@@ -178,6 +199,9 @@ class IncidentLifecycleManager:
         if auto_count >= 2:
             logger.info(f"Auto-safe: Maximum 2 auto commands reached for incident {inc_id}. Keeping pending for HITL.")
             await self.db.update_incident(inc_id, {"status": "awaiting_approval"})
+            inc_obj = await self.db.get_incident(inc_id)
+            if inc_obj:
+                broadcaster.broadcast_incident("status_changed", inc_obj)
             return
 
         last_auto_time = await self.db.get_latest_auto_action_time(inc_id)
@@ -189,6 +213,9 @@ class IncidentLifecycleManager:
                     f"Auto-safe: Cooldown of 120s not met ({elapsed:.1f}s elapsed). Keeping pending for HITL."
                 )
                 await self.db.update_incident(inc_id, {"status": "awaiting_approval"})
+                inc_obj = await self.db.get_incident(inc_id)
+                if inc_obj:
+                    broadcaster.broadcast_incident("status_changed", inc_obj)
                 return
 
         logger.info(f"Auto-safe mode executing action {action_id} automatically for incident {inc_id} ({machine_id})")
@@ -243,6 +270,10 @@ class IncidentLifecycleManager:
                     act_id = pending_action["id"]
                     logger.info(f"Action {act_id} expired past TTL ({settings.ACTION_TTL_S}s).")
                     await self.db.update_action(act_id, {"status": "expired"})
+                    act_updated = await self.db.get_action(act_id)
+                    if act_updated:
+                        broadcaster.broadcast_action("expired", act_updated)
+
                     await self.db.insert_audit_log(
                         actor="system",
                         action="expire",
@@ -262,6 +293,9 @@ class IncidentLifecycleManager:
                     )
                     if inc["status"] == "awaiting_approval":
                         await self.db.update_incident(inc["id"], {"status": "active"})
+                        inc_updated = await self.db.get_incident(inc["id"])
+                        if inc_updated:
+                            broadcaster.broadcast_incident("status_changed", inc_updated)
 
     async def _check_incident_auto_mitigation(self):
         """
@@ -324,6 +358,9 @@ class IncidentLifecycleManager:
                     incident_id=inc["id"],
                     details={"reason": "All metrics recovered to normal range"},
                 )
+                inc_updated = await self.db.get_incident(inc["id"])
+                if inc_updated:
+                    broadcaster.broadcast_incident("resolved", inc_updated)
             elif not has_critical and inc["status"] == "acknowledged":
                 # Mitigated state: no longer critical, but root cause ticket open
                 pass

@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from pathlib import Path
 import sys
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -11,16 +12,17 @@ if sys.platform == "win32":
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.commands import command_dispatcher
-from app.config import settings
+from app.config import resolve_file_path, settings
 from app.db import db_manager
 from app.gateway.actions import action_service
 from app.gateway.lifecycle import IncidentLifecycleManager
 from app.gateway.router import router as gateway_router
 from app.ingest import MqttIngestService
 from app.monitor import ThresholdMonitor
-from app.routers import tools
+from app.routers import dashboard, tools
 
 logging.basicConfig(
     level=logging.INFO,
@@ -72,28 +74,54 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# CORS configuration
+cors_origins = ["*"]
+if settings.DASHBOARD_TOKEN.strip():
+    # Strict same-origin or localhost when token configured
+    cors_origins = [
+        f"http://localhost:{settings.GATEWAY_PORT}",
+        f"http://127.0.0.1:{settings.GATEWAY_PORT}",
+    ]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 
+# Include API Routers
 app.include_router(tools.router)
 app.include_router(gateway_router)
+app.include_router(dashboard.router)
+
+# Mount Static Files for Dashboard
+dashboard_dir = resolve_file_path("dashboard")
+if dashboard_dir.exists():
+    app.mount("/dashboard", StaticFiles(directory=str(dashboard_dir), html=True), name="dashboard")
+    logger.info(f"Mounted static dashboard at /dashboard from {dashboard_dir}")
+else:
+    logger.warning(f"Dashboard directory not found at {dashboard_dir}")
 
 
 @app.get("/health", tags=["Health"])
 @app.get("/api/v1/health", tags=["Health"])
 async def health_check():
+    db_status = "connected" if db_manager.is_connected else "in_memory"
+    mqtt_status = "connected" if ingest_service.is_connected else "connecting"
+    
+    # Degraded if running in in-memory mode
+    overall_status = "degraded" if db_status == "in_memory" else "ok"
+    
     return {
-        "status": "ok",
+        "status": overall_status,
         "service": "denso-iot-service",
         "version": "1.0.0",
         "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "database": "connected" if db_manager.is_connected else "in_memory_fallback",
-        "mqtt": "connected" if ingest_service.is_connected else "connecting",
+        "database": db_status,
+        "mqtt": mqtt_status,
+        "db_mode": "memory" if db_status == "in_memory" else "timescale",
     }
 
 
@@ -103,17 +131,17 @@ async def root():
         "name": "DENSO Compressor Test Bench IoT Service",
         "docs": "/docs",
         "health": "/health",
+        "dashboard": "/dashboard",
     }
 
 
 def start_server():
+    if sys.platform == "win32":
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     uvicorn.run(
         "app.main:app",
         host="0.0.0.0",
         port=settings.GATEWAY_PORT,
+        loop="none",
         reload=False,
     )
-
-
-if __name__ == "__main__":
-    start_server()

@@ -8,6 +8,7 @@ from fastapi import HTTPException, status
 from app.commands import command_dispatcher, validate_command_guardrails
 from app.config import load_machines_config, settings
 from app.db import DatabaseManager
+from app.stream import broadcaster
 
 logger = logging.getLogger("app.gateway.actions")
 
@@ -43,6 +44,9 @@ class ActionService:
             expires_at = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
         if expires_at and now > expires_at:
             await self.db.update_action(action_id, {"status": "expired"})
+            action_updated = await self.db.get_action(action_id)
+            if action_updated:
+                broadcaster.broadcast_action("expired", action_updated)
             await self.db.insert_audit_log(
                 actor="system",
                 action="expire",
@@ -81,6 +85,9 @@ class ActionService:
         )
         if not is_valid:
             await self.db.update_action(action_id, {"status": "failed"})
+            action_updated = await self.db.get_action(action_id)
+            if action_updated:
+                broadcaster.broadcast_action("failed", action_updated)
             await self.db.insert_audit_log(
                 actor=actor,
                 action="guardrail_reject",
@@ -102,6 +109,10 @@ class ActionService:
                 "decided_at": now,
             },
         )
+        action_updated = await self.db.get_action(action_id)
+        if action_updated:
+            broadcaster.broadcast_action("executing", action_updated)
+
         await self.db.insert_audit_log(
             actor=actor,
             action="approve",
@@ -136,6 +147,10 @@ class ActionService:
                     "ack": ack_res,
                 },
             )
+            action_updated = await self.db.get_action(action_id)
+            if action_updated:
+                broadcaster.broadcast_action("acked", action_updated)
+
             await self.db.insert_audit_log(
                 actor=actor,
                 action="ack",
@@ -159,6 +174,10 @@ class ActionService:
                 action["incident_id"],
                 {"status": "acknowledged"},
             )
+            inc_updated = await self.db.get_incident(action["incident_id"])
+            if inc_updated:
+                broadcaster.broadcast_incident("status_changed", inc_updated)
+
             return {"ack": f"ACK {ack_code}: {ack_message}"}
         else:
             # Command rejected or failed
@@ -169,6 +188,10 @@ class ActionService:
                     "ack": ack_res,
                 },
             )
+            action_updated = await self.db.get_action(action_id)
+            if action_updated:
+                broadcaster.broadcast_action("failed", action_updated)
+
             await self.db.insert_audit_log(
                 actor=actor,
                 action="command_failed",
@@ -213,6 +236,10 @@ class ActionService:
                 "decided_at": now,
             },
         )
+        action_updated = await self.db.get_action(action_id)
+        if action_updated:
+            broadcaster.broadcast_action("rejected", action_updated)
+
         await self.db.insert_audit_log(
             actor=actor,
             action="reject",
@@ -233,6 +260,10 @@ class ActionService:
             },
         )
         await self.db.update_incident(action["incident_id"], {"status": "active"})
+        inc_updated = await self.db.get_incident(action["incident_id"])
+        if inc_updated:
+            broadcaster.broadcast_incident("status_changed", inc_updated)
+
         return {"status": "ok"}
 
 

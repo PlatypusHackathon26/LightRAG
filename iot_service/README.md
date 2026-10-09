@@ -1,154 +1,90 @@
-# HỆ THỐNG IOT GIÁM SÁT VÀ PHẢN ỨNG SỰ CỐ BỆ THỬ MÁY NÉN DENSO (GIAI ĐOẠN 2: AGENT GATEWAY, HITL & CLOSED-LOOP CONTROL)
+# HỆ THỐNG IOT GIÁM SÁT VÀ PHẢN ỨNG SỰ CỐ BỆ THỬ MÁY NÉN DENSO (GIAI ĐOẠN 3 & 4: DASHBOARD PHÒNG ĐIỀU KHIỂN & AGENT REACT)
 
-> **Lưu ý quan trọng**: Dự án phục vụ cuộc thi Hackathon. Các chỉ số kỹ thuật vận hành, ngưỡng cảnh báo, mã lỗi và tên định danh thiết bị (`COMP-TB-01`, `COMP-TB-02`) trong dự án này là **GIẢ LẬP**, được xây dựng dựa trên nguyên lý hoạt động của catalogue và poster sự cố điều hòa DENSO, **không phải số liệu đo đạc thực tế bí mật của tập đoàn DENSO**. Toàn bộ các playbook phân tích luật là do nhóm biên soạn từ poster và catalogue tài liệu kỹ thuật, không phải quy trình vận hành chính thức của DENSO.
+> **Lưu ý quan trọng**: Dự án phục vụ cuộc thi Hackathon. Các chỉ số kỹ thuật vận hành, ngưỡng cảnh báo, mã lỗi và tên định danh thiết bị (`COMP-TB-01`, `COMP-TB-02`) trong dự án này là **GIẢ LẬP**, được xây dựng dựa trên nguyên lý hoạt động của catalogue và poster sự cố điều hòa DENSO, **không phải số liệu đo đạc thực tế bí mật của tập đoàn DENSO**. Toàn bộ các playbook và kiến thức neo là do nhóm biên soạn từ poster và catalogue tài liệu kỹ thuật, không phải quy trình vận hành chính thức của DENSO.
 
 ---
 
 ## 1. Tổng quan dự án
 
-Hệ thống IoT cho bệ thử máy nén DENSO là tầng hạ tầng thu thập viễn trắc (telemetry), phát hiện bất thường sớm, quản lý vòng đời sự cố (Incidents), phê duyệt hành động có sự can thiệp của con người (HITL - Human-In-The-Loop) và thực thi kiểm soát vòng kín (Closed-Loop Control) cho bệ thử nghiệm máy nén điều hòa không khí ô tô.
+Hệ thống IoT cho bệ thử máy nén DENSO là tầng hạ tầng thu thập viễn trắc (telemetry), phát hiện bất thường sớm, quản lý vòng đời sự cố (Incidents), chẩn đoán tự động bằng **Agent LLM theo vòng lặp ReAct**, tra cứu tri thức kỹ thuật qua **LightRAG**, phê duyệt hành động có sự can thiệp của con người (**HITL - Human-In-The-Loop**), thực thi kiểm soát vòng kín (**Closed-Loop Control**), và **Dashboard phòng điều khiển công nghiệp giám sát máy và hoạt động Agent theo thời gian thực (Giai đoạn 4A & 4B)**.
 
-Ở **Giai đoạn 2**, hệ thống dựng tầng **Agent Gateway** (cổng kết nối trực tiếp với giao diện WebUI), hiện thực vòng đời sự cố hoàn chỉnh, bộ phân tích theo luật (Playbook Rule-based Analyzer) trích dẫn tài liệu neo kỹ thuật DENSO, rào chắn an toàn (Safety Guardrails) độc lập, cơ chế chống bấm đúp (Idempotent), giới hạn quyền tự chủ và nhật ký kiểm toán (Audit Log).
+---
 
-### Sơ đồ kiến trúc Giai đoạn 2 (Architecture & Closed-Loop Control)
+## 2. Dashboard phòng điều khiển công nghiệp (Giai đoạn 4A & 4B)
 
-```mermaid
-flowchart TD
-    subgraph EdgeDevice["Bệ thử máy nén (Simulator)"]
-        SIM["Simulator Bệ thử Máy nén\n(COMP-TB-01 / COMP-TB-02)"]
-    end
+Dashboard là giao diện quan sát trực quan thời gian thực dành cho kỹ sư vận hành trong phòng điều khiển, được thiết kế theo các nguyên tắc:
+- **Chỉ đọc tuyệt đối (Read-Only)**: Mọi endpoint API và giao diện Dashboard hoàn toàn chỉ phục vụ tác vụ đọc (`GET`). Không có bất kỳ nút bấm, form hay API nào gửi lệnh can thiệp bệ thử, thay đổi kịch bản hay phê duyệt/từ chối hành động.
+- **Minh bạch hoạt động của Agent**: Người vận hành trên Dashboard theo dõi trực tiếp Agent đang làm gì (kết luận nguyên nhân, độ tin cậy, lệnh đề xuất, đếm ngược thời hạn HITL, mốc thực thi và kết quả ACK), nhưng **không thực hiện phê duyệt/từ chối tại đây** (việc phê duyệt và tương tác hội thoại thuộc về WebUI của nhóm).
+- **Ý nghĩa trạng thái "Đã giảm nhẹ" (Mitigated) so với "Bình thường" (Normal)**:
+  - Khi sự cố xảy ra, Agent đề xuất hoặc tự động hạ tốc độ máy nén (ví dụ `SET_RPM 1000`).
+  - Sau khi hạ tốc độ, các chỉ số nguy cấp (`critical`) như nhiệt độ xả và áp suất xả giảm xuống vùng an toàn hơn, nhưng nguyên nhân gốc rễ (như hỏng quạt dàn ngưng, rò rỉ gas) vẫn còn tồn tại.
+  - Máy chuyển sang trạng thái **🛡 Đã giảm nhẹ** (hiển thị màu xanh dương nổi bật, khác với **✓ Bình thường** màu xanh lục). Điều này nhắc nhở kỹ sư rằng máy đang vận hành ở chế độ giảm tải tạm thời và phiếu sửa chữa vật lý vẫn đang mở.
+- **Không cần bước Build (Zero-Build Frontend)**: Giao diện xây dựng bằng HTML5, CSS hiện đại và JavaScript thuần, được FastAPI phục vụ trực tiếp tại đường dẫn `/dashboard/`.
+- **Hoạt động Offline (Zero-CDN)**: Toàn bộ thư viện đồ họa (Chart.js v4.4.3 UMD) được tải sẵn và đặt tại `dashboard/vendor/chart.umd.min.js`, đảm bảo hệ thống vận hành hoàn hảo ngay cả khi mất kết nối mạng Internet.
+- **Không hard-code cấu hình**: Mọi tên máy, nhãn hiển thị, đơn vị đo, ngưỡng cảnh báo/nguy hiểm và thang đo đều được lấy động từ `config/machines.yaml` thông qua API. Thêm máy hoặc metric mới chỉ cần chỉnh sửa file YAML.
 
-    subgraph MessageBroker["Hạ tầng truyền thông MQTT (Mosquitto :1883)"]
-        TOPIC_METRICS["denso/{machine_id}/metrics"]
-        TOPIC_EVENTS["denso/{machine_id}/events"]
-        TOPIC_CMDS["denso/{machine_id}/commands"]
-        TOPIC_ACKS["denso/{machine_id}/acks"]
-        TOPIC_CTRL["denso/sim/control"]
-    end
+### 2.1. Cách truy cập Dashboard & Tích hợp WebUI
+- **Chế độ thông thường**: Mở trình duyệt tại địa chỉ `http://localhost:9700/dashboard/`.
+- **Chế độ màn hình lớn / Kiosk (`?kiosk=1`)**: Mở `http://localhost:9700/dashboard/?kiosk=1`. Chế độ này sẽ ẩn thanh điều khiển trên cùng, phóng to kích thước chữ và số liệu viễn trắc, tự động ẩn con trỏ chuột sau vài giây không tương tác, rất phù hợp để trình chiếu trên màn hình TV lớn của phòng điều hành.
+- **Tích hợp WebUI Agent Copilot**: Cấu hình biến môi trường `WEBUI_URL=http://localhost:5173`. Trên tab "HOẠT ĐỘNG AGENT" của Dashboard sẽ xuất hiện liên kết `Mở trong Agent Copilot ↗` giúp kỹ sư chuyển ngay sang WebUI để bấm duyệt/từ chối hoặc chat với Agent. Nếu để trống biến `WEBUI_URL`, liên kết sẽ tự động ẩn đi.
 
-    subgraph Storage["Cơ sở dữ liệu TimescaleDB (:5433)"]
-        TSDB[("TimescaleDB\n- metrics (hypertable)\n- events\n- incidents & timeline\n- actions\n- audit_log")]
-    end
+### 2.2. Cách đọc giao diện & Chỉ số viễn trắc
+1. **Thanh trạng thái Agent (ở đầu trang)**:
+   - **Chế độ tự chủ (`autonomy_mode`)**: `ADVISORY` (chỉ cảnh báo), `HITL` (chờ kỹ sư duyệt lệnh), hoặc `AUTO_SAFE` (tự động hạ tốc độ an toàn). Rê chuột vào để xem giải thích chi tiết.
+   - **Công nghệ phân tích (`agent_mode`)**: `LLM ReAct` hoặc `Playbook Luật`.
+   - **Trạng thái Agent (`agent_enabled`)**: `Bật` (đèn xanh) hoặc `Tắt khẩn cấp` (đèn đỏ khi `AGENT_ENABLED=false`).
+2. **Thanh trạng thái hệ thống**:
+   - Trạng thái kết nối MQTT Broker và Cơ sở dữ liệu TimescaleDB.
+   - Trạng thái truyền thông thời gian thực: `● TRỰC TIẾP (SSE)` hoặc `● DỰ PHÒNG (POLL)`.
+   - Thời gian nhận dữ liệu gần nhất (ví dụ: `2 giây trước`).
+3. **Thẻ máy & Biểu ngữ hoạt động Agent**:
+   - **Khi có sự cố mở**: Hiển thị mã sự cố, mức độ nghiêm trọng, kết luận nguyên nhân và độ tin cậy.
+   - **Khi có hành động chờ duyệt (HITL)**: Hiển thị biểu ngữ màu đỏ nổi bật `⚡ Đang chờ kỹ sư duyệt lệnh (SET_RPM) còn X giây` có đồng hồ đếm ngược thời gian thực (không có nút bấm).
+   - **Khi đã thực thi giảm nhẹ**: Hiển thị `🛡 Đã thực thi can thiệp: Agent tự động (hoặc Người duyệt) hạ tốc độ xuống 1000 rpm lúc 10:15`. Thẻ máy gắn huy hiệu `🛡 ĐÃ GIẢM NHẸ`.
+4. **Tab kép: "CẢNH BÁO & SỰ KIỆN" vs "HOẠT ĐỘNG AGENT"**:
+   - Chuyển tab nhanh chóng để xem luồng lỗi PLC hoặc dòng thời gian các sự cố mở và lịch sử hành động (lệnh, tham số, người quyết định, kết quả ACK).
+5. **Đánh dấu can thiệp trên Biểu đồ chi tiết máy (`#/machine/{id}`)**:
+   - Khi mở modal chi tiết máy, bên trên biểu đồ chuỗi thời gian hiển thị các mốc can thiệp của Agent (`Agent đề xuất`, `Duyệt lệnh (user:operator)`, `ACK 200`, `Hết hạn không thực thi`). Người xem thấy rõ ngay nhiệt độ và áp suất giảm xuống sau thời điểm Agent can thiệp hạ tốc độ.
 
-    subgraph IoTGateway["IoT Service & Agent Gateway (:9700)"]
-        INGEST["Ingest Service\n(Batching & Dedup)"]
-        MONITOR["Threshold Monitor\n(Hysteresis & Trend / ETA)"]
-        LIFECYCLE["Incident Lifecycle Manager\n(Event deduplication & Incident Grouping)"]
-        ANALYZER["Rule Analyzer\n(Playbooks & Anchor Citations)"]
-        GUARDRAILS["Safety Guardrails\n(Whitelist, Derate-only, Safe Limits)"]
-        DISPATCHER["Command Dispatcher\n(MQTT & Async ACK Futures)"]
-        ROUTER["Gateway REST Endpoints\n(/agent/incidents, /agent/actions, /agent/telemetry, /agent/chat)"]
-    end
+### 2.3. Cơ chế thời gian thực: SSE & Bản tin Agent
+- Luồng SSE đẩy tức thì các sự kiện:
+  - `incident`: Khi có sự cố mới, thay đổi trạng thái hoặc đóng sự cố.
+  - `action`: Khi có hành động được đề xuất, duyệt, từ chối, hết hạn hoặc nhận phản hồi ACK từ PLC.
+  - Các bản tin được làm sạch (sanitized), tuyệt đối không để lộ prompt hệ thống hay khóa API.
 
-    subgraph UserInterface["Giao diện Người dùng (WebUI :5173)"]
-        WEBUI["Agentic Copilot Dashboard\n(Live Telemetry, Incidents, HITL Cards, Chat)"]
-    end
+---
 
-    SIM -- "Viễn trắc (5s)" --> TOPIC_METRICS
-    SIM -- "Lỗi PLC (critical)" --> TOPIC_EVENTS
-    TOPIC_METRICS --> INGEST
-    TOPIC_EVENTS --> INGEST
-    INGEST --> TSDB
-    INGEST -- "Sự kiện cảnh báo/lỗi" --> LIFECYCLE
-    MONITOR -- "Cảnh báo sớm (ETA)" --> LIFECYCLE
+## 3. Kiến trúc hệ thống IoT & Agent
 
-    LIFECYCLE --> ANALYZER
-    ANALYZER -- "Tạo đề xuất hành động" --> LIFECYCLE
-    LIFECYCLE --> TSDB
-
-    WEBUI -- "Polling incidents & telemetry" --> ROUTER
-    ROUTER --> TSDB
-
-    WEBUI -- "Bấm duyệt (HITL Approve)" --> ROUTER
-    ROUTER --> GUARDRAILS
-    GUARDRAILS -- "Hợp lệ" --> DISPATCHER
-    DISPATCHER -- "Xuất bản lệnh" --> TOPIC_CMDS
-    TOPIC_CMDS --> SIM
-    SIM -- "Phản hồi xác nhận" --> TOPIC_ACKS
-    TOPIC_ACKS --> DISPATCHER
-    DISPATCHER -- "Cập nhật kết quả" --> TSDB
-    SIM -- "Giảm tốc độ -> Nhiệt độ/áp suất hạ" --> TOPIC_METRICS
+```
+[Simulator bệ thử]  --MQTT-->  [Mosquitto]  --subscribe-->  [Ingest]  --> [TimescaleDB]
+   ^   metrics/events                                          |  ^           |
+   |                                                           |  |           | (time_bucket / series)
+   | commands            [Threshold Monitor] <-- đọc DB -------+  |           v
+   |                              |                               |    [Dashboard API & SSE]
+   +-- acks <-- [Command Executor] <-- [Gateway: incidents/actions/HITL]      |  /dashboard
+                                          ^   |                       |       v
+                                          |   v                       |   [Web Control Room UI]
+                                      [WebUI /agent/*]  <-------------+
 ```
 
 ---
 
-## 2. Hiểu dự án: Khái niệm & Cơ chế Giai đoạn 2
+## 4. Hướng dẫn khởi chạy toàn bộ hệ thống
 
-### 2.1. Sự cố (Incident) và Vòng đời
-* **Khái niệm**: Khi có sự kiện `WARNING` hoặc `ERROR` mới từ máy nén, hệ thống gom vào sự cố đang mở của máy đó. **Mỗi máy chỉ có tối đa 1 sự cố mở tại một thời điểm**.
-* **Các trạng thái**:
-  * `active`: Sự cố mới tạo hoặc đang được giám sát (sau khi hành động được đề xuất trong chế độ `advisory`).
-  * `awaiting_approval`: Sự cố có hành động can thiệp (ví dụ hạ tốc độ) đang chờ kỹ sư vận hành phê duyệt (HITL Gate).
-  * `acknowledged`: Hành động can thiệp đã được phê duyệt và máy nén đã gửi phản hồi `ACK_OK`. Hệ thống bước vào giai đoạn theo dõi giảm nhẹ.
-  * `resolved` / `closed`: Tất cả các thông số viễn trắc đã trở về dải bình thường (`normal`) bền vững hoặc được người vận hành đóng thủ công.
-* **Dòng thời gian (Timeline)**: Mọi bước từ phát hiện quan sát, tra cứu cẩm nang, kiểm tra chéo cảm biến, đề xuất hành động, kết quả ACK và xác nhận giảm tải đều được ghi lại với nhãn thời gian và trích dẫn chuẩn hóa theo giao diện.
-
-### 2.2. Vì sao cần Con người trong vòng lặp (HITL - Human-in-the-Loop)?
-Trong môi trường công nghiệp bệ thử nghiệm ô tô, các can thiệp vào bộ điều khiển PLC tác động trực tiếp đến động cơ, áp suất ga và dòng điện cao thế:
-* Máy tính và bộ phân tích có thể đưa ra kết luận chẩn đoán và đề xuất tối ưu.
-* Tuy nhiên, thao tác thay đổi tốc độ vòng tua hoặc dừng khẩn cấp bệ thử đòi hỏi kỹ sư vận hành phải đối chiếu trạng thái hiện trường, đồ gá và an toàn lao động trước khi thực hiện.
-* **Thẻ duyệt hành động (HITL Action Card)** hiển thị rõ ràng: Lệnh can thiệp, lý do kỹ thuật, thời hạn phản hồi đếm ngược (TTL) và nút Phê duyệt / Từ chối.
-
-### 2.3. Chế độ tự chủ (AUTONOMY_MODE)
-Hệ thống hỗ trợ 3 chế độ tự chủ qua biến cấu hình `AUTONOMY_MODE`:
-1. `advisory`: Hệ thống chỉ chẩn đoán và hiển thị thông tin cảnh báo, không bao giờ gửi lệnh PLC. Thẻ hành động chỉ mang tính tham khảo.
-2. `hitl` *(Mặc định)*: Mọi hành động can thiệp đều phải chờ người vận hành bấm nút phê duyệt trên thẻ hành động trước khi gửi lệnh xuống PLC.
-3. `auto_safe`: Các hành động thuộc nhóm an toàn (`SET_RPM` giảm tốc độ trong giới hạn cho phép) được tự động thực thi ngay lập tức để bảo vệ máy nén kịp thời. Lệnh `STOP_TEST` luôn luôn bắt buộc người duyệt. Có giới hạn tự động: tối đa 2 lệnh/sự cố, cách nhau tối thiểu 120 giây.
-
-Khi đặt `AGENT_ENABLED=false`, toàn bộ việc sinh đề xuất và thực thi bị tạm dừng, hệ thống chỉ ghi nhận và cảnh báo.
-
-### 2.4. Rào chắn an toàn (Safety Guardrails)
-Rào chắn an toàn được cài đặt thành một lớp kiểm tra độc lập trong code backend (`app/commands.py`), **không tin cậy tuyệt đối vào tham số đề xuất ban đầu** mà kiểm tra lại tại thời điểm chuẩn bị gửi lệnh dựa trên giá trị viễn trắc thời gian thực:
-* **Whitelist**: Chỉ cho phép 2 lệnh duy nhất là `SET_RPM` và `STOP_TEST`. Mọi lệnh lạ khác bị từ chối ngay lập tức.
-* **Quy tắc chỉ giảm tốc độ**: Lệnh `SET_RPM` chỉ được phép giảm so với tốc độ hiện tại của máy (`target_rpm < current_rpm`). Tuyệt đối cấm tăng tốc độ khi đang có sự cố.
-* **Giới hạn tốc độ an toàn**: `target_rpm` không được thấp hơn ngưỡng tốc độ an toàn tối thiểu (`rpm_min_safe` = 800 rpm trong `machines.yaml`) và không vượt quá `rpm_max` (3000 rpm).
-* **Lệnh STOP_TEST**: Luôn yêu cầu người phê duyệt (HITL), không bao giờ được tự động thực thi ngay cả trong chế độ `auto_safe`.
-
-### 2.5. Chống bấm đúp (Idempotency) và Thời hạn hành động (Action TTL)
-* **Idempotent**: Khi người dùng nhấn Duyệt nhiều lần hoặc mạng chập chờn gửi lặp request `POST /agent/actions/{id}/approve`, hệ thống phát hiện hành động đã ở trạng thái `acked`/`approved` và trả về kết quả ACK trước đó ngay lập tức mà **không gửi lệnh lần hai** xuống broker MQTT.
-* **Action TTL**: Hành động đề xuất có thời hạn hiệu lực `ACTION_TTL_S` (mặc định 60s). Nếu quá thời gian này mà không có phản hồi từ người vận hành, hành động chuyển sang `expired`, thẻ bị khóa và không thể thực thi.
-
-### 2.6. Phân biệt "Đã giảm nhẹ" (Mitigated) và "Đã giải quyết" (Resolved)
-* **Đã giảm nhẹ (Mitigated)**: Khi hạ tốc độ máy nén, nhiệt độ và áp suất tụt khỏi ngưỡng nguy hiểm `critical` (về mức `warn` hoặc cận an toàn), bảo vệ bệ thử không bị phá hủy hoặc kích hoạt ngắt cưỡng bức PLC. Tuy nhiên, nguyên nhân gốc rễ (ví dụ: mất môi chất lạnh, cháy quạt dàn ngưng, thiếu dầu) **vẫn còn tồn tại**. Phiếu bảo trì/sửa chữa vẫn mở.
-* **Đã giải quyết (Resolved)**: Trường hợp như dàn ngưng bẩn (`condenser_fouled`), việc giảm tải đưa toàn bộ các chỉ số về hoàn toàn bình thường (`normal`). Khi các cảm biến ổn định trong vùng chuẩn liên tục, sự cố mới được đánh dấu đã giải quyết xong.
-
-### 2.7. Nhật ký kiểm toán (Audit Log)
-Mọi hành động can thiệp, mở sự cố, đề xuất, phê duyệt, từ chối, hết hạn và phản hồi ACK từ máy nén đều được lưu vĩnh viễn vào bảng `audit_log` với đầy đủ thông tin: mốc thời gian `ts`, tác nhân (`system`, `agent`, `user:<tên>`), hành động `action`, ID thiết bị và dữ liệu chi tiết `details`.
-
----
-
-## 3. Bảng API Gateway (`/agent/*`)
-
-Agent Gateway phục vụ trực tiếp cho giao diện WebUI (chuẩn TypeScript theo `agent.ts` và `types/agentic.ts`):
-
-| Method & Route | Mô tả chức năng | Request Body / Params | Phản hồi chính |
-|---|---|---|---|
-| `GET /agent/incidents` | Lấy danh sách toàn bộ sự cố kèm snapshot viễn trắc và thẻ hành động | Không | `List[Incident]` |
-| `GET /agent/incidents/{id}` | Lấy chi tiết một sự cố cụ thể | `id` (ví dụ `INC-0001`) | `Incident` |
-| `GET /agent/telemetry/{deviceId}` | Lấy viễn trắc thời gian thực theo máy (hoặc tra cứu theo `INC-xxxx`) | `deviceId` (`COMP-TB-01`) | `TelemetrySnapshot` (kèm `direction`, `isAnomalous`) |
-| `POST /agent/actions/{id}/approve` | Kỹ sư phê duyệt hành động (HITL) | `id` (ví dụ `ACT-0001`) | `{"ack": "ACK 200: ..."}` |
-| `POST /agent/actions/{id}/reject` | Kỹ sư từ chối hành động | `id` (ví dụ `ACT-0001`) | `{"status": "ok"}` |
-| `POST /agent/chat` | Hỏi đáp hội thoại có cấu trúc với dữ liệu sự cố (Chế độ luật) | `{"conversationId": "CONV-0001", "message": "..."}` | `{"content": "...", "citations": [...]}` |
-
----
-
-## 4. Hướng dẫn chạy nhanh hệ thống (PowerShell)
-
-Mở các cửa sổ PowerShell tại thư mục gốc repository:
-
-### Bước 1: Khởi động Hạ tầng Docker (TimescaleDB & Mosquitto)
+### Bước 1: Khởi động Hạ tầng Docker (Mosquitto & TimescaleDB)
 ```powershell
-docker compose -f iot_service/docker-compose.iot.yml up -d
-docker compose -f iot_service/docker-compose.iot.yml ps
+docker-compose up -d
 ```
 
-### Bước 2: Khởi động Backend IoT Service & Agent Gateway (Port 9700)
+### Bước 2: Khởi động IoT Service, Dashboard & Gateway (:9700)
 ```powershell
 cd iot_service
 .\.venv\Scripts\Activate.ps1
 $env:PYTHONPATH="."
 python -m uvicorn app.main:app --host 0.0.0.0 --port 9700
 ```
+Truy cập Dashboard tại: `http://localhost:9700/dashboard/` (hoặc `http://localhost:9700/dashboard/?kiosk=1`).
 
 ### Bước 3: Khởi động Simulator Bệ thử Máy nén
 ```powershell
@@ -158,111 +94,69 @@ $env:PYTHONPATH="."
 python -m simulator.cli run
 ```
 
-### Bước 4: Khởi động WebUI ở chế độ kết nối dữ liệu thật (`VITE_DEMO_MODE=false`)
+### Bước 4: Khởi động WebUI Agentic (Duyệt lệnh HITL & Chat)
 ```powershell
 cd lightrag_webui
 $env:VITE_DEMO_MODE="false"
 bun run dev
 # Truy cập giao diện tại: http://localhost:5173
 ```
-*(Nếu muốn chạy lại chế độ demo dữ liệu giả lập cũ của WebUI, chỉ cần đặt `$env:VITE_DEMO_MODE="true"` rồi chạy `bun run dev`)*.
 
 ---
 
-## 5. Kịch bản Demo từng bước (Step-by-Step Demo Walkthrough)
+## 5. Thử nghiệm thực tế: Kịch bản Agent trên Dashboard
 
-Hệ thống cung cấp sẵn công cụ demo tự động bằng Python: `python -m iot_service.scripts.demo <kịch_bản>`.
-
-### Kịch bản A: Quạt dàn ngưng hỏng (`condenser_fan_failure`) - Vòng lặp HITL
-1. **Kích hoạt sự cố**:
-   ```powershell
-   python -m simulator.cli set COMP-TB-01 condenser_fan_failure --ramp 10
-   ```
-2. **Quan sát trên WebUI**:
-   * Sau ~10-15s, quạt giảm về 0 rpm, áp suất xả tăng vọt trên 23 bar, nhiệt độ đầu xả vượt 120°C.
-   * Thanh viễn trắc (Telemetry Bar) của `COMP-TB-01` hiển thị viền đỏ cảnh báo.
-   * Danh sách sự cố bên trái xuất hiện sự cố mới `INC-0001` với trạng thái `AWAITING_APPROVAL` (Chờ duyệt).
-   * Bộ phân tích theo luật kết luận nguyên nhân gốc rễ: *"Quạt giải nhiệt dàn ngưng hỏng hoặc kẹt"*, độ tin cậy 92%, trích dẫn tài liệu *AC-Condenser-Installation-Manual-Multilingual_web.pdf (trang 1-3)*.
-   * Thẻ duyệt hành động (HITL Action Card) xuất hiện đếm ngược 60s, đề xuất: `SET_RPM` máy nén xuống 1000 RPM.
-3. **Phê duyệt hành động**:
-   * Kỹ sư nhấn nút **"Xác nhận thực hiện"** trên thẻ.
-   * Gateway kiểm tra Guardrails -> gửi lệnh qua MQTT -> nhận `ACK 200` từ simulator trong vòng < 1 giây.
-   * Thẻ chuyển trạng thái xanh *"Đã thực thi thành công"*.
-4. **Quan sát vòng điều khiển kín**:
-   * Tốc độ máy nén giảm về 1000 rpm -> nhiệt độ xả hạ từ 128°C xuống ~108°C (rời khỏi ngưỡng nguy hiểm).
-   * Sự cố chuyển sang trạng thái "Đã giảm nhẹ" (`acknowledged`), phiếu sửa chữa quạt vẫn mở.
-   * Nếu người dùng bấm duyệt lần 2, hệ thống phản hồi ngay mã ACK trước đó mà không gửi thêm lệnh (Idempotent).
-
-### Kịch bản B: Dàn ngưng bám bụi bẩn (`condenser_fouled`) - Tự hồi phục về Bình thường
-1. **Kích hoạt sự cố**:
-   ```powershell
-   python -m simulator.cli set COMP-TB-01 condenser_fouled --ramp 10
-   ```
-2. **Diễn biến**:
-   * Áp suất xả tăng đến 21.5 bar (ngưỡng Cảnh báo `warn`), nhiệt độ xả 112°C, quạt vẫn quay 2300 rpm bình thường.
-   * Gateway mở sự cố, đề xuất hạ tốc độ máy nén về 1000 RPM để vệ sinh dàn nóng.
-   * Bấm Duyệt -> tốc độ máy giảm xuống 1000 RPM -> áp suất xả và nhiệt độ giảm sâu về hoàn toàn trong dải an toàn (`normal`).
-   * Vòng lặp giám sát phát hiện toàn bộ chỉ số đã hồi phục -> sự cố tự động đóng (`resolved`).
-
-### Kịch bản C: Thiếu dầu bôi trơn (`low_oil`) & Chế độ `auto_safe`
-1. Đặt biến môi trường `$env:AUTONOMY_MODE="auto_safe"` và khởi động Gateway.
-2. Kích hoạt sự cố:
-   ```powershell
-   python -m simulator.cli set COMP-TB-01 low_oil --ramp 10
-   ```
-3. **Kết quả Guardrail**:
-   * Mức dầu tụt xuống 35%, độ rung vọt lên 7.5 mm/s.
-   * Playbook nhận diện nguy cơ bó máy và đề xuất `STOP_TEST` (Dừng máy khẩn cấp).
-   * **Mặc dù đang ở chế độ auto_safe**, rào chắn an toàn kiên quyết giữ lệnh `STOP_TEST` ở trạng thái chờ người duyệt (`awaiting_approval`), không tự động dừng máy nếu không có sự xác nhận của kỹ sư.
-
----
-
-## 6. Chạy bộ kiểm thử tự động (Pytest)
-
-Toàn bộ các yêu cầu của Giai đoạn 1 và Giai đoạn 2 đã được kiểm thử với 39 bài test:
-
+### 5.1. Bơm sự cố Hỏng quạt (`condenser_fan_failure`) ở chế độ HITL
 ```powershell
-$env:PYTHONPATH="iot_service"
-.\iot_service\.venv\Scripts\pytest.exe iot_service\tests -v
+cd iot_service
+.\.venv\Scripts\Activate.ps1
+python -m simulator.cli set COMP-TB-01 condenser_fan_failure
 ```
+**Quan sát trên Dashboard**:
+- Thẻ máy `COMP-TB-01` chuyển sang cảnh báo/nguy hiểm.
+- Xuất hiện biểu ngữ: `⚡ Đang chờ kỹ sư duyệt lệnh (SET_RPM) còn 58s`.
+- Tab "HOẠT ĐỘNG AGENT" hiển thị sự cố mở `Quạt dàn ngưng hỏng` (tin cậy 95%) và hành động đề xuất `SET_RPM (rpm=1000)`.
 
-**Kết quả: 39/39 bài test XANH (100% Pass)**:
-* `test_guardrails_and_actions.py`: Kiểm tra Whitelist lệnh, cấm tăng tốc độ, cấm dưới `rpm_min_safe`, bắt buộc HITL với `STOP_TEST`, kiểm tra quá hạn Action TTL, chống bấm đúp (Idempotent), giới hạn 2 lệnh tự động trong `auto_safe`, cờ `AGENT_ENABLED=false`.
-* `test_incidents_lifecycle.py`: Gom sự cố theo máy (1 sự cố mở/máy), kiểm thử toàn bộ endpoint Gateway REST (`/agent/incidents`, `/agent/telemetry`, `/agent/chat`), kiểm thử vòng điều khiển kín End-to-End (sự cố -> duyệt -> ACK -> giảm tải).
-* `test_playbooks.py`: Khớp chính xác 4 kịch bản lỗi với 4 playbook, độ tin cậy $\ge 0.9$, trích dẫn neo tài liệu, cơ chế fallback sự cố chưa xác định, ánh xạ độ nghiêm trọng.
-* 23 bài test gốc của Giai đoạn 1 (Simulator, Monitor, Dedup, Tool API, Thresholds).
+### 5.2. Phê duyệt hành động từ WebUI hoặc API Gateway
+Phê duyệt qua API Gateway:
+```powershell
+# Lấy danh sách actions và bấm approve action_id tương ứng
+curl -X POST http://localhost:9700/agent/actions/ACT-0001/approve -H "Content-Type: application/json" -d "{\"actor\": \"user:engineer\"}"
+```
+**Quan sát trên Dashboard (Cập nhật thời gian thực không tải lại trang)**:
+- Biểu ngữ hành động chuyển thành `🛡 Đã thực thi can thiệp: Người duyệt (user:engineer) hạ tốc độ xuống 1000 rpm lúc ...`.
+- Thẻ máy chuyển sang trạng thái `🛡 ĐÃ GIẢM NHẸ`.
+- Tốc độ máy nén giảm xuống 1000 rpm, nhiệt độ đầu xả và áp suất xả giảm dần trên biểu đồ thời gian kèm mốc can thiệp đánh dấu.
 
----
+### 5.3. Thử nghiệm Hết hạn không duyệt (Action Expired)
+- Bơm sự cố và không bấm duyệt trong 60 giây (`ACTION_TTL_S=60`).
+- Dashboard tự động cập nhật trạng thái hành động thành `Hết hạn, không thực thi`. Tốc độ máy nén giữ nguyên không đổi.
 
-## 7. Thay đổi ngoài `iot_service/` (Cập nhật WebUI)
-
-Mọi thay đổi trên frontend được giới hạn nghiêm ngặt trong `lightrag_webui/` và hoàn toàn có điều kiện, đảm bảo chế độ mock demo (`VITE_DEMO_MODE=true`) vẫn hoạt động nguyên vẹn:
-
-1. `lightrag_webui/vite.config.ts`:
-   * Bổ sung reverse proxy cho đường dẫn `/agent` trỏ tới `http://localhost:9700` (Agent Gateway), giữ nguyên proxy của LightRAG tới port 9621.
-2. `lightrag_webui/src/features/agentic/types/agentic.ts`:
-   * Bổ sung trường tùy chọn `direction?: 'above' | 'below' | 'info'` trong `TelemetryPoint` để hỗ trợ hiển thị bất thường cho các thông số "thấp là xấu" (áp suất hút, quạt, dầu).
-   * Bổ sung trường tùy chọn `timeline?: any[]` trong `Incident`.
-3. `lightrag_webui/src/features/agentic/hooks/useLiveTelemetry.ts`:
-   * Loại bỏ phụ thuộc làm tái tạo timer liên tục; khi `VITE_DEMO_MODE=false`, hook tự động polling `/agent/telemetry/{deviceId}` mỗi 3s.
-   * Sửa lỗi đánh giá ngưỡng tĩnh cứng bằng cách đọc trực tiếp cờ `isAnomalous` và `direction` do máy chủ tính toán.
-4. `lightrag_webui/src/features/agentic/stores/agenticStore.ts`:
-   * Hỗ trợ polling danh sách sự cố thật từ `/agent/incidents` mỗi 4 giây khi ở chế độ thật.
-   * Chuyển đổi hàm `approveAction` và `rejectAction` sang gọi trực tiếp API backend thay vì mô phỏng giả lập `setTimeout`.
-5. `lightrag_webui/src/features/agentic/components/ChatWorkspace.tsx`:
-   * Chuyển tiếp tin nhắn chat tới Gateway endpoint `/agent/chat` khi `VITE_DEMO_MODE=false`.
-6. `lightrag_webui/.env.development` & `lightrag_webui/.env.example`:
-   * Khai báo biến `VITE_DEMO_MODE=false` và `VITE_GATEWAY_URL=http://localhost:9700`.
+### 5.4. Thử nghiệm Tự động hạ tốc độ (`AUTONOMY_MODE=auto_safe`)
+- Đặt `AUTONOMY_MODE=auto_safe` trong file cấu hình.
+- Bơm sự cố: Agent tự động thực thi lệnh `SET_RPM` (nhãn hiển thị `Agent tự động`) với giới hạn tối đa 2 lần mỗi sự cố và cách nhau tối thiểu 120 giây.
 
 ---
 
-## 8. Giả định, Giới hạn & Đề xuất Giai đoạn 3
+## 6. Chạy kiểm thử tự động (Pytest)
 
-### Giả định và Giới hạn hiện tại
-* **Playbook theo luật**: Quy tắc phân tích sự cố được trích xuất từ tài liệu hướng dẫn kỹ thuật và poster sự cố máy nén DENSO. Đây là phiên bản giả lập phục vụ bài thi, không phải quy trình bảo trì chính thức của hãng.
-* **Chưa tích hợp LLM & RAG động**: Ở Giai đoạn 2, bước tra cứu tài liệu và hội thoại chat sử dụng dữ liệu tĩnh chuẩn hóa từ playbook. Phản hồi chat mang tính cấu trúc và có chú thích rõ ràng `[Chế độ phân tích theo luật / Rule-based mode]`.
+Chạy toàn bộ 59 bài kiểm thử bao phủ toàn bộ hệ thống:
+```powershell
+cd iot_service
+.\.venv\Scripts\pytest.exe tests -v
+```
+**Kết quả: 59/59 bài test XANH (100% Pass)**:
+* `test_dashboard.py`: 10 bài test kiểm thử toàn diện: phục vụ file tĩnh, tổng hợp overview kèm trạng thái Agent, cờ `is_mitigated`, mốc dòng thời gian `GET /dashboard/agent/timeline`, chặn toàn bộ method non-GET trả 405, xác thực token, và phát sóng SSE cho incident và action.
+* 49 bài test của Giai đoạn 1, 2, và 3 (Simulator, Monitor, Dedup, Tool API, ReAct Agent, Guardrails, Playbooks).
 
-### Đề xuất cho Giai đoạn 3
-1. **Thay thế BaseAnalyzer bằng Agent LLM**: Triển khai ReAct loop với mô hình ngôn ngữ lớn (kết nối qua `LLM_BASE_URL`), gọi Tool API nội bộ để tự động suy luận nguyên nhân và quyết định hành động.
-2. **Tích hợp RAG thực tế**: Kết nối máy chủ LightRAG (port 9621) để tìm kiếm động các đoạn trích kỹ thuật trong thư viện PDF của DENSO thay cho các đoạn trích neo tĩnh.
-3. **Tự động sinh phiếu bảo trì (Work Order)**: Kết xuất phiếu sửa chữa hoàn chỉnh với đầy đủ mã phụ tùng, linh kiện thay thế và quy trình thao tác chuẩn gửi tới kỹ thuật viên.
+---
+
+## 7. Khắc phục sự cố thường gặp (Troubleshooting)
+
+1. **Dashboard không hiển thị số liệu / Báo "Mất kết nối, đang thử lại..."**:
+   - Kiểm tra service IoT FastAPI đã chạy tại cổng 9700 chưa (`http://localhost:9700/health`).
+   - Kiểm tra Simulator đã được bật để phát dữ liệu lên MQTT chưa.
+2. **Không thấy liên kết "Mở trong Agent Copilot"**:
+   - Kiểm tra biến `WEBUI_URL` trong file `.env` (mặc định: `http://localhost:5173`).
+3. **Vì sao Dashboard không có nút bấm Duyệt / Từ chối?**:
+   - Theo nguyên tắc phân quyền và an toàn công nghiệp, Dashboard phục vụ mục đích quan sát phòng điều khiển (Read-Only) để theo dõi diện rộng và trình chiếu kiosk. Quyền can thiệp, duyệt lệnh HITL và đàm thoại chẩn đoán được tập trung quản lý tại WebUI Agent Copilot của nhóm.

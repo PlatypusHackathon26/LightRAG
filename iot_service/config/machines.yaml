@@ -14,6 +14,9 @@ machines:
         normal_max: 100.0
         warn: 105.0
         critical: 120.0
+        display_min: 50.0
+        display_max: 150.0
+        decimals: 1
       suction_pressure:
         label: "Áp suất hút"
         unit: "bar"
@@ -22,6 +25,9 @@ machines:
         normal_max: 3.0
         warn: 1.5
         critical: 1.0
+        display_min: 0.0
+        display_max: 5.0
+        decimals: 2
       discharge_pressure:
         label: "Áp suất xả"
         unit: "bar"
@@ -30,6 +36,9 @@ machines:
         normal_max: 17.0
         warn: 19.0
         critical: 23.0
+        display_min: 5.0
+        display_max: 30.0
+        decimals: 1
       condenser_fan_rpm:
         label: "Tốc độ quạt dàn ngưng"
         unit: "rpm"
@@ -38,6 +47,9 @@ machines:
         normal_max: 2600.0
         warn: 1500.0
         critical: 500.0
+        display_min: 0.0
+        display_max: 3000.0
+        decimals: 0
       vibration:
         label: "Độ rung"
         unit: "mm/s"
@@ -46,6 +58,9 @@ machines:
         normal_max: 3.0
         warn: 4.5
         critical: 7.0
+        display_min: 0.0
+        display_max: 10.0
+        decimals: 2
       oil_level:
         label: "Mức dầu"
         unit: "%"
@@ -54,6 +69,9 @@ machines:
         normal_max: 100.0
         warn: 60.0
         critical: 40.0
+        display_min: 0.0
+        display_max: 100.0
+        decimals: 0
       compressor_rpm:
         label: "Tốc độ máy nén"
         unit: "rpm"
@@ -62,6 +80,9 @@ machines:
         normal_max: null
         warn: null
         critical: null
+        display_min: 0.0
+        display_max: 3500.0
+        decimals: 0
 
   COMP-TB-02:
     name: "COMP-TB-02"
@@ -78,6 +99,9 @@ machines:
         normal_max: 100.0
         warn: 105.0
         critical: 120.0
+        display_min: 50.0
+        display_max: 150.0
+        decimals: 1
       suction_pressure:
         label: "Áp suất hút"
         unit: "bar"
@@ -86,6 +110,9 @@ machines:
         normal_max: 3.0
         warn: 1.5
         critical: 1.0
+        display_min: 0.0
+        display_max: 5.0
+        decimals: 2
       discharge_pressure:
         label: "Áp suất xả"
         unit: "bar"
@@ -94,6 +121,9 @@ machines:
         normal_max: 17.0
         warn: 19.0
         critical: 23.0
+        display_min: 5.0
+        display_max: 30.0
+        decimals: 1
       condenser_fan_rpm:
         label: "Tốc độ quạt dàn ngưng"
         unit: "rpm"
@@ -102,6 +132,9 @@ machines:
         normal_max: 2600.0
         warn: 1500.0
         critical: 500.0
+        display_min: 0.0
+        display_max: 3000.0
+        decimals: 0
       vibration:
         label: "Độ rung"
         unit: "mm/s"
@@ -110,6 +143,9 @@ machines:
         normal_max: 3.0
         warn: 4.5
         critical: 7.0
+        display_min: 0.0
+        display_max: 10.0
+        decimals: 2
       oil_level:
         label: "Mức dầu"
         unit: "%"
@@ -118,6 +154,9 @@ machines:
         normal_max: 100.0
         warn: 60.0
         critical: 40.0
+        display_min: 0.0
+        display_max: 100.0
+        decimals: 0
       compressor_rpm:
         label: "Tốc độ máy nén"
         unit: "rpm"
@@ -126,3 +165,6 @@ machines:
         normal_max: null
         warn: null
         critical: null
+        display_min: 0.0
+        display_max: 3500.0
+        decimals: 0

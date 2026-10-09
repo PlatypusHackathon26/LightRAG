@@ -14,6 +14,9 @@ class MetricConfig(BaseModel):
     normal_max: Optional[float] = None
     warn: Optional[float] = None
     critical: Optional[float] = None
+    display_min: Optional[float] = None
+    display_max: Optional[float] = None
+    decimals: int = Field(default=1, ge=0, le=4)
 
     @model_validator(mode="after")
     def validate_thresholds(self) -> "MetricConfig":
@@ -29,6 +32,11 @@ class MetricConfig(BaseModel):
                     raise ValueError(
                         f"For direction 'below', warn ({self.warn}) must be strictly greater than critical ({self.critical})"
                     )
+        if self.display_min is not None and self.display_max is not None:
+            if self.display_min >= self.display_max:
+                raise ValueError(
+                    f"display_min ({self.display_min}) must be strictly less than display_max ({self.display_max})"
+                )
         return self
 
 
@@ -119,6 +127,8 @@ class Settings(BaseSettings):
     MQTT_PORT: int = 1883
 
     DB_DSN: str = "postgresql://postgres:postgres@localhost:5433/denso_iot"
+    DB_REQUIRED: bool = True
+    DB_MODE: str = "timescale"  # "timescale" or "memory"
     GATEWAY_PORT: int = 9700
 
     PUBLISH_INTERVAL_S: float = 5.0
@@ -129,6 +139,10 @@ class Settings(BaseSettings):
     AUTONOMY_MODE: str = "hitl"
     AGENT_ENABLED: bool = True
     AGENT_MODE: str = "rules"
+
+    DASHBOARD_TOKEN: str = ""
+    SSE_MAX_CLIENTS: int = 50
+    WEBUI_URL: str = "http://localhost:5173"
 
     LLM_BASE_URL: str = "http://localhost:11434/v1"
     LLM_API_KEY: str = "dummy-llm-key"

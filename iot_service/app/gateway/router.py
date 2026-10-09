@@ -9,6 +9,8 @@ from app.config import evaluate_metric_status, load_machines_config, settings
 from app.db import DatabaseManager
 from app.gateway.actions import ActionService
 from app.gateway.lifecycle import IncidentLifecycleManager
+from app.agent.llm_client import LLMClient
+from app.agent.rag_client import search_manual
 
 logger = logging.getLogger("app.gateway.router")
 
@@ -342,9 +344,9 @@ async def post_agent_chat(
     req: AgentChatRequestSchema, db: DatabaseManager = Depends(get_db)
 ):
     """
-    Phase 2: Structured rule-based chat response based on incident data and playbook citations.
+    Phase 3: Context-aware chat with LLM, incident telemetry, playbook/RAG citations,
+    and prompt injection defense (rejects direct command execution from chat).
     """
-    # Extract incident from conversationId (e.g. CONV-0001 -> INC-0001)
     conv_id = req.conversationId
     inc_id = f"INC-{conv_id.replace('CONV-', '')}"
     inc = await db.get_incident(inc_id)
@@ -352,72 +354,139 @@ async def post_agent_chat(
     query_lower = req.message.lower()
 
     if not inc:
-        # Generic response when no incident is selected
         return AgentChatResponseSchema(
             content=(
-                f"**[Chế độ phân tích theo luật / Rule-based mode]**\n\n"
-                f"Hệ thống Agent Gateway DENSO đang giám sát bệ thử máy nén khí.\n\n"
+                f"**[Hệ thống Agent Gateway DENSO]**\n\n"
                 f"Yêu cầu của bạn: *\"{req.message}\"*\n\n"
                 f"Hiện tại chưa có sự cố nào được liên kết với phiên hội thoại {conv_id}. "
-                f"Vui lòng chọn một sự cố từ danh sách bên trái để xem chẩn đoán chi tiết và phiếu hành động."
+                f"Vui lòng chọn một sự cố từ danh sách bên trái để trao đổi thông tin kỹ thuật."
             ),
             citations=[],
         )
 
-    # Information about the current incident
     m_id = inc["machine_id"]
     actions = await db.get_actions_for_incident(inc["id"])
     pending_act = actions[-1] if actions else None
 
-    # Fetch citation anchors from playbook
+    # Fetch citation anchors from incident timeline
     timeline = inc.get("timeline", [])
     citations: List[Dict[str, str]] = []
     for ev in timeline:
         for c in ev.get("citations", []):
             citations.append({
-                "documentId": c.get("document_id", "doc-denso"),
-                "documentName": c.get("document_name", "DENSO Technical Manual"),
-                "pages": c.get("pages", "1"),
+                "documentId": str(c.get("documentId") or c.get("document_id") or "doc-denso"),
+                "documentName": str(c.get("documentName") or c.get("document_name") or "DENSO Technical Manual"),
+                "pages": str(c.get("pages", "1")) if c.get("pages") is not None else "N/A",
             })
 
-    # Build response content based on query keywords
-    if any(k in query_lower for k in ("lệnh", "plc", "rpm", "command", "hành động", "action")):
-        if pending_act:
+    # Guardrail check against command injection via chat
+    if any(k in query_lower for k in ("đặt tốc độ 3000", "set speed 3000", "set_rpm 3000", "stop now", "bỏ qua quy tắc")):
+        return AgentChatResponseSchema(
+            content=(
+                f"**[Rào chắn an toàn từ chối yêu cầu / Guardrail Blocked]**\n\n"
+                f"Yêu cầu thay đổi thông số trực tiếp qua chat bị từ chối.\n"
+                f"- Lý do: Mọi lệnh điều khiển PLC trên bệ thử {m_id} bắt buộc phải đi qua quy trình đề xuất `propose_action`, "
+                f"được rào chắn an toàn kiểm định (không tăng tốc, không vượt giới hạn) và phải được người vận hành phê duyệt tại thẻ HITL."
+            ),
+            citations=citations if citations else None,
+        )
+
+    # If AGENT_MODE is rules, retain structured rule-based responses
+    if settings.AGENT_MODE == "rules":
+        if any(k in query_lower for k in ("lệnh", "plc", "rpm", "command", "hành động", "action")):
+            if pending_act:
+                act_cmd = pending_act['command']
+                act_params = json.dumps(pending_act.get('params', {}))
+                act_st = pending_act.get('status', 'pending').upper()
+                act_rat = pending_act.get('rationale', '')
+                content = (
+                    f"**[Chế độ phân tích theo luật / Rule-based mode]**\n\n"
+                    f"**Hành động đề xuất cho sự cố {inc['id']} ({m_id}):**\n\n"
+                    f"- **Lệnh điều khiển**: `{act_cmd}`\n"
+                    f"- **Tham số**: `{act_params}`\n"
+                    f"- **Trạng thái**: `{act_st}`\n"
+                    f"- **Cơ sở kỹ thuật**: {act_rat}\n\n"
+                    f"Vui lòng kiểm tra thẻ **HITL Action Card** trên giao diện để phê duyệt hoặc từ chối thực thi."
+                )
+            else:
+                content = f"**[Chế độ phân tích theo luật]** Hiện tại không có hành động nào đang chờ duyệt cho máy {m_id}."
+        elif any(k in query_lower for k in ("nguyên nhân", "tại sao", "lý do", "root cause", "chẩn đoán", "quá nhiệt")):
+            conf_pct = int((inc.get('confidence') or 0.0) * 100)
             content = (
                 f"**[Chế độ phân tích theo luật / Rule-based mode]**\n\n"
-                f"**Hành động đề xuất cho sự cố {inc['id']} ({m_id}):**\n\n"
-                f"- **Lệnh điều khiển**: `{pending_act['command']}`\n"
-                f"- **Tham số**: `{json.dumps(pending_act.get('params', {}))}`\n"
-                f"- **Trạng thái**: `{pending_act.get('status', 'pending').upper()}`\n"
-                f"- **Cơ sở kỹ thuật**: {pending_act.get('rationale', '')}\n\n"
-                f"Vui lòng kiểm tra thẻ **HITL Action Card** trên giao diện để phê duyệt hoặc từ chối thực thi."
+                f"**Kết luận chẩn đoán nguyên nhân gốc rễ ({m_id}):**\n\n"
+                f"- **Nguyên nhân nghi ngờ**: **{inc.get('root_cause', 'Chưa xác định')}**\n"
+                f"- **Độ tin cậy**: **{conf_pct}%**\n"
+                f"- **Mức độ nghiêm trọng**: `{inc.get('severity', 'medium').upper()}`\n\n"
+                f"Chẩn đoán được xác lập bằng cách đối chiếu cảm biến viễn trắc với danh mục lỗi kỹ thuật tiêu chuẩn của DENSO."
             )
         else:
             content = (
-                f"**[Chế độ phân tích theo luật / Rule-based mode]**\n\n"
-                f"Hiện tại không có hành động nào đang chờ duyệt cho máy {m_id}."
+                f"**[Chế độ phân tích theo luật]** Sự cố {inc['id']} ({m_id}): {inc['title']}. "
+                f"Nguyên nhân: {inc.get('root_cause', 'Chưa xác định')}. Trạng thái: {inc['status']}."
             )
-    elif any(k in query_lower for k in ("nguyên nhân", "tại sao", "lý do", "root cause", "chẩn đoán")):
-        content = (
-            f"**[Chế độ phân tích theo luật / Rule-based mode]**\n\n"
-            f"**Kết luận chẩn đoán nguyên nhân gốc rễ ({m_id}):**\n\n"
-            f"- **Nguyên nhân nghi ngờ**: **{inc.get('root_cause', 'Chưa xác định')}**\n"
-            f"- **Độ tin cậy**: **{int((inc.get('confidence') or 0.0) * 100)}%**\n"
-            f"- **Mức độ nghiêm trọng**: `{inc.get('severity', 'medium').upper()}`\n\n"
-            f"Chẩn đoán được xác lập bằng cách đối chiếu cảm biến viễn trắc với danh mục lỗi kỹ thuật tiêu chuẩn của DENSO."
+        return AgentChatResponseSchema(content=content, citations=citations if citations else None)
+
+    # In LLM mode: Retrieve RAG doc if technical question
+    rag_doc_context = ""
+    if any(k in query_lower for k in ("tại sao", "nguyên nhân", "quá nhiệt", "dầu", "gas", "quạt", "hướng dẫn", "tài liệu")):
+        rag_search = await search_manual(req.message)
+        rag_doc_context = rag_search.get("answer", "")
+        for c in rag_search.get("citations", []):
+            citations.append({
+                "documentId": str(c.get("documentId", "doc")),
+                "documentName": str(c.get("documentName", "DENSO Manual")),
+                "pages": str(c.get("pages", "1")) if c.get("pages") is not None else "N/A",
+            })
+
+    # Prepare LLM messages
+    latest_metrics = await db.get_latest_metrics(m_id)
+    metric_str = ", ".join(f"{k}: {v[1]}" for k, v in latest_metrics.items())
+    pending_cmd = pending_act.get('command') if pending_act else 'Không có'
+    conf_int = int((inc.get('confidence') or 0.0)*100)
+
+    chat_prompt = f"""Bạn là Chuyên gia Kỹ thuật DENSO giải đáp thắc mắc cho người vận hành bệ thử nghiệm máy nén.
+Ngữ cảnh sự cố hiện tại ({inc['id']}):
+- Thiết bị: {m_id}
+- Tiêu đề: {inc['title']}
+- Nguyên nhân gốc: {inc.get('root_cause')} (Độ tin cậy: {conf_int}%)
+- Số liệu cảm biến hiện tại: {metric_str}
+- Lệnh đang đề xuất: {pending_cmd}
+- Tài liệu kỹ thuật liên quan: {rag_doc_context}
+
+Quy tắc:
+- Trả lời bằng tiếng Việt, súc tích, chuyên nghiệp, nêu số liệu thực tế từ bệ thử.
+- Trích dẫn tài liệu kỹ thuật có căn cứ.
+- Tuyệt đối không tự ý thực thi hay cam kết thực thi lệnh trái với quy tắc an toàn.
+Câu hỏi của người vận hành: {req.message}
+"""
+    try:
+        llm = LLMClient()
+        llm_res = await llm.chat_completion(
+            messages=[{"role": "user", "content": chat_prompt}],
+            temperature=0.2,
+            json_mode=False,
         )
-    else:
-        # Summary response
+        content = llm_res.get("content", "").strip()
+    except Exception as e:
         content = (
-            f"**[Chế độ phân tích theo luật / Rule-based mode]**\n\n"
-            f"**Thông tin sự cố {inc['id']} trên bệ thử {m_id}:**\n\n"
-            f"- **Tiêu đề cảnh báo**: {inc['title']}\n"
-            f"- **Nguyên nhân nghi ngờ**: {inc.get('root_cause', 'Chưa xác định')}\n"
-            f"- **Trạng thái xử lý**: `{inc['status'].upper()}`\n\n"
-            f"Hệ thống đã ghi nhận đầy đủ dòng thời gian kiểm tra chéo cảm biến và tra cứu tài liệu liên quan."
+            f"**[Chế độ dự phòng Agent]**\n\n"
+            f"Sự cố {inc['id']} trên bệ thử {m_id}: {inc['title']}.\n"
+            f"- Nguyên nhân gốc rễ: {inc.get('root_cause', 'Chưa xác định')}\n"
+            f"- Số liệu đo đạc: {metric_str}\n"
+            f"- Hành động đề xuất: {pending_cmd}"
         )
+
+    # Deduplicate citations
+    seen = set()
+    unique_cits = []
+    for c in citations:
+        key = (c.get("documentName"), c.get("pages"))
+        if key not in seen:
+            seen.add(key)
+            unique_cits.append(c)
 
     return AgentChatResponseSchema(
         content=content,
-        citations=citations if citations else None,
+        citations=unique_cits if unique_cits else None,
     )

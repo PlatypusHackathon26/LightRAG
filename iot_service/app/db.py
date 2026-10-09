@@ -4,6 +4,7 @@ import logging
 from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
+import urllib.parse
 
 import psycopg
 from psycopg_pool import AsyncConnectionPool
@@ -11,6 +12,23 @@ from psycopg_pool import AsyncConnectionPool
 from app.config import settings
 
 logger = logging.getLogger("app.db")
+
+
+def mask_dsn(dsn: Optional[str]) -> str:
+    """Mask database password in connection DSN for secure logging."""
+    if not dsn:
+        return ""
+    try:
+        parsed = urllib.parse.urlsplit(dsn)
+        if parsed.password is not None:
+            netloc = f"{parsed.username}:***@{parsed.hostname}"
+            if parsed.port:
+                netloc += f":{parsed.port}"
+            return urllib.parse.urlunsplit((parsed.scheme, netloc, parsed.path, parsed.query, parsed.fragment))
+        return dsn
+    except Exception:
+        return "***"
+
 
 
 class DatabaseManager:
@@ -26,23 +44,41 @@ class DatabaseManager:
         self._mem_incidents: Dict[str, Dict[str, Any]] = {}
         self._mem_actions: Dict[str, Dict[str, Any]] = {}
         self._mem_audit_log: List[Dict[str, Any]] = []
+        self._mem_work_orders: Dict[str, Dict[str, Any]] = {}
+        self._mem_agent_steps: List[Dict[str, Any]] = []
         self._incident_counter: int = 0
         self._action_counter: int = 0
+        self._work_order_counter: int = 0
         self._lock = asyncio.Lock()
 
     async def connect(self):
+        masked = mask_dsn(self.dsn)
+        # If explicitly in memory mode, skip connecting to DB
+        if settings.DB_MODE == "memory":
+            self.is_connected = False
+            logger.info("DB_MODE is set to 'memory'. Operating explicitly in in-memory mode.")
+            return
+
         try:
             self.pool = AsyncConnectionPool(conninfo=self.dsn, min_size=1, max_size=10, open=False)
             await self.pool.open(wait=True, timeout=5.0)
             self.is_connected = True
-            logger.info("Successfully connected to PostgreSQL/TimescaleDB pool")
+            logger.info(f"Successfully connected to PostgreSQL/TimescaleDB pool at {masked}")
             # Verify and init tables if needed
             await self._init_tables()
         except Exception as e:
             self.is_connected = False
-            logger.warning(
-                f"Could not connect to PostgreSQL ({self.dsn}): {e}. Operating in resilient in-memory mode."
-            )
+            if settings.DB_REQUIRED:
+                err_msg = (
+                    f"CRITICAL: Failed to connect to required PostgreSQL/TimescaleDB at {masked}: {e}. "
+                    f"Set DB_REQUIRED=false or DB_MODE=memory if in-memory operation is intended."
+                )
+                logger.error(err_msg)
+                raise RuntimeError(err_msg) from e
+            else:
+                logger.warning(
+                    f"Could not connect to PostgreSQL ({masked}): {e}. Operating in resilient in-memory mode because DB_REQUIRED=false."
+                )
 
     async def _init_tables(self):
         if not self.pool:
@@ -119,6 +155,35 @@ class DatabaseManager:
             details JSONB NOT NULL DEFAULT '{}'::jsonb
         );
         CREATE INDEX IF NOT EXISTS idx_audit_log_ts ON audit_log (ts DESC);
+
+        CREATE TABLE IF NOT EXISTS work_orders (
+            id TEXT PRIMARY KEY,
+            incident_id TEXT NOT NULL REFERENCES incidents(id),
+            machine_id TEXT NOT NULL,
+            title TEXT NOT NULL,
+            priority TEXT NOT NULL DEFAULT 'medium',
+            steps JSONB NOT NULL DEFAULT '[]'::jsonb,
+            parts JSONB NOT NULL DEFAULT '[]'::jsonb,
+            citations JSONB NOT NULL DEFAULT '[]'::jsonb,
+            status TEXT NOT NULL DEFAULT 'open',
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            details JSONB NOT NULL DEFAULT '{}'::jsonb
+        );
+        CREATE INDEX IF NOT EXISTS idx_work_orders_incident ON work_orders (incident_id);
+        CREATE INDEX IF NOT EXISTS idx_work_orders_machine ON work_orders (machine_id);
+
+        CREATE TABLE IF NOT EXISTS agent_steps (
+            id BIGSERIAL PRIMARY KEY,
+            incident_id TEXT NOT NULL REFERENCES incidents(id),
+            step_number INT NOT NULL,
+            thought TEXT,
+            tool TEXT,
+            tool_args JSONB NOT NULL DEFAULT '{}'::jsonb,
+            tool_result JSONB NOT NULL DEFAULT '{}'::jsonb,
+            latency_ms FLOAT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_agent_steps_incident ON agent_steps (incident_id, step_number);
         """
         try:
             async with self.pool.connection() as conn:
@@ -972,6 +1037,243 @@ class DatabaseManager:
                 results.append(dict(log))
                 if len(results) >= limit:
                     break
+        return results
+
+    # =========================================================================
+    # Phase 3: Work Orders Management (MES/ERP simulation)
+    # =========================================================================
+
+    async def get_next_work_order_id(self) -> str:
+        async with self._lock:
+            self._work_order_counter += 1
+            return f"WO-{self._work_order_counter:04d}"
+
+    async def create_work_order(self, wo_dict: Dict[str, Any]) -> str:
+        now = datetime.now(timezone.utc)
+        wo_id = wo_dict.get("id") or await self.get_next_work_order_id()
+        created_at = wo_dict.get("created_at", now)
+        if isinstance(created_at, str):
+            created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+
+        rec = {
+            "id": wo_id,
+            "incident_id": wo_dict["incident_id"],
+            "machine_id": wo_dict["machine_id"],
+            "title": wo_dict["title"],
+            "priority": wo_dict.get("priority", "medium"),
+            "steps": wo_dict.get("steps", []),
+            "parts": wo_dict.get("parts", []),
+            "citations": wo_dict.get("citations", []),
+            "status": wo_dict.get("status", "open"),
+            "created_at": created_at,
+            "details": wo_dict.get("details", {}),
+        }
+
+        async with self._lock:
+            self._mem_work_orders[wo_id] = rec
+
+        if self.is_connected and self.pool:
+            sql = """
+            INSERT INTO work_orders (id, incident_id, machine_id, title, priority, steps, parts, citations, status, created_at, details)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (id) DO NOTHING;
+            """
+            try:
+                async with self.pool.connection() as conn:
+                    async with conn.cursor() as cur:
+                        await cur.execute(
+                            sql,
+                            (
+                                rec["id"],
+                                rec["incident_id"],
+                                rec["machine_id"],
+                                rec["title"],
+                                rec["priority"],
+                                json.dumps(rec["steps"]),
+                                json.dumps(rec["parts"]),
+                                json.dumps(rec["citations"]),
+                                rec["status"],
+                                rec["created_at"],
+                                json.dumps(rec["details"]),
+                            ),
+                        )
+                    await conn.commit()
+            except Exception as e:
+                logger.error(f"Failed to create work order in DB: {e}")
+
+        return wo_id
+
+    async def get_work_order(self, wo_id: str) -> Optional[Dict[str, Any]]:
+        async with self._lock:
+            if wo_id in self._mem_work_orders:
+                return dict(self._mem_work_orders[wo_id])
+
+        if self.is_connected and self.pool:
+            sql = """
+            SELECT id, incident_id, machine_id, title, priority, steps, parts, citations, status, created_at, details
+            FROM work_orders
+            WHERE id = %s;
+            """
+            try:
+                async with self.pool.connection() as conn:
+                    async with conn.cursor() as cur:
+                        await cur.execute(sql, (wo_id,))
+                        r = await cur.fetchone()
+                        if r:
+                            return {
+                                "id": r[0],
+                                "incident_id": r[1],
+                                "machine_id": r[2],
+                                "title": r[3],
+                                "priority": r[4],
+                                "steps": r[5] if isinstance(r[5], list) else json.loads(r[5] or "[]"),
+                                "parts": r[6] if isinstance(r[6], list) else json.loads(r[6] or "[]"),
+                                "citations": r[7] if isinstance(r[7], list) else json.loads(r[7] or "[]"),
+                                "status": r[8],
+                                "created_at": r[9],
+                                "details": r[10] if isinstance(r[10], dict) else json.loads(r[10] or "{}"),
+                            }
+            except Exception as e:
+                logger.error(f"Failed to get work order from DB: {e}")
+
+        return None
+
+    async def get_work_orders_for_incident(self, incident_id: str) -> List[Dict[str, Any]]:
+        results = []
+        async with self._lock:
+            for wo in self._mem_work_orders.values():
+                if wo["incident_id"] == incident_id:
+                    results.append(dict(wo))
+
+        if self.is_connected and self.pool:
+            sql = """
+            SELECT id, incident_id, machine_id, title, priority, steps, parts, citations, status, created_at, details
+            FROM work_orders
+            WHERE incident_id = %s
+            ORDER BY created_at ASC;
+            """
+            try:
+                async with self.pool.connection() as conn:
+                    async with conn.cursor() as cur:
+                        await cur.execute(sql, (incident_id,))
+                        rows = await cur.fetchall()
+                        db_results = []
+                        for r in rows:
+                            db_results.append({
+                                "id": r[0],
+                                "incident_id": r[1],
+                                "machine_id": r[2],
+                                "title": r[3],
+                                "priority": r[4],
+                                "steps": r[5] if isinstance(r[5], list) else json.loads(r[5] or "[]"),
+                                "parts": r[6] if isinstance(r[6], list) else json.loads(r[6] or "[]"),
+                                "citations": r[7] if isinstance(r[7], list) else json.loads(r[7] or "[]"),
+                                "status": r[8],
+                                "created_at": r[9],
+                                "details": r[10] if isinstance(r[10], dict) else json.loads(r[10] or "{}"),
+                            })
+                        return db_results
+            except Exception as e:
+                logger.error(f"Failed to query work orders from DB: {e}")
+
+        return results
+
+    # =========================================================================
+    # Phase 3: Agent Steps Management
+    # =========================================================================
+
+    async def insert_agent_step(
+        self,
+        incident_id: str,
+        step_number: int,
+        thought: Optional[str] = None,
+        tool: Optional[str] = None,
+        tool_args: Optional[Dict[str, Any]] = None,
+        tool_result: Optional[Dict[str, Any]] = None,
+        latency_ms: Optional[float] = None,
+    ) -> int:
+        now = datetime.now(timezone.utc)
+        record = {
+            "id": len(self._mem_agent_steps) + 1,
+            "incident_id": incident_id,
+            "step_number": step_number,
+            "thought": thought,
+            "tool": tool,
+            "tool_args": tool_args or {},
+            "tool_result": tool_result or {},
+            "latency_ms": latency_ms,
+            "created_at": now,
+        }
+        async with self._lock:
+            self._mem_agent_steps.append(record)
+
+        if self.is_connected and self.pool:
+            sql = """
+            INSERT INTO agent_steps (incident_id, step_number, thought, tool, tool_args, tool_result, latency_ms, created_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id;
+            """
+            try:
+                async with self.pool.connection() as conn:
+                    async with conn.cursor() as cur:
+                        await cur.execute(
+                            sql,
+                            (
+                                record["incident_id"],
+                                record["step_number"],
+                                record["thought"],
+                                record["tool"],
+                                json.dumps(record["tool_args"]),
+                                json.dumps(record["tool_result"]),
+                                record["latency_ms"],
+                                record["created_at"],
+                            ),
+                        )
+                        r = await cur.fetchone()
+                        if r:
+                            record["id"] = r[0]
+                    await conn.commit()
+            except Exception as e:
+                logger.error(f"Failed to insert agent step into DB: {e}")
+
+        return record["id"]
+
+    async def get_agent_steps(self, incident_id: str) -> List[Dict[str, Any]]:
+        results = []
+        async with self._lock:
+            for st in self._mem_agent_steps:
+                if st["incident_id"] == incident_id:
+                    results.append(dict(st))
+
+        if self.is_connected and self.pool:
+            sql = """
+            SELECT id, incident_id, step_number, thought, tool, tool_args, tool_result, latency_ms, created_at
+            FROM agent_steps
+            WHERE incident_id = %s
+            ORDER BY step_number ASC, created_at ASC;
+            """
+            try:
+                async with self.pool.connection() as conn:
+                    async with conn.cursor() as cur:
+                        await cur.execute(sql, (incident_id,))
+                        rows = await cur.fetchall()
+                        db_results = []
+                        for r in rows:
+                            db_results.append({
+                                "id": r[0],
+                                "incident_id": r[1],
+                                "step_number": r[2],
+                                "thought": r[3],
+                                "tool": r[4],
+                                "tool_args": r[5] if isinstance(r[5], dict) else json.loads(r[5] or "{}"),
+                                "tool_result": r[6] if isinstance(r[6], dict) else json.loads(r[6] or "{}"),
+                                "latency_ms": r[7],
+                                "created_at": r[8],
+                            })
+                        return db_results
+            except Exception as e:
+                logger.error(f"Failed to query agent steps from DB: {e}")
+
         return results
 
 

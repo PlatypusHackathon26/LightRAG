@@ -10,6 +10,8 @@ from pydantic import BaseModel, Field, ValidationError
 
 from app.config import settings
 from app.db import DatabaseManager
+from app.config import evaluate_metric_status, load_machines_config
+from app.stream import broadcaster
 
 logger = logging.getLogger("app.ingest")
 
@@ -163,6 +165,29 @@ class MqttIngestService:
                         m_id = validated.machine_id
                         for metric_name, val in validated.metrics.items():
                             batch.append((ts, m_id, metric_name, float(val)))
+                        # Broadcast metrics to SSE stream
+                        try:
+                            m_cfg_all = load_machines_config(settings.MACHINES_CONFIG_PATH)
+                            m_conf = m_cfg_all.machines.get(m_id)
+                            m_status = "normal"
+                            detailed_metrics = {}
+                            if m_conf:
+                                for k, v in validated.metrics.items():
+                                    k_conf = m_conf.metrics.get(k)
+                                    st = evaluate_metric_status(float(v), k_conf) if k_conf else "normal"
+                                    if st == "critical":
+                                        m_status = "critical"
+                                    elif st == "warn" and m_status != "critical":
+                                        m_status = "warn"
+                                    detailed_metrics[k] = {"value": float(v), "status": st}
+                            broadcaster.broadcast_metrics(
+                                machine_id=m_id,
+                                timestamp=ts.isoformat(),
+                                metrics=detailed_metrics,
+                                machine_status=m_status,
+                            )
+                        except Exception as b_ex:
+                            logger.error(f"Error broadcasting metrics: {b_ex}")
                     except ValidationError as ve:
                         logger.warning(f"Malformed metrics payload on {topic}: {ve}")
                     self._metric_queue.task_done()
@@ -208,6 +233,11 @@ class MqttIngestService:
                         logger.warning(
                             f"[Ingest Event] Stored event {validated.error_code} for machine {validated.machine_id} (ID: {validated.event_id})"
                         )
+                        # Broadcast event via SSE
+                        try:
+                            broadcaster.broadcast_event(event_dict)
+                        except Exception as bev_ex:
+                            logger.error(f"Error broadcasting SSE event: {bev_ex}")
                         # Trigger Incident Lifecycle
                         if self.lifecycle_manager:
                             try:

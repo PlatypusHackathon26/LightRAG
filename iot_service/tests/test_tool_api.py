@@ -162,4 +162,10 @@ async def test_health_check_endpoint():
         res = await client.get("/health")
         assert res.status_code == 200
         data = res.json()
-        assert data["status"] == "ok"
+        assert "status" in data
+        assert "database" in data
+        assert "mqtt" in data
+        if data["database"] == "in_memory":
+            assert data["status"] == "degraded"
+        else:
+            assert data["status"] == "ok"

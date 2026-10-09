@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Literal, Optional, Tuple
 
 from app.config import MetricConfig, load_machines_config, settings
 from app.db import DatabaseManager
+from app.stream import broadcaster
 
 logger = logging.getLogger("app.monitor")
 
@@ -281,6 +282,11 @@ class ThresholdMonitor:
                         logger.warning(
                             f"[Monitor Early Warning] {m_id} {res.warning_code}: {res.warning_message}"
                         )
+                        # Broadcast early warning via SSE
+                        try:
+                            broadcaster.broadcast_event(event_payload)
+                        except Exception as m_ex:
+                            logger.error(f"Error broadcasting monitor SSE event: {m_ex}")
                         if self.lifecycle_manager:
                             try:
                                 await self.lifecycle_manager.handle_inbound_event(event_payload)
