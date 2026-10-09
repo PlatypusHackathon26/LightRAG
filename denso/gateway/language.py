@@ -28,10 +28,20 @@ INSTRUCTION = {
     "vi": ("Trả lời HOÀN TOÀN bằng tiếng Việt. Dịch mọi nội dung lấy từ tài liệu tiếng Anh hay tiếng khác "
            "sang tiếng Việt; không chép nguyên câu tiếng nước ngoài. Chỉ giữ nguyên mã sản phẩm, số hiệu, "
            "môi chất lạnh, đơn vị và tên tài liệu. Không trộn hai ngôn ngữ trong cùng một câu. "
+           # "condenser" came back as "máy lọc" / "máy lạnh", "receiver dryer" as "bộ khô" / "máy sấy".
+           "Thuật ngữ kỹ thuật: dùng từ tiếng Việt chuẩn ngành và ghi kèm từ gốc tiếng Anh trong ngoặc ở lần "
+           "nhắc đầu tiên, ví dụ \"bình ngưng (condenser)\", \"bình lọc ẩm (receiver dryer)\", \"chế độ không tải "
+           "(idle)\"; nếu không chắc nghĩa tiếng Việt thì giữ nguyên từ tiếng Anh. Bảng thuật ngữ: condenser = dàn "
+           "ngưng (không phải \"máy lạnh\"), evaporator = dàn bay hơi, receiver dryer = bình lọc ẩm, expansion valve "
+           "= van tiết lưu, refrigerant = môi chất lạnh, flushing = súc rửa, run-in = chạy rà, idle = không tải, "
+           "guide pin = chốt dẫn hướng, gasket = gioăng. "
            # The example carries no value: a model must never copy a figure from the instruction.
            # "nhắc lại điều câu hỏi hỏi" made answers start by copying the question ("Câu hỏi hỏi: ...").
            "Trả lời thành câu tiếng Việt hoàn chỉnh về đúng điều được hỏi, không chép lại câu hỏi và "
-           "không chỉ ghi con số (ví dụ: \"Phần tiếng Nga ghi mô-men xoắn siết bu-lông là … Nm.\")."),
+           "không chỉ ghi con số (ví dụ: \"Phần tiếng Nga ghi mô-men xoắn siết bu-lông là … Nm.\"). "
+           # Bare "DENSO Oil 9 (...)" / "6,9 - 10,8 Nm." still came back 2 runs in 10 without this line.
+           "QUAN TRỌNG: không bao giờ trả lời chỉ bằng một con số, một mã hay một tên sản phẩm; luôn viết ít "
+           "nhất một câu tiếng Việt đầy đủ có chủ ngữ và vị ngữ."),
     "ja": ("回答はすべて日本語で書いてください。英語など他の言語の資料の内容は日本語に訳し、外国語の文をそのまま"
            "引用しないでください。製品コード・型番・冷媒・単位・資料名だけは原文のままにしてください。"
            # Without it a torque came back as a bare "6.9 to 10.8 [Nm]", in English 1 run in 2.

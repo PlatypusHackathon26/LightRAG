@@ -331,8 +331,12 @@ def _only_cited(references: list[dict], answer: str, judge_grounding: bool = Tru
         # Keep a pick only when it shares about as much of the answer as the best. Language-neutral
         # terms only (names, codes, numbers): with Vietnamese word pairs, any Vietnamese document
         # ("máy nén", "mã lỗi") outscored the English bulletin a Vietnamese answer was read from.
-        terms_any = neutral_terms(CITED_ID.sub(" ", answer))
-        overlap = {id(r): max((len(terms_any & neutral_terms(t)) for t in chunk_texts(r)), default=0) for r in references}
+        # Without the answer's own "(Document name, p. N)": a wrong one ("AC Compressor Installation
+        # Manual, p. 2" for a fact of the oil bulletin) matched that manual on its own name.
+        body = CITATION_PAREN.sub(" ", CITED_ID.sub(" ", answer))
+        terms_any = neutral_terms(body)
+        overlap = {id(r): max((len(terms_any & neutral_terms(t)) + 3 * ranges_in(body, t) for t in chunk_texts(r)),
+                              default=0) for r in references}
         top = max(overlap.values(), default=0)
         if top >= 2:
             sound = [r for r in picked if overlap[id(r)] >= top * 0.5]
@@ -360,6 +364,21 @@ def quoting_references(references: list[dict], answer: str) -> list[dict]:
     """References a short answer quotes verbatim ("O(b m/2)" shares no word with anything)."""
     core = answer_core(answer)
     return [r for r in references if core and any(core in _squash(t) for t in chunk_texts(r))] if core else []
+
+
+CITATION_PAREN = re.compile(r"\([^()]*\b(?:p\.|page|trang|tr\.|ページ)\s*\d+[^()]*\)", re.IGNORECASE)
+NUMBER = re.compile(r"\d+(?:[.,]\d+)?")
+
+
+def ranges_in(answer: str, text: str) -> int:
+    """How many of the answer's number pairs ("30% đến 50%", "6,9 - 10,8") sit together in `text`.
+
+    Single numbers are in every long manual; a pair printed side by side ("30-50%") is not.
+    """
+    nums = [n.replace(",", ".") for n in NUMBER.findall(answer)]
+    flat = text.replace(",", ".")
+    return sum(1 for a, b in set(zip(nums, nums[1:])) if a != b
+               and re.search(rf"(?<![\d.]){re.escape(a)}\D{{1,12}}{re.escape(b)}(?![\d.])", flat))
 
 
 def neutral_terms(text: str) -> set[str]:
@@ -466,7 +485,11 @@ def supporting_chunks(ref: dict, answer: str) -> list[str]:
     best = max((s for s, _ in scored), default=0)
     if best < 3:
         return chunks
-    return [t for s, t in sorted(scored, key=lambda x: -x[0]) if s >= best * 0.5]
+    # Keep the chunk holding a page the answer names ("(…, trang 27)"): it was dropped here, before
+    # supporting_pages could prefer that page, and p. 1 was cited.
+    named = {n for n in re.findall(r"(?:\bp\.|\bpage|\btrang|\btr\.|ページ)\s*(\d+)", answer, re.IGNORECASE)}
+    return [t for s, t in sorted(scored, key=lambda x: -x[0])
+            if s >= best * 0.5 or (named & set(PAGE_MARK.findall(t)))]
 
 
 def classify_target(message: str) -> str:

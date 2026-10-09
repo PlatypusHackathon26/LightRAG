@@ -285,3 +285,27 @@ def test_the_tr_abbreviation_names_a_page():
     chunks = ["--- [Trang 1 | ngôn ngữ: vi] ---\nDeep Blue thắng Kasparov năm 1997.\n"
               "--- [Trang 27 | ngôn ngữ: vi] ---\n- 12-ply = Deep Blue, Kasparov"]
     assert supporting_pages(chunks, "12-ply = Deep Blue, Kasparov. (Bài 5, tr. 27)") == "27"
+
+
+def test_a_wrong_document_named_in_the_answer_does_not_win_on_its_own_name():
+    # Held-out I03: "(AC Compressor Installation Manual.md, p. 2)" for the oil bulletin's 30-50%.
+    from app import only_cited
+
+    manual = {"reference_id": "1", "file_path": "AC Compressor Installation Manual.md", "content": [
+        "--- [Trang 4 | ngôn ngữ: en] ---\nAC compressor installation manual: never add oil directly into the "
+        "compressor. Tighten 30 Nm. Refer to procedure 50."]}
+    bulletin = {"reference_id": "2", "file_path": "EN_AC Compressor oil_troubleshooting_bulletin.md", "content": [
+        "--- [Trang 2 | ngôn ngữ: en] ---\nCaution! Between 30-50% of the total oil quantity should be drained."]}
+    answer = "Cần xả từ 30% đến 50% tổng lượng dầu khi tháo máy nén cũ. (AC Compressor Installation Manual.md, p. 2)"
+    assert [r["reference_id"] for r in only_cited([manual, bulletin], answer)] == ["2"]
+
+
+def test_the_chunk_holding_the_named_page_is_kept():
+    # Held-out I13: the chunk with p. 27 was dropped before the named page could be preferred.
+    from app import to_citations
+
+    ref = {"reference_id": "1", "file_path": "Bai 5.md", "content": [
+        "--- [Trang 9 | ngôn ngữ: vi] ---\n- Trò chơi cờ vua có hệ số phân nhánh lớn và độ sâu lớn; cờ vua cờ tướng.",
+        "--- [Trang 27 | ngôn ngữ: vi] ---\n- Chơi cờ vua: b ~ 35, m ~100."]}
+    answer = "Trong cờ vua, hệ số phân nhánh b khoảng 35 và độ sâu m khoảng 100. (Bài 5, trang 27)"
+    assert to_citations([ref], answer)[0]["pages"] == "27"
