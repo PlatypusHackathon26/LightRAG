@@ -30,21 +30,25 @@ async def test_timescale_db_real_integration():
 
     # Swap in real_db as the app's db_manager for this test
     from app import db as db_module
+    from app.routers import tools as tools_module  # binds db_manager at import time
     original_db = db_module.db_manager
     db_module.db_manager = real_db
+    tools_module.db_manager = real_db
     app.state.db = real_db
 
     try:
         test_machine = "COMP-TB-01"
         test_metric = "discharge_temp"
-        test_value = 88.5
+        # Above anything the simulator publishes, and stamped a little ahead: a running simulator
+        # writes the same machine into the same database while this test runs.
+        test_value = 199.5
         now = datetime.now(timezone.utc)
 
         # 1. Insert real metric batch directly into TimescaleDB
         batch = [
-            (now - timedelta(seconds=20), test_machine, test_metric, 82.0),
-            (now - timedelta(seconds=10), test_machine, test_metric, 85.0),
-            (now, test_machine, test_metric, test_value),
+            (now + timedelta(seconds=10), test_machine, test_metric, 182.0),
+            (now + timedelta(seconds=20), test_machine, test_metric, 185.0),
+            (now + timedelta(seconds=30), test_machine, test_metric, test_value),
         ]
         await real_db.insert_metrics_batch(batch)
 
@@ -84,7 +88,7 @@ async def test_timescale_db_real_integration():
             assert curr_data["machine_id"] == test_machine
             assert test_metric in curr_data["metrics"]
             # Current value should match the latest inserted point
-            assert curr_data["metrics"][test_metric]["current"] == test_value
+            assert curr_data["metrics"][test_metric]["value"] == test_value
 
             # Check /history via Tool API
             res_hist = await client.get(
@@ -94,9 +98,7 @@ async def test_timescale_db_real_integration():
             assert res_hist.status_code == 200
             hist_data = res_hist.json()
             assert test_metric in hist_data["metrics"]
-            assert hist_data["metrics"][test_metric]["latest"] == test_value
-            # Should have at least 3 points
-            assert hist_data["metrics"][test_metric]["sample_count"] >= 3
+            assert hist_data["metrics"][test_metric]["max"] == test_value
 
             # Check /events via Tool API
             res_ev = await client.get(
@@ -109,7 +111,14 @@ async def test_timescale_db_real_integration():
             assert test_event_code in error_codes, f"Expected event {test_event_code} in retrieved events"
 
     finally:
+        # The rows go into the live database: left there, a running monitor would read 199.5 °C as
+        # the bench's latest discharge temperature and open an incident.
+        async with real_db.pool.connection() as conn:
+            await conn.execute("DELETE FROM metrics WHERE machine_id = %s AND metric = %s AND value IN (182.0, 185.0, 199.5)",
+                               (test_machine, test_metric))
+            await conn.execute("DELETE FROM events WHERE error_code = %s", (test_event_code,))
         # Cleanup and restore
         db_module.db_manager = original_db
+        tools_module.db_manager = original_db
         app.state.db = original_db
         await real_db.disconnect()

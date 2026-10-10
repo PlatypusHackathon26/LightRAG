@@ -7,7 +7,6 @@ Prints rich formatted summary table with accuracy, confidence, step count, laten
 
 import argparse
 import asyncio
-import json
 import logging
 from pathlib import Path
 import sys
@@ -24,10 +23,7 @@ from typing import Any, Dict, List
 
 from app.agent.agent_analyzer import AgentAnalyzer
 from app.agent.llm_client import FakeLLMClient, LLMClient
-from app.agent.loop import ReActAgentLoop
 from app.agent.rule_analyzer import RuleAnalyzer
-from app.agent.tools import AgentToolExecutor
-from app.commands import validate_command_guardrails
 from app.config import settings
 from app.db import DatabaseManager
 

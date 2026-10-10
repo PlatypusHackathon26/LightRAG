@@ -9,7 +9,7 @@ from typing import Dict, Optional
 import paho.mqtt.client as mqtt
 
 from app.config import load_machines_config, settings
-from simulator.model import SCENARIO_TARGETS, MachineSimulator
+from simulator.model import MachineSimulator
 
 logger = logging.getLogger("simulator.runner")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")

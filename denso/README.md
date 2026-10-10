@@ -232,7 +232,7 @@ Dịch vụ đang chạy thì `serve_chat.ps1` giữ nguyên, chỉ bật nhữn
 | 5001 | Docling |
 | 11434 | Ollama |
 | 9710 | dịch vụ IoT (`-WithIoT`), dashboard ở `/dashboard/` |
-| 1883 | MQTT (container `denso-mosquitto`) |
+| 1883 / 5433 | MQTT / TimescaleDB (`iot_service/docker-compose.yml`) |
 
 ### 4.2. Upload và xoá tài liệu
 
@@ -261,9 +261,11 @@ uv venv iot_service\.venv --python 3.11
 uv pip install --python iot_service\.venv\Scripts\python.exe -r iot_service\requirements.txt
 ```
 
-Chạy: `serve_chat.ps1 -WithIoT -Restart` (thêm `-WithUI` nếu cần). Kịch bản tự bật container
-Mosquitto `denso-mosquitto` khi Docker đang chạy (lần đầu tải image `eclipse-mosquitto:2`, ~10 MB) rồi
-bật máy mô phỏng; không có TimescaleDB (cổng 5433) thì IoT lưu trong RAM, mất khi tắt. Bơm sự cố thử:
+Chạy: `serve_chat.ps1 -WithIoT -Restart` (thêm `-WithUI` nếu cần). Khi Docker đang chạy, kịch bản bật
+`iot_service/docker-compose.yml` – Mosquitto (:1883) và TimescaleDB (:5433), chỉ nghe trên máy; lần đầu tải
+image `eclipse-mosquitto:2` và `timescale/timescaledb:2.17.2-pg16` – rồi bật máy mô phỏng. Sự cố, lệnh và
+lịch sử cảm biến nằm trong TimescaleDB (volume `denso-iot_timescale-data`), còn lại sau khi tắt máy.
+Không có Docker thì không có MQTT và IoT lưu trong RAM. Bơm sự cố thử:
 
 ```powershell
 cd iot_service
@@ -388,6 +390,7 @@ không bao giờ gọi LightRAG trực tiếp. Đặc tả đầy đủ: `docs/A
 | Trình duyệt báo lỗi CORS | tên miền giao diện chưa được cho phép: `-CorsRegex` |
 | Máy chậm / treo | đóng bớt ứng dụng, tắt Docling khi không upload |
 | `-WithIoT` báo `mqtt=MISSING` | bật Docker Desktop rồi chạy lại; không có MQTT thì không có telemetry và sự cố |
+| Xoá sạch dữ liệu IoT (sự cố, lịch sử cảm biến) | `docker compose -f iot_service/docker-compose.yml down -v` |
 | Sự cố IoT không hiện trên giao diện | gateway chạy trước khi có `-WithIoT`: chạy lại với `-WithIoT -Restart` |
 | Duyệt lệnh báo "may not approve" | token cần `"can_approve": true` trong `users.json` |
 

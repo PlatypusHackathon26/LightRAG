@@ -2,7 +2,7 @@ import math
 import random
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from app.config import MachineConfig
 

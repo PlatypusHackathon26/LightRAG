@@ -9,7 +9,6 @@ Usage:
 
 import argparse
 import json
-import os
 import sys
 import time
 import urllib.request
@@ -29,7 +28,7 @@ iot_dir = script_dir.parent
 if str(iot_dir) not in sys.path:
     sys.path.insert(0, str(iot_dir))
 
-from app.config import settings
+from app.config import settings  # noqa: E402  (after the sys.path setup above)
 
 
 def publish_sim_control(machine_id: str, scenario: str, ramp_s: float = 10.0):

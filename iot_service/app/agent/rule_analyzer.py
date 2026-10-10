@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 import yaml
 
@@ -147,7 +146,6 @@ class RuleAnalyzer(BaseAnalyzer):
         diagnosis_vi = matched_playbook["diagnosis_vi"].format(**fmt_vars)
         diagnosis_en = matched_playbook["diagnosis_en"].format(**fmt_vars)
         title_vi = matched_playbook.get("title_vi", f"Sự cố {matched_playbook['name']}")
-        subtitle_vi = matched_playbook.get("subtitle_vi", "")
 
         # Format proposed action
         action_cfg = matched_playbook.get("proposed_action")

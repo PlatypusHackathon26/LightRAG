@@ -1,9 +1,8 @@
-import asyncio
 from datetime import datetime, timezone
 import math
-from typing import Any, Dict, List, Literal, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -481,17 +480,17 @@ async def get_dashboard_agent_timeline(
     # 1. Fetch audit logs for this machine
     audit_logs = await db_manager.get_audit_logs(limit=200)
     machine_logs = [
-        l for l in audit_logs
-        if l.get("machine_id") == machine and l.get("ts") and l["ts"] >= since_dt
+        row for row in audit_logs
+        if row.get("machine_id") == machine and row.get("ts") and row["ts"] >= since_dt
     ]
 
     timeline_markers = []
-    for l in machine_logs:
-        act = l.get("action")
-        actor = l.get("actor", "system")
-        details = l.get("details", {})
-        ts_iso = l["ts"].strftime("%Y-%m-%dT%H:%M:%SZ")
-        ts_s = float(l["ts"].timestamp())
+    for row in machine_logs:
+        act = row.get("action")
+        actor = row.get("actor", "system")
+        details = row.get("details", {})
+        ts_iso = row["ts"].strftime("%Y-%m-%dT%H:%M:%SZ")
+        ts_s = float(row["ts"].timestamp())
 
         label = act
         badge_type = "info"
@@ -624,26 +623,26 @@ async def get_machine_series(
     # 4. Fetch agent action markers within the window
     audit_logs = await db_manager.get_audit_logs(limit=100)
     agent_timeline = []
-    for l in audit_logs:
-        if l.get("machine_id") == id and l.get("ts") and l["ts"] >= since_dt:
-            act = l.get("action")
-            det = l.get("details", {})
+    for row in audit_logs:
+        if row.get("machine_id") == id and row.get("ts") and row["ts"] >= since_dt:
+            act = row.get("action")
+            det = row.get("details", {})
             lbl = act
             if act == "action_proposed":
                 lbl = f"Agent đề xuất: {det.get('command')}"
             elif act == "approve":
-                lbl = f"Duyệt lệnh {det.get('command')} ({l.get('actor')})"
+                lbl = f"Duyệt lệnh {det.get('command')} ({row.get('actor')})"
             elif act == "ack":
                 lbl = f"ACK: {det.get('message', 'Thành công')}"
             elif act == "expire":
                 lbl = "Hết hạn không thực thi"
 
             agent_timeline.append({
-                "timestamp": l["ts"].strftime("%Y-%m-%dT%H:%M:%SZ"),
-                "timestamp_s": float(l["ts"].timestamp()),
+                "timestamp": row["ts"].strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "timestamp_s": float(row["ts"].timestamp()),
                 "action": act,
                 "label": lbl,
-                "actor": l.get("actor"),
+                "actor": row.get("actor"),
             })
 
     return MachineSeriesResponse(

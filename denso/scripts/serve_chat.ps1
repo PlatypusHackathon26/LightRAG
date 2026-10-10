@@ -25,7 +25,8 @@ param(
     [switch]$GuestUpload,
     [switch]$WithUI,
     # iot_service :9710 (test-bench simulator, monitor, IoT agent; needs iot_service\.venv) behind the
-    # gateway. MQTT comes from a Mosquitto container when Docker runs; no TimescaleDB = in-memory store.
+    # gateway. Mosquitto + TimescaleDB come from iot_service\docker-compose.yml when Docker runs;
+    # without Docker there is no MQTT (no telemetry) and the service keeps its data in memory.
     [switch]$WithIoT,
     # Expose the gateway through a Cloudflare quick tunnel (public URL, guest = level 1) for the hosted demo.
     [switch]$Tunnel
@@ -114,15 +115,12 @@ if ($WithIoT) {
         # Its own venv: iot_service pins older fastapi/pydantic than LightRAG needs.
         throw "iot_service has no venv. Create it once:  uv venv iot_service\.venv --python 3.11 ; uv pip install --python iot_service\.venv\Scripts\python.exe -r iot_service\requirements.txt"
     }
-    if (-not (Test-Port 1883)) {
+    if (-not ((Test-Port 1883) -and (Test-Port 5433))) {
         cmd /c "docker info >nul 2>&1"
         if ($LASTEXITCODE -eq 0) {
-            # Exists from an earlier run: start it; otherwise create it (localhost only, no auth).
-            cmd /c "docker start denso-mosquitto >nul 2>&1"
-            if ($LASTEXITCODE -ne 0) {
-                cmd /c "docker run -d --name denso-mosquitto -p 127.0.0.1:1883:1883 eclipse-mosquitto:2 mosquitto -c /mosquitto-no-auth.conf >nul"
-            }
-            Start-Sleep 3
+            # Mosquitto + TimescaleDB, localhost only (iot_service\docker-compose.yml); first run pulls the images.
+            cmd /c "docker rm -f denso-mosquitto >nul 2>&1"   # the standalone broker earlier versions started
+            cmd /c "docker compose -f ""$iot\docker-compose.yml"" up -d --wait"
         }
     }
     $mqtt = Test-Port 1883

@@ -2,13 +2,12 @@ import json
 import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Literal, Optional
-from fastapi import APIRouter, Depends, Header, HTTPException, Path, status
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, HTTPException, Path, status
+from pydantic import BaseModel
 
 from app.config import evaluate_metric_status, load_machines_config, settings
 from app.db import DatabaseManager
 from app.gateway.actions import ActionService
-from app.gateway.lifecycle import IncidentLifecycleManager
 from app.agent.llm_client import LLMClient
 from app.agent.rag_client import search_manual
 
@@ -468,7 +467,7 @@ Câu hỏi của người vận hành: {req.message}
             json_mode=False,
         )
         content = llm_res.get("content", "").strip()
-    except Exception as e:
+    except Exception:
         content = (
             f"**[Chế độ dự phòng Agent]**\n\n"
             f"Sự cố {inc['id']} trên bệ thử {m_id}: {inc['title']}.\n"

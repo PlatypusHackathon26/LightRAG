@@ -1,7 +1,6 @@
 import pytest
 from httpx import AsyncClient, ASGITransport
 from app.main import app
-from app.config import settings
 from app.db import db_manager
 from app.gateway.lifecycle import IncidentLifecycleManager
 from app.gateway.actions import action_service

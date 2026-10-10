@@ -1,4 +1,3 @@
-import pytest
 from app.config import MetricConfig
 from app.monitor import ThresholdMonitorLogic
 

@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import MagicMock, patch
 
-from app.agent.rag_client import RAGClient, search_manual
+from app.agent.rag_client import RAGClient
 
 
 @pytest.mark.asyncio

@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 from typing import Dict, Literal, Optional
 import yaml
@@ -126,7 +125,9 @@ class Settings(BaseSettings):
     MQTT_HOST: str = "localhost"
     MQTT_PORT: int = 1883
 
-    DB_DSN: str = "postgresql://postgres:postgres@localhost:5433/denso_iot"
+    # 127.0.0.1, not localhost: on Windows the async pool tried ::1 first and never connected to the
+    # container, which publishes the port on 127.0.0.1 only (iot_service/docker-compose.yml).
+    DB_DSN: str = "postgresql://postgres:postgres@127.0.0.1:5433/denso_iot"
     DB_REQUIRED: bool = True
     DB_MODE: str = "timescale"  # "timescale" or "memory"
     # 9700 is the DENSO Agent Gateway (denso/gateway), the UI's single entry point; it forwards

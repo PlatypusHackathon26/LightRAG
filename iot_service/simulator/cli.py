@@ -7,7 +7,7 @@ import paho.mqtt.client as mqtt
 
 from app.config import load_machines_config, settings
 from simulator.model import SCENARIO_TARGETS
-from simulator.runner import SimulatorRunner, run_simulator
+from simulator.runner import SimulatorRunner
 
 
 def cmd_run(args):

@@ -1,7 +1,5 @@
 import pytest
-import logging
 from app.db import DatabaseManager, mask_dsn
-from app.config import Settings
 
 
 def test_mask_dsn():

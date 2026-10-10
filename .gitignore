@@ -99,3 +99,6 @@ memory-bank
 
 # native_parser/docx CLI output (audit JSONL + image dir)
 /parse_output/
+
+# Personal AI-tool config (machine-specific paths)
+.codex/

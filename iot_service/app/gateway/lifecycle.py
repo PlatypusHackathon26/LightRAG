@@ -1,11 +1,10 @@
 import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from app.agent.agent_analyzer import AgentAnalyzer
 from app.agent.rule_analyzer import RuleAnalyzer
-from app.commands import command_dispatcher, validate_command_guardrails
 from app.config import evaluate_metric_status, load_machines_config, settings
 from app.db import DatabaseManager
 from app.gateway.actions import ActionService

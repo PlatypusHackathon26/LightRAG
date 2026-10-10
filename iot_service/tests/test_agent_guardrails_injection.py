@@ -1,9 +1,6 @@
 import pytest
 from datetime import datetime, timezone
 
-from app.agent.agent_analyzer import AgentAnalyzer
-from app.agent.llm_client import FakeLLMClient
-from app.agent.loop import ReActAgentLoop
 from app.agent.tools import AgentToolExecutor
 from app.db import DatabaseManager
 
@@ -73,7 +70,7 @@ async def test_chat_blocks_direct_plc_commands(test_db):
     from app.gateway.router import post_agent_chat, AgentChatRequestSchema
 
     # Create incident
-    inc_id = await test_db.create_incident({
+    await test_db.create_incident({
         "id": "INC-0001",
         "machine_id": "COMP-TB-01",
         "status": "active",

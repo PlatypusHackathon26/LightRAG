@@ -4,7 +4,6 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.config import load_machines_config, settings
-from app.db import DatabaseManager
 from app.main import app
 from app.monitor import ThresholdMonitorLogic
 from simulator.model import MachineSimulator

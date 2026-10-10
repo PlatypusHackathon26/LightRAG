@@ -6,7 +6,6 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 import urllib.parse
 
-import psycopg
 from psycopg_pool import AsyncConnectionPool
 
 from app.config import settings
@@ -51,6 +50,11 @@ class DatabaseManager:
         self._work_order_counter: int = 0
         self._lock = asyncio.Lock()
 
+    @property
+    def _in_memory(self) -> bool:
+        """True when reads and writes go to the in-memory stores (DB_MODE=memory, or no database)."""
+        return not (self.is_connected and self.pool)
+
     async def connect(self):
         masked = mask_dsn(self.dsn)
         # If explicitly in memory mode, skip connecting to DB
@@ -70,7 +74,7 @@ class DatabaseManager:
             self.is_connected = False
             if settings.DB_REQUIRED:
                 err_msg = (
-                    f"CRITICAL: Failed to connect to required PostgreSQL/TimescaleDB at {masked}: {e}. "
+                    f"CRITICAL: Cannot connect to TimescaleDB and DB_REQUIRED=true ({masked}): {e}. "
                     f"Set DB_REQUIRED=false or DB_MODE=memory if in-memory operation is intended."
                 )
                 logger.error(err_msg)
@@ -199,6 +203,8 @@ class DatabaseManager:
             await self.pool.close()
             self.is_connected = False
             logger.info("Closed PostgreSQL connection pool.")
+
+    disconnect = close  # the name the tests and the integration test use
 
     async def insert_metrics_batch(self, batch: List[Tuple[datetime, str, str, float]]):
         if not batch:

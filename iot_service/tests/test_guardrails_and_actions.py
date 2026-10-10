@@ -1,7 +1,7 @@
 import pytest
 from datetime import datetime, timezone
 from app.commands import validate_command_guardrails
-from app.config import settings, Settings
+from app.config import settings
 from app.gateway.lifecycle import IncidentLifecycleManager
 from app.gateway.actions import ActionService
 from app.db import DatabaseManager

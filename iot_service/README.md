@@ -74,8 +74,10 @@ Dashboard là giao diện quan sát trực quan thời gian thực dành cho k�
 
 ### Bước 1: Khởi động Hạ tầng Docker (Mosquitto & TimescaleDB)
 ```powershell
-docker-compose up -d
+docker compose -f iot_service/docker-compose.yml up -d --wait
 ```
+Cả hai chỉ nghe trên `127.0.0.1` (1883, 5433). `db/init.sql` tạo bảng ở lần chạy đầu; dữ liệu nằm trong volume
+`denso-iot_timescale-data` (`down -v` để xoá). `denso/scripts/serve_chat.ps1 -WithIoT` tự chạy bước này.
 
 ### Bước 2: Khởi động IoT Service, Dashboard & Gateway (:9710)
 ```powershell

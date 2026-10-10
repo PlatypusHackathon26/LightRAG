@@ -2,7 +2,8 @@
 CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;
 
 -- Table for telemetry metrics
-CREATE TABLE IF NOT EXISTS metrics (\n    time TIMESTAMPTZ NOT NULL,
+CREATE TABLE IF NOT EXISTS metrics (
+    time TIMESTAMPTZ NOT NULL,
     machine_id TEXT NOT NULL,
     metric TEXT NOT NULL,
     value DOUBLE PRECISION NOT NULL
@@ -16,7 +17,8 @@ CREATE INDEX IF NOT EXISTS idx_metrics_machine_metric_time
 ON metrics (machine_id, metric, time DESC);
 
 -- Table for system and machine events
-CREATE TABLE IF NOT EXISTS events (\n    event_id UUID PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS events (
+    event_id UUID PRIMARY KEY,
     ts TIMESTAMPTZ NOT NULL,
     machine_id TEXT NOT NULL,
     source TEXT NOT NULL,

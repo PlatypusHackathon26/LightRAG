@@ -1,6 +1,5 @@
 import asyncio
 import logging
-from pathlib import Path
 import sys
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -108,7 +107,10 @@ else:
 @app.get("/health", tags=["Health"])
 @app.get("/api/v1/health", tags=["Health"])
 async def health_check():
-    db_status = "connected" if db_manager.is_connected else "in_memory"
+    # Looked up at call time, like the routers' get_db(): the import-time name kept reporting the
+    # original manager after a swap (the TimescaleDB integration test swaps in a real one).
+    from app import db as db_module
+    db_status = "connected" if db_module.db_manager.is_connected else "in_memory"
     mqtt_status = "connected" if ingest_service.is_connected else "connecting"
     
     # Degraded if running in in-memory mode

@@ -1,4 +1,3 @@
-import asyncio
 from datetime import datetime, timezone
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -6,7 +5,7 @@ from httpx import ASGITransport, AsyncClient
 from app.config import settings
 from app.db import db_manager
 from app.main import app
-from app.stream import EventBroadcaster, broadcaster
+from app.stream import EventBroadcaster
 
 
 @pytest.fixture(autouse=True)
@@ -280,7 +279,6 @@ async def test_dashboard_agent_status_and_mitigation():
 
 @pytest.mark.asyncio
 async def test_dashboard_agent_timeline():
-    now = datetime.now(timezone.utc)
     # Insert audit logs
     await db_manager.insert_audit_log(
         actor="agent",
@@ -311,9 +309,9 @@ async def test_dashboard_agent_timeline():
         assert data["machine_id"] == "COMP-TB-01"
         assert len(data["timeline"]) == 3
         labels = [t["label"] for t in data["timeline"]]
-        assert any("Agent đề xuất" in l for l in labels)
-        assert any("Duyệt lệnh" in l for l in labels)
-        assert any("ACK 200" in l for l in labels)
+        assert any("Agent đề xuất" in label for label in labels)
+        assert any("Duyệt lệnh" in label for label in labels)
+        assert any("ACK 200" in label for label in labels)
 
 
 @pytest.mark.asyncio
