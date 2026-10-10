@@ -45,22 +45,33 @@ class AgentBrain:
         diagnosis_text = ""
         actions: List[Dict[str, Any]] = []
 
-        if hasattr(self.rag, "query_with_schema"):
-            schema_result = self.rag.query_with_schema(
-                machine_id=machine_id,
-                machine_type=machine_type,
-                telemetry=payload,
-            )
-            diagnosis_text = schema_result.get("diagnosis", "")
-            actions = schema_result.get("actions", [])
+        schema_result = None
+        # Kiểm tra nếu RAG hỗ trợ query_with_schema và trả về dict thực sự
+        if hasattr(self.rag, "query_with_schema") and callable(getattr(self.rag, "query_with_schema", None)):
+            try:
+                res = self.rag.query_with_schema(
+                    machine_id=machine_id,
+                    machine_type=machine_type,
+                    telemetry=payload,
+                )
+                if isinstance(res, dict):
+                    schema_result = res
+            except Exception as exc:
+                logger.warning(f"[Brain] Lỗi gọi query_with_schema: {exc}")
+
+        if schema_result is not None:
+            diagnosis_text = str(schema_result.get("diagnosis", "") or "")
+            raw_actions = schema_result.get("actions", [])
+            actions = list(raw_actions) if isinstance(raw_actions, (list, tuple)) else []
         else:
-            # Tương thích nếu đối tượng RAG cũ chỉ hỗ trợ query chuỗi
+            # Fallback tương thích nếu đối tượng RAG chỉ hỗ trợ query chuỗi
             rag_input = (
                 f"đây là máy {machine_type} (ID: {machine_id}), "
                 f"đang có trạng thái {payload}, "
                 f"hãy đưa ra giải pháp giúp máy ổn định"
             )
-            diagnosis_text = self.rag.query(rag_input)
+            raw_advice = self.rag.query(rag_input) if hasattr(self.rag, "query") else ""
+            diagnosis_text = str(raw_advice) if raw_advice is not None else ""
 
         # Phát câu chẩn đoán của RAG lên Chatbot Dashboard cho kỹ sư đọc
         if self.event_bus and diagnosis_text:
@@ -77,17 +88,21 @@ class AgentBrain:
         # =========================================================================
         if not actions and diagnosis_text and hasattr(self.tools, "translate_advice_to_actions"):
             logger.info("[Brain] Kích hoạt Defensive Fallback: Dùng tools để bóc tách hành động từ văn bản.")
-            actions = self.tools.translate_advice_to_actions(
+            extracted = self.tools.translate_advice_to_actions(
                 machine_id=machine_id,
                 machine_type=machine_type,
                 advice_text=diagnosis_text,
             )
+            if isinstance(extracted, (list, tuple)):
+                actions = list(extracted)
 
         # =========================================================================
         # BƯỚC 3: Đẩy các hành động chuẩn hóa cố định vào EventBus cho IoT Core
         # =========================================================================
         if actions and self.event_bus:
             for act in actions:
+                if not isinstance(act, dict):
+                    continue
                 cmd_name = act.get("command")
                 if not cmd_name:
                     continue
