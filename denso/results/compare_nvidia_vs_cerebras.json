@@ -1,0 +1,1085 @@
+{
+  "nemotron:Q1": {
+    "id": "Q1",
+    "model": "nemotron",
+    "question": "What is the DENSO part number (including the manufacturer reference in brackets) for the Suction Control Valve Kit covered by the diesel Common Rail installation guide?",
+    "answer": "DCRS300260 (294009-2150)",
+    "seconds": 1.8,
+    "judge": {
+      "score": 1.0,
+      "reason": "System answer exactly matches the ground-truth part number and bracketed manufacturer reference."
+    },
+    "facts": {
+      "kind": "facts",
+      "score": 1.0,
+      "missing": [],
+      "total": 2
+    }
+  },
+  "cerebras-gpt-oss:Q1": {
+    "id": "Q1",
+    "model": "cerebras-gpt-oss",
+    "question": "What is the DENSO part number (including the manufacturer reference in brackets) for the Suction Control Valve Kit covered by the diesel Common Rail installation guide?",
+    "answer": "The Suction Control Valve Kit listed in the Diesel Common‑Rail installation guide has the DENSO part number **DCRS300260 (294009‑2150)** [2].",
+    "seconds": 1.8,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer matches the ground truth part number exactly, including the manufacturer reference in brackets."
+    },
+    "facts": {
+      "kind": "facts",
+      "score": 1.0,
+      "missing": [],
+      "total": 2
+    }
+  },
+  "nemotron:Q2": {
+    "id": "Q2",
+    "model": "nemotron",
+    "question": "According to the DENSO A/C Compressors leaflet, what OE market share does DENSO hold in compressors?",
+    "answer": "DENSO holds over 40% OE market share in compressors.",
+    "seconds": 1.3,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly states DENSO holds over 40% OE market share in compressors, matching the ground truth."
+    },
+    "facts": {
+      "kind": "facts",
+      "score": 1.0,
+      "missing": [],
+      "total": 1
+    }
+  },
+  "cerebras-gpt-oss:Q2": {
+    "id": "Q2",
+    "model": "cerebras-gpt-oss",
+    "question": "According to the DENSO A/C Compressors leaflet, what OE market share does DENSO hold in compressors?",
+    "answer": "DENSO holds **over 40 % OE market share** in automotive compressors. (AC Compressor Leaflet, p. 1)",
+    "seconds": 1.3,
+    "judge": {
+      "score": 1.0,
+      "reason": "System answer matches ground truth exactly: over 40% OE market share."
+    },
+    "facts": {
+      "kind": "facts",
+      "score": 1.0,
+      "missing": [],
+      "total": 1
+    }
+  },
+  "nemotron:Q3": {
+    "id": "Q3",
+    "model": "nemotron",
+    "question": "In the English section of the Diesel Common Rail System installation guide, what torque range must be used to tighten the SCV mounting bolts?",
+    "answer": "6.9 to 10.8 [Nm]",
+    "seconds": 1.5,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer matches the ground truth range of 6.9 to 10.8 Nm exactly, with only a bracketed unit notation difference."
+    },
+    "facts": {
+      "kind": "facts",
+      "score": 1.0,
+      "missing": [],
+      "total": 2
+    }
+  },
+  "cerebras-gpt-oss:Q3": {
+    "id": "Q3",
+    "model": "cerebras-gpt-oss",
+    "question": "In the English section of the Diesel Common Rail System installation guide, what torque range must be used to tighten the SCV mounting bolts?",
+    "answer": "The installation guide specifies that the suction control valve (SCV) mounting bolts must be tightened to a torque of **6.9 – 10.8 Nm** [2].",
+    "seconds": 2.5,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer matches the ground truth torque range of 6.9 to 10.8 Nm exactly."
+    },
+    "facts": {
+      "kind": "facts",
+      "score": 1.0,
+      "missing": [],
+      "total": 2
+    }
+  },
+  "nemotron:Q4": {
+    "id": "Q4",
+    "model": "nemotron",
+    "question": "According to the DENSO Compressor Oils leaflet, what base oil type is ND-oil 11 and what is its DENSO part number?",
+    "answer": "ND-oil 11 is a POE (Polyol Ester) oil with DENSO part number DND11250. (AC-Compressor-Oils-Leaflet-English.md)",
+    "seconds": 1.3,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly states ND-oil 11 is a POE oil with part number DND11250, matching the ground truth."
+    },
+    "facts": {
+      "kind": "facts",
+      "score": 0.5,
+      "missing": [
+        "r1234yf",
+        "r134a"
+      ],
+      "total": 4
+    }
+  },
+  "cerebras-gpt-oss:Q4": {
+    "id": "Q4",
+    "model": "cerebras-gpt-oss",
+    "question": "According to the DENSO Compressor Oils leaflet, what base oil type is ND-oil 11 and what is its DENSO part number?",
+    "answer": "**Base oil type of ND‑oil 11:** POE (Polyol Ester oil)  \n**DENSO part number for ND‑oil 11:** DND11250  \n\n*Source: “AC‑Compressor‑Oils‑Leaflet‑English” (table of available oil types) – (Reference [2]).*",
+    "seconds": 1.1,
+    "judge": {
+      "score": 1.0,
+      "reason": "System answer correctly states ND-oil 11 is POE with part number DND11250, matching the ground truth exactly."
+    },
+    "facts": {
+      "kind": "facts",
+      "score": 0.5,
+      "missing": [
+        "r1234yf",
+        "r134a"
+      ],
+      "total": 4
+    }
+  },
+  "nemotron:Q5": {
+    "id": "Q5",
+    "model": "nemotron",
+    "question": "According to the Compressor Control Valve Identification bulletin, what is the purpose of the diode placed inside the external control valve on some DENSO compressors for Mercedes-Benz applications?",
+    "answer": "The purpose of the diode inside the control valve is to eliminate fly back, which is a sudden voltage spike sent across an inductive load when its supply current is suddenly reduced or interrupted.",
+    "seconds": 1.4,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer matches the ground truth exactly, correctly stating the diode eliminates fly back (a sudden voltage spike across an inductive load when supply current is reduced or interrupted)."
+    },
+    "facts": {
+      "kind": "prose",
+      "score": null
+    }
+  },
+  "cerebras-gpt-oss:Q5": {
+    "id": "Q5",
+    "model": "cerebras-gpt-oss",
+    "question": "According to the Compressor Control Valve Identification bulletin, what is the purpose of the diode placed inside the external control valve on some DENSO compressors for Mercedes-Benz applications?",
+    "answer": "The diode that is installed inside the external control valve of certain DENSO compressors for Mercedes‑Benz applications is used **to eliminate “fly‑back”** – a sudden voltage spike that occurs across an inductive load when its supply current is abruptly reduced or interrupted. By suppressing this voltage spike, the diode protects the electrical system when the compressor is switched off or when the supply current changes rapidly [2].",
+    "seconds": 2.7,
+    "judge": {
+      "score": 1.0,
+      "reason": "The answer correctly states the diode eliminates fly-back, defined as a sudden voltage spike across an inductive load when supply current is reduced or interrupted, matching the ground truth."
+    },
+    "facts": {
+      "kind": "prose",
+      "score": null
+    }
+  },
+  "nemotron:Q6": {
+    "id": "Q6",
+    "model": "nemotron",
+    "question": "Per the DENSO A/C Compressor Installation Guide's precautions list, whose identification label must be checked to determine which compressor oil is allowed to be used?",
+    "answer": "The compressor identification label must be checked to determine which compressor oil is allowed to be used. (AC Compressor Installation Manual, p. 4)",
+    "seconds": 1.3,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system correctly identifies that the compressor's own identification label must be checked, matching the ground truth."
+    },
+    "facts": {
+      "kind": "prose",
+      "score": null
+    }
+  },
+  "cerebras-gpt-oss:Q6": {
+    "id": "Q6",
+    "model": "cerebras-gpt-oss",
+    "question": "Per the DENSO A/C Compressor Installation Guide's precautions list, whose identification label must be checked to determine which compressor oil is allowed to be used?",
+    "answer": "The installation guide states that the **compressor’s own identification label** must be checked to determine which DENSO‑approved compressor oil may be used. (The label on the compressor indicates the correct oil type.) [5]",
+    "seconds": 3.7,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system correctly identifies that the compressor's own identification label must be checked, matching the ground truth."
+    },
+    "facts": {
+      "kind": "prose",
+      "score": null
+    }
+  },
+  "nemotron:Q7": {
+    "id": "Q7",
+    "model": "nemotron",
+    "question": "According to the recommended-torque table in the DENSO Spark Plug Catalogue, what torque and tightening angle apply to an M14 spark plug (a type other than the special exceptions listed) when it is a new plug?",
+    "answer": "For an M14 spark plug (type other than the special exceptions listed) as a new plug, the recommended torque is 20-30 N•m and the recommended tightening angle is about 1/2 turn. (Spark Plug Catalogue 2025, p. 6)",
+    "seconds": 2.2,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer matches the ground truth exactly: 20-30 N·m torque and about 1/2 turn tightening angle for a new M14 plug."
+    },
+    "facts": {
+      "kind": "facts",
+      "score": 0.8,
+      "missing": [
+        "0.0833333"
+      ],
+      "total": 5
+    }
+  },
+  "cerebras-gpt-oss:Q7": {
+    "id": "Q7",
+    "model": "cerebras-gpt-oss",
+    "question": "According to the recommended-torque table in the DENSO Spark Plug Catalogue, what torque and tightening angle apply to an M14 spark plug (a type other than the special exceptions listed) when it is a new plug?",
+    "answer": "**Torque and tightening angle for an M14 spark plug (standard type, new plug)**  \n\n- **Recommended torque:** **20 – 30 N·m**  \n- **Recommended tightening angle (new plug):** **about ½ turn**  \n\nThese values are taken from the “Recommended – Torque” and “Recommended Tightening Angle – New Plug” columns of the torque table for the M14 thread size, listed under “Types other than the ones shown below” (i.e., the standard application) in the DENSO Spark Plug Catalogue.",
+    "seconds": 1.7,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly states 20–30 N·m torque and about ½ turn tightening angle for a new M14 plug, matching the ground truth."
+    },
+    "facts": {
+      "kind": "facts",
+      "score": 0.8,
+      "missing": [
+        "0.0833333"
+      ],
+      "total": 5
+    }
+  },
+  "nemotron:Q8": {
+    "id": "Q8",
+    "model": "nemotron",
+    "question": "According to the DENSO Wiper Blade catalogue, what material is used in the Graphite Coating feature and what benefit does it provide?",
+    "answer": "The Graphite Coating on DENSO Wiper Blades uses carbon particles, which reduce frictional resistance on window glass with water repellent coating, resulting in high wiping performance without chattering sound and preserving the water repellent coating for longer durability. (WiperBlade-Cat26_Full-Version, p. 7)",
+    "seconds": 2.6,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly states graphite is carbon particles that reduce frictional resistance on water-repellent coated glass, giving high wiping performance without chattering and preserving the coating, matching the ground truth."
+    },
+    "facts": {
+      "kind": "prose",
+      "score": null
+    }
+  },
+  "cerebras-gpt-oss:Q8": {
+    "id": "Q8",
+    "model": "cerebras-gpt-oss",
+    "question": "According to the DENSO Wiper Blade catalogue, what material is used in the Graphite Coating feature and what benefit does it provide?",
+    "answer": "**Material used in the Graphite Coating**\n\n- **Graphite** – a carbon‑based particle applied as a coating on the wiper‑rubber edge.  \n\n**Benefit provided**\n\n- The graphite particles **reduce frictional resistance** on the windshield, giving **high wiping performance without chattering sound** and **preserving the water‑repellent coating on the glass**, which allows the coating to last longer and ensures smoother wiping.  \n\n**Reference**\n\n- (WiperBlade‑Cat26_Full‑Version.md, p. 7) [1].",
+    "seconds": 1.7,
+    "judge": {
+      "score": 1.0,
+      "reason": "The answer correctly identifies graphite as a carbon particle coating and matches all stated benefits: reduced frictional resistance, no chattering sound, and preservation of the water-repellent coating for longer life."
+    },
+    "facts": {
+      "kind": "prose",
+      "score": null
+    }
+  },
+  "nemotron:Q9": {
+    "id": "Q9",
+    "model": "nemotron",
+    "question": "According to the compressor oil recommendation table in the DENSO A/C Compressors leaflet, which DENSO oil is recommended for a Vane-type blower (TV) compressor running HFC134a (R-134a) refrigerant?",
+    "answer": "DENSO Oil 9 is recommended for a Vane-type blower (TV) compressor running HFC134a (R-134a) refrigerant.",
+    "seconds": 1.4,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer matches the ground truth exactly, correctly identifying DENSO Oil 9 for the TV compressor with R-134a."
+    },
+    "facts": {
+      "kind": "facts",
+      "score": 1.0,
+      "missing": [],
+      "total": 3
+    }
+  },
+  "cerebras-gpt-oss:Q9": {
+    "id": "Q9",
+    "model": "cerebras-gpt-oss",
+    "question": "According to the compressor oil recommendation table in the DENSO A/C Compressors leaflet, which DENSO oil is recommended for a Vane-type blower (TV) compressor running HFC134a (R-134a) refrigerant?",
+    "answer": "**Answer**\n\nFor a **Vane‑type blower (TV)** compressor that uses **HFC‑134a (R‑134a)** refrigerant, the DENSO leaflet recommends using **“DENSO Oil 9.”**  \n\n*Source: DENSO A/C Compressors leaflet, table “Compressor oil recommendation” (shows Vane‑type blower (TV) / HFC134a → DENSO Oil 9).*",
+    "seconds": 1.3,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly states DENSO Oil 9 for the Vane-type blower (TV) compressor with HFC134a, matching the ground truth."
+    },
+    "facts": {
+      "kind": "facts",
+      "score": 1.0,
+      "missing": [],
+      "total": 3
+    }
+  },
+  "nemotron:Q10": {
+    "id": "Q10",
+    "model": "nemotron",
+    "question": "In the DENSO VAG compressor consolidation bulletin, according to the 'Compressor differences' table, what is the oil quantity specified for the DCP32045 versus the DCP32060?",
+    "answer": "140cc for DCP32045 and 110cc for DCP32060",
+    "seconds": 1.4,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer matches the ground truth exactly: 140cc for DCP32045 and 110cc for DCP32060."
+    },
+    "facts": {
+      "kind": "facts",
+      "score": 1.0,
+      "missing": [],
+      "total": 4
+    }
+  },
+  "cerebras-gpt-oss:Q10": {
+    "id": "Q10",
+    "model": "cerebras-gpt-oss",
+    "question": "In the DENSO VAG compressor consolidation bulletin, according to the 'Compressor differences' table, what is the oil quantity specified for the DCP32045 versus the DCP32060?",
+    "answer": "**Oil quantity (as listed in the “Compressor differences” table)**  \n\n| Part number | Oil quantity |\n|-------------|--------------|\n| **DCP32045** | **140 cc** |\n| **DCP32060** | **110 cc** |\n\n*Source: “Compressor differences” table in the VAG compressor consolidation bulletin (DENSO‑AC_brochure_tips-and-tricks_EN.md, p. 24).*",
+    "seconds": 1.5,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer matches the ground truth exactly: DCP32045 = 140cc and DCP32060 = 110cc."
+    },
+    "facts": {
+      "kind": "facts",
+      "score": 1.0,
+      "missing": [],
+      "total": 4
+    }
+  },
+  "nemotron:Q11": {
+    "id": "Q11",
+    "model": "nemotron",
+    "question": "According to the Part No. and Available Length Chart in the DENSO Wiper Blade catalogue, what length (in mm) corresponds to the rear wiper blades DRA-012 and DRB-012?",
+    "answer": "305 mm",
+    "seconds": 1.1,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer of 305 mm matches the ground truth for both DRA-012 and DRB-012."
+    },
+    "facts": {
+      "kind": "facts",
+      "score": 0.3333333333333333,
+      "missing": [
+        "dra012",
+        "drb012"
+      ],
+      "total": 3
+    }
+  },
+  "cerebras-gpt-oss:Q11": {
+    "id": "Q11",
+    "model": "cerebras-gpt-oss",
+    "question": "According to the Part No. and Available Length Chart in the DENSO Wiper Blade catalogue, what length (in mm) corresponds to the rear wiper blades DRA-012 and DRB-012?",
+    "answer": "- **Length:** 305 mm corresponds to both the rear‑wiper blade **DRA‑012** and the rear‑wiper blade **DRB‑012**.  \n\n**Reference:** (WiperBlade‑Cat26_Full‑Version.md, p. 15 – Rear Wiper – Length chart) [1]",
+    "seconds": 2.6,
+    "judge": {
+      "score": 1.0,
+      "reason": "System correctly states 305 mm for both DRA-012 and DRB-012, matching the ground truth."
+    },
+    "facts": {
+      "kind": "facts",
+      "score": 1.0,
+      "missing": [],
+      "total": 3
+    }
+  },
+  "nemotron:Q12": {
+    "id": "Q12",
+    "model": "nemotron",
+    "question": "According to the Spark Plug Replacement Timing table, how do the recommended replacement intervals for automobiles compare between Iridium Power / Ni-TT / conventional plugs and Iridium Tough / Iridium Plus / Platinum plugs?",
+    "answer": "For automobiles, the recommended replacement interval for Iridium Power Ni-TT Plugs and Conventional Plugs is approximately 20,000 km, while for Iridium Tough, Iridium Plus, and Platinum Plugs, it is approximately 100,000 km. This indicates that the latter group has a significantly longer recommended service life—five times that of the former. The data is based on internal studies and serves as a rough guide for the economic life of the plugs, which may be reduced depending on vehicle running conditions and sparking characteristics. [Spark Plug Catalogue 2025]",
+    "seconds": 2.0,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly states 20,000 km for Iridium Power/Ni-TT/conventional and 100,000 km for Iridium Tough/Iridium Plus/Platinum, matching the ground truth, with only a less specific paraphrase of the footnote."
+    },
+    "facts": {
+      "kind": "facts",
+      "score": 1.0,
+      "missing": [],
+      "total": 2
+    }
+  },
+  "cerebras-gpt-oss:Q12": {
+    "id": "Q12",
+    "model": "cerebras-gpt-oss",
+    "question": "According to the Spark Plug Replacement Timing table, how do the recommended replacement intervals for automobiles compare between Iridium Power / Ni-TT / conventional plugs and Iridium Tough / Iridium Plus / Platinum plugs?",
+    "answer": "**Replacement intervals (automobile)**  \n\n| Plug group | Recommended replacement interval |\n|------------|----------------------------------|\n| **Iridium Power / Ni‑TT / Conventional plugs** | **≈ 20 000 km** |\n| **Iridium Tough / Iridium Plus / Platinum plugs** | **≈ 100 000 km** |\n\nThe table in the Spark Plug Catalogue shows that the economic life for ordinary Iridium Power, Ni‑TT and conventional plugs is about **20 000 km**, while the higher‑performance Iridium Tough, Iridium Plus and Platinum plugs can be used for roughly **100 000 km** before replacement is recommended.  \n\n*Source: Spark Plug Catalogue 2025 (Replacement Timing table, automobile row) [1]*",
+    "seconds": 1.4,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system correctly reports ~20,000 km for Iridium Power/Ni-TT/conventional plugs vs ~100,000 km for Iridium Tough/Iridium Plus/Platinum plugs, matching the ground truth; only the minor footnote about reduced intervals is omitted."
+    },
+    "facts": {
+      "kind": "facts",
+      "score": 0.0,
+      "missing": [
+        "100000",
+        "20000"
+      ],
+      "total": 2
+    }
+  },
+  "nemotron:Q13": {
+    "id": "Q13",
+    "model": "nemotron",
+    "question": "In the DCP32020 features and comparison table of the VAG compressor consolidation bulletin, what pulley type and oil quantity are specified for the DCP32020 versus the DCP27001, and are the two compressors listed as consolidatable?",
+    "answer": "For the DCP32020, the pulley type is B-PC and the oil quantity is 80cc. For the DCP27001, the pulley type is R-SC and the oil quantity is 140cc. The two compressors are not consolidatable, as indicated by \"No\" in the Consolidate (Yes/No) column. (DENSO-AC_brochure_tips-and-tricks_EN, p. 23)",
+    "seconds": 2.4,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer matches the ground truth exactly on pulley types, oil quantities, and non-consolidatability."
+    },
+    "facts": {
+      "kind": "facts",
+      "score": 1.0,
+      "missing": [],
+      "total": 4
+    }
+  },
+  "cerebras-gpt-oss:Q13": {
+    "id": "Q13",
+    "model": "cerebras-gpt-oss",
+    "question": "In the DCP32020 features and comparison table of the VAG compressor consolidation bulletin, what pulley type and oil quantity are specified for the DCP32020 versus the DCP27001, and are the two compressors listed as consolidatable?",
+    "answer": "**Pulley type**\n\n- **DCP32020:** B‑PC  \n- **DCP27001:** R‑SC  \n\n**Oil quantity**\n\n- **DCP32020:** 80 cc  \n- **DCP27001:** 140 cc  \n\n**Consolidation status**\n\n- Both compressors are **not** listed as consolidatable (the table shows “No” under the “Consolidate (Yes/No)” column for both part numbers).\n\n**Reference**\n\n- *DENSO-AC_brochure_tips-and-tricks_EN.md*, p. 25 (VAG compressor consolidation bulletin, “DCP32020 Features and Comparison” table).",
+    "seconds": 1.7,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer matches the ground truth exactly on pulley types (B-PC vs R-SC), oil quantities (80cc vs 140cc), and the non-consolidatable status."
+    },
+    "facts": {
+      "kind": "facts",
+      "score": 1.0,
+      "missing": [],
+      "total": 4
+    }
+  },
+  "nemotron:Q14": {
+    "id": "Q14",
+    "model": "nemotron",
+    "question": "According to the diesel Common Rail installation guide, what three steps are required to remove the Suction Control Valve (SCV) from the pump, in order?",
+    "answer": "1. Mark connector position of the SCV to the pump  \n2. Loosen bolts and remove bolts  \n3. Remove the large O-ring (Pos. 1)",
+    "seconds": 1.8,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer lists the same three SCV removal steps in the same order as the ground truth."
+    },
+    "facts": {
+      "kind": "prose",
+      "score": null
+    }
+  },
+  "cerebras-gpt-oss:Q14": {
+    "id": "Q14",
+    "model": "cerebras-gpt-oss",
+    "question": "According to the diesel Common Rail installation guide, what three steps are required to remove the Suction Control Valve (SCV) from the pump, in order?",
+    "answer": "**Steps to remove the Suction Control Valve (SCV) from the pump**\n\n1. **Mark the connector position of the SCV on the pump**  \n2. **Loosen the bolts and remove the bolts**  \n3. **Remove the large O‑ring (position 1)**  \n\nThese three actions are listed sequentially in the Diesel Common Rail installation guide (English) under the “SCV removal” procedure.",
+    "seconds": 1.4,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer lists all three SCV removal steps in the correct order, matching the ground truth exactly."
+    },
+    "facts": {
+      "kind": "prose",
+      "score": null
+    }
+  },
+  "nemotron:Q15": {
+    "id": "Q15",
+    "model": "nemotron",
+    "question": "What is the correct sequence of steps, and what warning applies, when installing a new SCV per the diesel Common Rail installation guide (EN)?",
+    "answer": "The correct sequence of steps for installing a new Suction Control Valve (SCV) in the diesel Common Rail system, as per the English section of the installation guide, is as follows:\n\n1. Install 1 new O-ring.\n2. Install 2 guide pins in the mounting holes.\n3. Install the new gaskets.\n4. Apply engine oil on the small O-ring.\n5. Install the SCV by carefully pushing it into the housing (to avoid O-ring damage).\n6. When the SCV is in position, remove the guide pins.\n7. Fit the bolts and tighten them with 6.9 to 10.8 [Nm].\n\nA critical warning applies: **It is necessary to use 2 guide pins during installation. Installation without pins could cause fuel leakage.** This warning is explicitly stated in the English section of the guide and is repeated in multiple language versions to emphasize its importance for preventing fuel leaks during SCV installation.",
+    "seconds": 2.5,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer matches the ground truth exactly, including the step sequence, torque range 6.9-10.8 Nm, and the guide pin/fuel leakage warning."
+    },
+    "facts": {
+      "kind": "facts",
+      "score": 1.0,
+      "missing": [],
+      "total": 4
+    }
+  },
+  "cerebras-gpt-oss:Q15": {
+    "id": "Q15",
+    "model": "cerebras-gpt-oss",
+    "question": "What is the correct sequence of steps, and what warning applies, when installing a new SCV per the diesel Common Rail installation guide (EN)?",
+    "answer": "**Correct installation sequence (English – Diesel Common‑Rail System)**  \n\n1. **Suction‑Control‑Valve (SCV) removal**  \n   - Mark the connector position of the SCV to the pump.  \n   - Loosen and remove the mounting bolts.  \n   - Remove the large O‑ring (position 1).  \n\n2. **SCV installation**  \n   - Install a new O‑ring.  \n   - Insert **two guide pins** into the mounting holes.  \n   - Install the new gaskets and apply engine oil to the small O‑ring.  \n   - Push the SCV carefully into its housing.  \n   - When the SCV is fully seated, remove the guide pins.  \n   - Fit the bolts and tighten them to **6.9 – 10.8 Nm**.  \n\n3. **System verification**  \n   - Connect the vehicle to the DENSO diagnostic tester (DST‑PC/DENSO C).  \n   - Run the pump‑test routines under the required engine conditions.  \n   - Confirm that there are no fuel leaks and no Diagnostic Trouble Codes (DTCs).  \n\n**Warning that applies**  \n\n- **“IMPORTANT! IT IS NECESSARY TO USE 2 GUIDE PINS DURING INSTALLATION. INSTALLATION WITHOUT PINS COULD CAUSE FUEL LEAKAGE.”** (Diesel_SCV Kit_DCRS300260_installation guide (EN), p. 4)  \n\nThis warning is reinforced by the precaution that **fuel‑leak prevention** is a key safety measure throughout the guide.",
+    "seconds": 7.9,
+    "judge": {
+      "score": 1.0,
+      "reason": "The installation sequence, torque range (6.9-10.8 Nm), two guide pins, and the fuel-leakage warning all match the ground truth; extra steps are plausible detail."
+    },
+    "facts": {
+      "kind": "facts",
+      "score": 1.0,
+      "missing": [],
+      "total": 4
+    }
+  },
+  "nemotron:Q16": {
+    "id": "Q16",
+    "model": "nemotron",
+    "question": "What is the run-in procedure DENSO recommends after installing a new A/C compressor, and how long must the A/C stay on before engine speed can be increased?",
+    "answer": "After installing a new compressor, DENSO recommends the following run-in procedure: set the temperature to max cool, switch the blower to max speed, start the engine and keep engine rpm at idle, switch the A/C on for a minimum of 5 minutes (do not increase engine speed), and after 5 minutes, all compressor oil originally stored in the compressor is transported through the system, making it safe to increase engine speed and test the A/C. The A/C must stay on for at least 5 minutes before engine speed can be increased. (DENSO-AC_brochure_tips-and-tricks_EN, p. 19)",
+    "seconds": 2.1,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer matches all five run-in steps and correctly states the 5-minute minimum before increasing engine speed."
+    },
+    "facts": {
+      "kind": "facts",
+      "score": 1.0,
+      "missing": [],
+      "total": 1
+    }
+  },
+  "cerebras-gpt-oss:Q16": {
+    "id": "Q16",
+    "model": "cerebras-gpt-oss",
+    "question": "What is the run-in procedure DENSO recommends after installing a new A/C compressor, and how long must the A/C stay on before engine speed can be increased?",
+    "answer": "**Run‑in procedure recommended by DENSO**\n\n1. Set the climate‑control temperature to the maximum cooling setting.  \n2. Switch the blower (fan) to its maximum speed.  \n3. Start the engine and keep the engine speed at idle.  \n4. Turn the air‑conditioning system **on** and let it run for **at least 5 minutes**.  \n5. After the 5‑minute period the oil that was originally stored in the compressor will have been distributed throughout the whole refrigerant cycle; only then may the engine speed be increased and the A/C system be tested further.  \n\n*(DENSO‑AC Compressor Installation Manual, “Run in Procedure”, p. 5)*  \n\n**Duration before increasing engine speed**  \n- The A/C must remain on for a minimum of **5 minutes** before the engine speed can be raised.  \n\n*(DENSO‑AC Compressor Installation Manual, “Run in Procedure”, p. 5)*",
+    "seconds": 2.3,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer matches all ground-truth steps (max cool, max blower, idle rpm, A/C on for minimum 5 minutes, then increase speed) and correctly states the 5-minute duration."
+    },
+    "facts": {
+      "kind": "facts",
+      "score": 1.0,
+      "missing": [],
+      "total": 1
+    }
+  },
+  "nemotron:Q17": {
+    "id": "Q17",
+    "model": "nemotron",
+    "question": "What is the formula DENSO uses to calculate how much oil must be removed from a new A/C compressor when flushing is not required, and what result does the worked example in the compressor oil troubleshooting bulletin give for a new compressor containing 120 cm³ of oil after 50 cm³ was drained from the old compressor?",
+    "answer": "The formula DENSO uses to calculate the amount of oil to remove from a new A/C compressor when flushing is not required is A - B = C, where A is the total oil amount in the new compressor, B is the oil amount drained from the old compressor, and C is the amount of oil to remove from the new compressor. In the worked example from the compressor oil troubleshooting bulletin, with a new compressor containing 120 cm³ of oil (A) and 50 cm³ drained from the old compressor (B), the amount of oil to remove from the new compressor (C) is 70 cm³.",
+    "seconds": 2.0,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly states the A - B = C formula with matching variable definitions and the worked example result of 70 cm³ (120 - 50), fully agreeing with the ground truth."
+    },
+    "facts": {
+      "kind": "facts",
+      "score": 1.0,
+      "missing": [],
+      "total": 3
+    }
+  },
+  "cerebras-gpt-oss:Q17": {
+    "id": "Q17",
+    "model": "cerebras-gpt-oss",
+    "question": "What is the formula DENSO uses to calculate how much oil must be removed from a new A/C compressor when flushing is not required, and what result does the worked example in the compressor oil troubleshooting bulletin give for a new compressor containing 120 cm³ of oil after 50 cm³ was drained from the old compressor?",
+    "answer": "**Formula used by DENSO**\n\nWhen flushing the refrigerant cycle is **not required**, DENSO calculates the amount of oil that must be removed from the new compressor with the simple subtraction:\n\n\\[\n\\text{Oil to remove (C)} = \\text{Total oil in new compressor (A)} \\;-\\; \\text{Oil drained from old compressor (B)}\n\\]\n\n**Worked example from the troubleshooting bulletin**\n\n- Total oil in the new compressor (A): **120 cm³**  \n- Oil drained from the old compressor (B): **50 cm³**  \n\nApplying the formula:\n\n\\[\nC = 120 \\text{cm³} - 50 \\text{cm³} = \\boxed{70 \\text{cm³}}\n\\]\n\nThus, the example shows that **70 cm³** of oil should be removed from the new compressor before installation.\n\n**References**\n\n- *EN_AC Compressor oil_troubleshooting_bulletin.md* (formula and example)  \n- *DENSO-AC_brochure_tips-and-tricks_EN.md* (same calculation description)",
+    "seconds": 1.4,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly states the A - B = C formula with matching variable definitions and the worked example result of 70 cm³ (120 - 50), fully agreeing with the ground truth."
+    },
+    "facts": {
+      "kind": "facts",
+      "score": 1.0,
+      "missing": [],
+      "total": 3
+    }
+  },
+  "nemotron:Q18": {
+    "id": "Q18",
+    "model": "nemotron",
+    "question": "What four conditions must all be true before a technician can apply 'Procedure 1' (flushing not required) from the DENSO A/C Compressor Installation Guide's repair procedures?",
+    "answer": "The four conditions that must all be true before applying Procedure 1 (flushing not required) are:  \n- The system is clean.  \n- The correct type of oil is inside the cycle.  \n- The correct amount and type of UV-leak dye is used.  \n- There are no other additives in the refrigerant cycle.  \n\nThese conditions are explicitly listed under the \"Condition\" section for Procedure 1 in the DENSO A/C Compressor Installation Guide.",
+    "seconds": 2.1,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer lists all four conditions exactly as stated in the ground truth with no errors or omissions."
+    },
+    "facts": {
+      "kind": "prose",
+      "score": null
+    }
+  },
+  "cerebras-gpt-oss:Q18": {
+    "id": "Q18",
+    "model": "cerebras-gpt-oss",
+    "question": "What four conditions must all be true before a technician can apply 'Procedure 1' (flushing not required) from the DENSO A/C Compressor Installation Guide's repair procedures?",
+    "answer": "**Conditions that must all be true before “Procedure 1 – Flushing not required (adjust oil quantity only)” can be used**\n\n1. **The refrigerant cycle is clean** – no dirt, black residue, metal particles or other contaminants are present.  \n2. **The correct type of oil is already in the cycle** – the oil present matches the vehicle‑specified oil for the compressor.  \n3. **The correct amount and type of UV‑leak dye is used** – the dye quantity and formulation are those approved for the system.  \n4. **No other additives are present in the refrigerant cycle** – there are no oil additives, leak‑stop agents, imitation refrigerants, or any other foreign substances.\n\nThese four requirements are listed under **Procedure 1** in the DENSO A/C Compressor Installation Guide (see the repair‑procedure section) [2].  \n\n---",
+    "seconds": 1.6,
+    "judge": {
+      "score": 1.0,
+      "reason": "All four conditions (clean system, correct oil type, correct UV dye amount/type, no other additives) match the ground truth exactly, with only harmless elaboration."
+    },
+    "facts": {
+      "kind": "prose",
+      "score": null
+    }
+  },
+  "nemotron:Q19": {
+    "id": "Q19",
+    "model": "nemotron",
+    "question": "In the Compressor Failure Analysis poster, if the suction port of a removed compressor is found dirty and black, what is the stated cause of failure and which repair procedure is recommended?",
+    "answer": "The cause of failure is insufficient cleaning of the refrigerant cycle and/or not all required parts replaced, and the recommended repair procedure is REPAIR PROCEDURE 3. (EN_AC_Compressor_Failure Analysis_Poster, p. 1)",
+    "seconds": 1.9,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer matches the ground truth exactly, stating the same cause of failure and recommending REPAIR PROCEDURE 3."
+    },
+    "facts": {
+      "kind": "facts",
+      "score": 1.0,
+      "missing": [],
+      "total": 1
+    }
+  },
+  "cerebras-gpt-oss:Q19": {
+    "id": "Q19",
+    "model": "cerebras-gpt-oss",
+    "question": "In the Compressor Failure Analysis poster, if the suction port of a removed compressor is found dirty and black, what is the stated cause of failure and which repair procedure is recommended?",
+    "answer": "**Cause of failure (as stated in the poster)**  \n- *Insufficient cleaning of the refrigerant cycle and/or not all required parts replaced.*  \n- Dirt particles travel through the system and re‑enter the compressor, leading to poor lubrication or a clogged control valve.  \n\n**Repair procedure**  \n- The poster does **not** specify a particular repair‑procedure number for this condition. It only describes the cause and the resulting failure.",
+    "seconds": 2.0,
+    "judge": {
+      "score": 0.5,
+      "reason": "The cause of failure is correctly stated, but the system incorrectly claims no repair procedure is specified when the poster recommends REPAIR PROCEDURE 3."
+    },
+    "facts": {
+      "kind": "facts",
+      "score": 0.0,
+      "missing": [
+        "3"
+      ],
+      "total": 1
+    }
+  },
+  "nemotron:Q20": {
+    "id": "Q20",
+    "model": "nemotron",
+    "question": "According to the DENSO practical tips brochure, what two possible causes can lead to rubber seals in the A/C system becoming swollen and no longer fitting in their original position?",
+    "answer": "The two possible causes that can lead to rubber seals in the A/C system becoming swollen and no longer fitting in their original position are:  \n1) The system was charged with the wrong type of refrigerant.  \n2) Additives (conditioners) or wrong type flushing agents were used.  \n\nThese causes are explicitly stated in the brochure under the section \"Rubber seals are swollen and do not fit in the original position\" on page 6 of the English version of the DENSO-AC_brochure_tips-and-tricks_EN document.",
+    "seconds": 1.8,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly identifies both causes: wrong refrigerant type and use of additives/conditioners or wrong flushing agents, matching the ground truth."
+    },
+    "facts": {
+      "kind": "facts",
+      "score": 1.0,
+      "missing": [],
+      "total": 1
+    }
+  },
+  "cerebras-gpt-oss:Q20": {
+    "id": "Q20",
+    "model": "cerebras-gpt-oss",
+    "question": "According to the DENSO practical tips brochure, what two possible causes can lead to rubber seals in the A/C system becoming swollen and no longer fitting in their original position?",
+    "answer": "**Rubber seals can become swollen and no longer fit their original position when:**\n\n1. **The system is charged with the wrong type of refrigerant.**  \n2. **Additives (conditioners) or the wrong type of flushing agents are used.**  \n\nThese causes are listed in the “Rubber seals are swollen and do not fit in the original position” section of the DENSO practical‑tips brochure (DENSO‑AC_brochure_tips-and-tricks_EN.md).",
+    "seconds": 2.0,
+    "judge": {
+      "score": 1.0,
+      "reason": "The answer correctly lists both causes: wrong refrigerant type and use of additives/conditioners or wrong flushing agents, matching the ground truth."
+    },
+    "facts": {
+      "kind": "facts",
+      "score": 1.0,
+      "missing": [],
+      "total": 1
+    }
+  },
+  "nemotron:Q21": {
+    "id": "Q21",
+    "model": "nemotron",
+    "question": "What does the DENSO practical tips brochure identify as the cause of 'liquid hammer' in an A/C compressor, and what damage does it cause inside the compressor?",
+    "answer": "Liquid hammer in an A/C compressor is caused by too much compressor oil or refrigerant in the air conditioning system due to incorrect filling. This condition damages the valve and swash plate inside the compressor. (DENSO-AC_brochure_tips-and-tricks_EN, p. 7)",
+    "seconds": 1.6,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly states the cause (too much compressor oil or refrigerant due to incorrect filling) and the resulting damage (valve and swash plate), matching the ground truth; the repair procedure was not asked."
+    },
+    "facts": {
+      "kind": "facts",
+      "score": 0.0,
+      "missing": [
+        "2"
+      ],
+      "total": 1
+    }
+  },
+  "cerebras-gpt-oss:Q21": {
+    "id": "Q21",
+    "model": "cerebras-gpt-oss",
+    "question": "What does the DENSO practical tips brochure identify as the cause of 'liquid hammer' in an A/C compressor, and what damage does it cause inside the compressor?",
+    "answer": "**Cause of “liquid hammer”**  \nThe brochure states that liquid hammer occurs when **too much compressor oil or refrigerant is added to the air‑conditioning system because of incorrect filling** [1].\n\n**Resulting damage inside the compressor**  \nThe excess oil/refrigerant creates a liquid‑hammer condition that **damages the valve and the swash plate** of the compressor [1].",
+    "seconds": 1.4,
+    "judge": {
+      "score": 1.0,
+      "reason": "The answer correctly identifies incorrect filling (excess compressor oil or refrigerant) as the cause and valve and swash plate damage, matching the ground truth."
+    },
+    "facts": {
+      "kind": "facts",
+      "score": 0.0,
+      "missing": [
+        "2"
+      ],
+      "total": 1
+    }
+  },
+  "nemotron:Q22": {
+    "id": "Q22",
+    "model": "nemotron",
+    "question": "According to the 'Failure of Damper Limiter-Pulleys' bulletin, what three main reasons are given for why the limiter of a DL-Pulley breaks or the optional mass damper comes loose, and what is the safety function of the limiter itself?",
+    "answer": "The three main reasons for limiter breakage or mass damper loosening are: excessive negative force on the DL-pulley due to too much drive belt movement, continuously changing force due to severe rotation speed fluctuation, and excessive force due to too much engine torque. The safety function of the limiter is to prevent the multi-belt from breaking by allowing the pulley to run freely if the compressor locks, thus maintaining the belt's drive function. (DENSO-AC_brochure_tips-and-tricks_EN, p. 21)",
+    "seconds": 2.3,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer accurately lists all three causes and correctly describes the limiter's safety function, matching the ground truth."
+    },
+    "facts": {
+      "kind": "prose",
+      "score": null
+    }
+  },
+  "cerebras-gpt-oss:Q22": {
+    "id": "Q22",
+    "model": "cerebras-gpt-oss",
+    "question": "According to the 'Failure of Damper Limiter-Pulleys' bulletin, what three main reasons are given for why the limiter of a DL-Pulley breaks or the optional mass damper comes loose, and what is the safety function of the limiter itself?",
+    "answer": "**Main reasons why the limiter of a DL‑Pulley breaks or the optional mass damper comes loose**\n\n1. **Excessive negative force on the DL‑pulley** caused by too much drive‑belt movement.  \n2. **Continuously changing force on the DL‑pulley** due to severe rotation‑speed fluctuation.  \n3. **Excessive force on the DL‑pulley** resulting from too much engine torque.  \n\n**Safety function of the limiter**\n\nThe limiter is a safety mechanism that **prevents the multi‑belt from breaking when the compressor becomes locked**. If the limiter itself fails, the pulley can run freely, allowing the multi‑belt to retain its drive function instead of breaking.  \n\n*Sources*  \n- (DENSO-AC_brochure_tips-and-tricks_EN.md, p. 21) – lists the three main reasons and describes the limiter’s safety role.",
+    "seconds": 1.5,
+    "judge": {
+      "score": 1.0,
+      "reason": "The answer correctly lists all three causes (excessive negative force from belt movement, continuously changing force from speed fluctuation, excessive force from engine torque) and accurately describes the limiter's safety function of allowing the pulley to run freely so the belt keeps its drive function."
+    },
+    "facts": {
+      "kind": "prose",
+      "score": null
+    }
+  },
+  "nemotron:Q23": {
+    "id": "Q23",
+    "model": "nemotron",
+    "question": "Combining the AC Compressor Leaflet's oil recommendation table with the DENSO practical tips brochure's 'Compressor oils and refrigerants' bulletin, can ND-oil 8 (DENSO Oil 8) be used in a compressor system that has been converted to R1234yf refrigerant, and why or why not?",
+    "answer": "No, ND-oil 8 (DENSO Oil 8) cannot be used in a compressor system that has been converted to R1234yf refrigerant. According to the DENSO practical tips brochure, while ND-oil 12 can be used for both R134a and R1234yf refrigerants, ND-oil 8 cannot be used for R1234yf type refrigerant. The brochure explicitly states: \"However, this doesn't mean the two oils are interchangeable; while ND-oil 12 can be used for both R134a and R1234yf, it doesn't work the other way around and ND-oil 8 cannot be used for R1234yf type refrigerant.\" This is further supported by the AC Compressor Leaflet's oil recommendation table, which specifies that DENSO Oil 8 is only suitable for HFC134a (R-134a) refrigerant type, while HFO 1234yf (R1234yf) requires DENSO Oil 12 or equivalent. Using ND-oil 8 with R1234yf refrigerant can cause decomposition of the refrigerant and deterioration of resin parts in the A/C system, leading to costly damage.",
+    "seconds": 2.9,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly states ND-oil 8 cannot be used with R1234yf, matching the ground truth's oil table assignments and the decomposition/resin deterioration explanation."
+    },
+    "facts": {
+      "kind": "facts",
+      "score": 0.8333333333333334,
+      "missing": [
+        "hfo1234yf"
+      ],
+      "total": 6
+    }
+  },
+  "cerebras-gpt-oss:Q23": {
+    "id": "Q23",
+    "model": "cerebras-gpt-oss",
+    "question": "Combining the AC Compressor Leaflet's oil recommendation table with the DENSO practical tips brochure's 'Compressor oils and refrigerants' bulletin, can ND-oil 8 (DENSO Oil 8) be used in a compressor system that has been converted to R1234yf refrigerant, and why or why not?",
+    "answer": "**Answer**\n\nNo. **ND‑oil 8 (DENSO Oil 8) must not be used in a compressor system that has been converted to the R1234yf refrigerant.**  \n\n**Why:**  \n\n- The oil‑recommendation table in the *AC Compressor Leaflet* lists **“DENSO Oil 8”** only for the **HFC‑134a (R‑134a)** refrigerant (the table pairs “DENSO Oil 8” with “HFC134a (R‑134a)”) [4].  \n- The *DENSO practical‑tips brochure* (section “Compressor oils and refrigerants”) explains that **ND‑oil 8 is formulated for R134a compressors and cannot be used with R1234yf**. When ND‑oil 8 contacts R1234yf, the oil decomposes and damages resin parts of the A/C system, so it is never recommended for R1234yf applications [1].  \n\nTherefore, because ND‑oil 8 is only compatible with R134a and is explicitly prohibited for R1234yf, it should not be used after a conversion to R1234yf.",
+    "seconds": 1.4,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly states ND-oil 8 cannot be used with R1234yf, matching the ground truth's reasoning that it is specified only for R134a and decomposes on contact with R1234yf, damaging resin parts."
+    },
+    "facts": {
+      "kind": "facts",
+      "score": 0.6666666666666666,
+      "missing": [
+        "hfo1234yf",
+        "12"
+      ],
+      "total": 6
+    }
+  },
+  "nemotron:Q24": {
+    "id": "Q24",
+    "model": "nemotron",
+    "question": "Comparing the DENSO Compressor Oils leaflet's part-number table with the AC Compressor Leaflet's oil recommendation table (from 2013), do both documents name the same DENSO part number for the R134a-only mechanical compressor oil, and what naming difference exists between the two documents for this oil?",
+    "answer": "Yes, both documents name the same DENSO part number (DND08250) for the R134a-only mechanical compressor oil. The naming difference is that the leaflet uses \"ND-oil 8\" while the AC Compressor Leaflet uses \"DENSO Oil 8\".",
+    "seconds": 1.6,
+    "judge": {
+      "score": 0.5,
+      "reason": "Correctly identifies the naming difference ('ND-oil 8' vs 'DENSO Oil 8'), but wrongly claims both documents explicitly name part number DND08250, which per ground truth appears only in the Compressor Oils leaflet."
+    },
+    "facts": {
+      "kind": "facts",
+      "score": 0.4,
+      "missing": [
+        "hfc134a",
+        "r134a",
+        "46"
+      ],
+      "total": 5
+    }
+  },
+  "cerebras-gpt-oss:Q24": {
+    "id": "Q24",
+    "model": "cerebras-gpt-oss",
+    "question": "Comparing the DENSO Compressor Oils leaflet's part-number table with the AC Compressor Leaflet's oil recommendation table (from 2013), do both documents name the same DENSO part number for the R134a-only mechanical compressor oil, and what naming difference exists between the two documents for this oil?",
+    "answer": "**Answer**\n\n- **Same part‑number?**  \n  No. The *DENSO Compressor Oils* leaflet (the oil‑type table) lists the R134a‑only mechanical‑compressor oil with the part number **DND08250** (ND‑oil 8) [2].  \n  The *AC Compressor Leaflet* (the oil‑recommendation table) does **not** give a part number; it only names the oil as **“DENSO Oil 8.”** [4]\n\n- **Naming difference**  \n  The DENSO leaflet uses the internal product name **“ND‑oil 8”** (with the part‑number DND08250).  \n  The AC Compressor Leaflet refers to the same oil simply as **“DENSO Oil 8.”** The latter omits the “ND‑oil” prefix and the part‑number, using a more generic brand‑level name.\n\nThus, while both documents describe the same R134a‑only mechanical compressor oil, only the DENSO leaflet provides the exact part number (DND08250) and calls it “ND‑oil 8,” whereas the AC Compressor Leaflet calls it “DENSO Oil 8” and does not list the part number.",
+    "seconds": 1.8,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly states that only the DENSO Compressor Oils leaflet gives part number DND08250 ('ND-oil 8') while the AC Compressor Leaflet omits it and uses the name 'DENSO Oil 8', matching the ground truth."
+    },
+    "facts": {
+      "kind": "facts",
+      "score": 0.4,
+      "missing": [
+        "hfc134a",
+        "r134a",
+        "46"
+      ],
+      "total": 5
+    }
+  },
+  "nemotron:Q25": {
+    "id": "Q25",
+    "model": "nemotron",
+    "question": "Does the oil-removal formula given in the DENSO A/C Compressor Installation Guide's Repair Procedure 1 match the calculation method shown in the compressor oil troubleshooting bulletin, and what is the shared formula?",
+    "answer": "Yes, the oil-removal formula in the DENSO A/C Compressor Installation Guide's Repair Procedure 1 matches the calculation method shown in the compressor oil troubleshooting bulletin. The shared formula is:  \n**C = A - B**, where:  \n- **A** = Total oil amount in the new compressor,  \n- **B** = Amount of oil drained from the old compressor,  \n- **C** = Amount of oil to remove from the new compressor.  \n\nThis formula is explicitly stated in both documents:  \n- In the **DENSO A/C Compressor Installation Guide** (Reference ID: 2), under Repair Procedure 1:  \n  > \"Calculation to establish the correct oil amount to remove from new compressor: A-B=C\"  \n  (See: [2] AC Compressor Installation Manual.md, page 5, under \"REPAIR PROCEDURE\").  \n\n- In the **Compressor oil troubleshooting bulletin** (Reference ID: 3), in the calculation example:  \n  > \"The total amount of oil in the new compressor (A) is 120 cm³. The oil amount drained from the old compressor (B) is 50 cm³. The amount of oil to remove (C) from the new compressor is A-B, 120-50= 70 cm³.\"  \n  (See: [3] EN_AC Compressor oil_troubleshooting_bulletin.md, page 2, under \"Calculation example\").  \n\nBoth sources use identical variable definitions and arithmetic operation to determine the oil quantity to remove from a new compressor during installation when system flushing is not required.",
+    "seconds": 3.7,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly confirms both documents share the identical A - B = C formula with matching variable definitions and the same worked example (120 - 50 = 70 cm³), fully agreeing with the ground truth."
+    },
+    "facts": {
+      "kind": "facts",
+      "score": 1.0,
+      "missing": [],
+      "total": 4
+    }
+  },
+  "cerebras-gpt-oss:Q25": {
+    "id": "Q25",
+    "model": "cerebras-gpt-oss",
+    "question": "Does the oil-removal formula given in the DENSO A/C Compressor Installation Guide's Repair Procedure 1 match the calculation method shown in the compressor oil troubleshooting bulletin, and what is the shared formula?",
+    "answer": "**Yes – the oil‑removal formula used in the DENSO A/C Compressor Installation Guide (Repair Procedure 1) is exactly the same as the calculation method shown in the Compressor‑oil Troubleshooting Bulletin.**  \n\nBoth documents state that the amount of oil to be removed from the new compressor is obtained by subtracting the oil that was drained from the old compressor ( B ) from the total oil present in the new compressor ( A ):\n\n\\[\n\\boxed{A \\;-\\; B \\;=\\; C}\n\\]\n\n* **Compressor‑oil Troubleshooting Bulletin** – the bulletin presents the calculation example “A = 120 cm³, B = 50 cm³, C = A‑B = 70 cm³” and explicitly labels the relationship as **A ‑ B = C** (reference [3]).  \n* **A/C Compressor Installation Guide – Repair Procedure 1** – the guide lists the same relationship “A ‑ B = C” as the formula for determining the oil to be removed (reference [2]).\n\nThus, the shared formula is **A ‑ B = C**, where:\n- **A** = total oil amount in the new compressor,  \n- **B** = oil amount drained from the old compressor,  \n- **C** = oil amount that must be removed from the new compressor.",
+    "seconds": 2.2,
+    "judge": {
+      "score": 1.0,
+      "reason": "The answer correctly confirms both documents share the formula A - B = C with matching definitions and the bulletin's worked example (120 - 50 = 70 cm³), fully agreeing with the ground truth."
+    },
+    "facts": {
+      "kind": "facts",
+      "score": 1.0,
+      "missing": [],
+      "total": 4
+    }
+  },
+  "nemotron:Q26": {
+    "id": "Q26",
+    "model": "nemotron",
+    "question": "Which torque value is higher: the SCV mounting bolt torque in the diesel Common Rail installation guide, or the recommended torque for an M12 spark plug from the Spark Plug Catalogue, and by roughly how much (at the top of each range)?",
+    "answer": "The recommended torque for an M12 spark plug (15–20 N·m) is higher than the SCV mounting bolt torque (6.9–10.8 N·m) by approximately 9.2 N·m at the top of each range (20.0 – 10.8 = 9.2).",
+    "seconds": 1.6,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer matches the ground truth exactly: M12 spark plug torque (15–20 N·m) is higher than SCV bolt torque (6.9–10.8 N·m) by 9.2 N·m at the top of each range."
+    },
+    "facts": {
+      "kind": "facts",
+      "score": 1.0,
+      "missing": [],
+      "total": 6
+    }
+  },
+  "cerebras-gpt-oss:Q26": {
+    "id": "Q26",
+    "model": "cerebras-gpt-oss",
+    "question": "Which torque value is higher: the SCV mounting bolt torque in the diesel Common Rail installation guide, or the recommended torque for an M12 spark plug from the Spark Plug Catalogue, and by roughly how much (at the top of each range)?",
+    "answer": "The diesel‑common‑rail installation guide specifies a tightening torque for the SCV mounting bolts of **6.9 – 10.8 Nm** (top of the range = **10.8 Nm**) (Diesel_SCV Kit_DCRS300260_installation guide, p. 4) [2].  \n\nThe Spark Plug Catalogue lists the recommended torque for an **M12** spark plug as **15 – 20 Nm** (top of the range = **20 Nm**) (Spark Plug Catalogue 2025, p. 5) [1].  \n\n**Therefore, the M12 spark plug torque is higher, by roughly 9 Nm (20 Nm – 10.8 Nm ≈ 9.2 Nm).**",
+    "seconds": 1.8,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer matches the ground truth exactly: SCV bolt torque 6.9–10.8 Nm, M12 spark plug torque 15–20 Nm, and a difference of ~9.2 Nm at the top of the ranges."
+    },
+    "facts": {
+      "kind": "facts",
+      "score": 1.0,
+      "missing": [],
+      "total": 6
+    }
+  },
+  "nemotron:Q27": {
+    "id": "Q27",
+    "model": "nemotron",
+    "question": "Does the SCV installation torque value stated in the Russian-language section of the diesel Common Rail installation guide match the value given in the English-language section?",
+    "answer": "Yes, the SCV installation torque value stated in the Russian-language section (6.9 to 10.8 N·m) matches the value given in the English-language section (6.9 to 10.8 [Nm]).",
+    "seconds": 1.5,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly confirms the torque values match (6.9 to 10.8 N·m in both sections), agreeing with the ground truth."
+    },
+    "facts": {
+      "kind": "facts",
+      "score": 1.0,
+      "missing": [],
+      "total": 2
+    }
+  },
+  "cerebras-gpt-oss:Q27": {
+    "id": "Q27",
+    "model": "cerebras-gpt-oss",
+    "question": "Does the SCV installation torque value stated in the Russian-language section of the diesel Common Rail installation guide match the value given in the English-language section?",
+    "answer": "**Answer**\n\nYes. Both the Russian‑language section and the English‑language section specify the same installation torque for the Suction Control Valve (SCV): **6.9 – 10.8 Nm** (the Russian text uses “Н‑м”, which is equivalent to Nm).  \n\n**References**\n\n- *Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ)* – Russian section, page 20: torque 6.9 to 10.8 Н‑м.  \n- *Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ)* – English section, page 4: torque 6.9 to 10.8 [Nm].",
+    "seconds": 1.5,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system correctly confirms both sections specify the same torque range 6.9–10.8 Nm, matching the ground truth."
+    },
+    "facts": {
+      "kind": "facts",
+      "score": 1.0,
+      "missing": [],
+      "total": 2
+    }
+  },
+  "nemotron:Q28": {
+    "id": "Q28",
+    "model": "nemotron",
+    "question": "In the diesel Common Rail installation guide, do the German and French language sections agree on the number of guide pins required during SCV installation, and what does each section call this component?",
+    "answer": "Yes, both the German and French language sections agree that two guide pins are required during SCV installation. The German section refers to them as \"Führungsstifte\" and the French section calls them \"goupilles de guidage\".",
+    "seconds": 1.6,
+    "judge": {
+      "score": 1.0,
+      "reason": "The answer correctly states both sections require 2 guide pins and gives the correct German ('Führungsstifte') and French ('goupilles de guidage') terms, matching the ground truth."
+    },
+    "facts": {
+      "kind": "facts",
+      "score": 1.0,
+      "missing": [],
+      "total": 1
+    }
+  },
+  "cerebras-gpt-oss:Q28": {
+    "id": "Q28",
+    "model": "cerebras-gpt-oss",
+    "question": "In the diesel Common Rail installation guide, do the German and French language sections agree on the number of guide pins required during SCV installation, and what does each section call this component?",
+    "answer": "**Agreement on the number of guide pins**\n\n- Both the German and French sections state that **two guide pins** must be used when installing the Suction Control Valve (SCV).  \n  - German: “2 Führungsstifte” (two guide pins) [1]  \n  - French: “2 goupilles de guidage” (two guide pins) [1]\n\n**Terminology used for the component**\n\n- **German section** refers to the component as **“Führungsstifte”**.  \n- **French section** refers to the same component as **“goupilles de guidage”**.\n\nThus, the two language sections agree on the required quantity (two) and each uses its own term for the pins.",
+    "seconds": 1.4,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly states both sections require 2 guide pins and accurately reports the German term 'Führungsstifte' and French term 'goupilles de guidage', matching the ground truth."
+    },
+    "facts": {
+      "kind": "facts",
+      "score": 1.0,
+      "missing": [],
+      "total": 1
+    }
+  },
+  "nemotron:Q29": {
+    "id": "Q29",
+    "model": "nemotron",
+    "question": "What is the shelf life of DENSO ND-oil 9, the oil used in Through Vane (TV) type A/C compressors?",
+    "answer": "The shelf life of DENSO ND-oil 9 is not specified in the provided context.",
+    "seconds": 1.3,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system correctly states that the shelf life of ND-oil 9 is not specified in the documents, matching the unanswerable ground truth without inventing information."
+    },
+    "facts": {
+      "kind": "abstention",
+      "score": 1.0,
+      "declined": true
+    }
+  },
+  "cerebras-gpt-oss:Q29": {
+    "id": "Q29",
+    "model": "cerebras-gpt-oss",
+    "question": "What is the shelf life of DENSO ND-oil 9, the oil used in Through Vane (TV) type A/C compressors?",
+    "answer": "I do not have enough information in the provided documents to determine the shelf life of DENSO ND‑oil 9.",
+    "seconds": 1.2,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system correctly states that the documents do not contain the shelf life information for ND-oil 9, matching the unanswerable ground truth."
+    },
+    "facts": {
+      "kind": "abstention",
+      "score": 1.0,
+      "declined": true
+    }
+  },
+  "nemotron:Q30": {
+    "id": "Q30",
+    "model": "nemotron",
+    "question": "What recommended replacement distance (in km) does DENSO specify for Iridium Racing spark plugs on an automobile?",
+    "answer": "DENSO does not specify a recommended replacement distance in kilometers for Iridium Racing spark plugs on automobiles in the provided context.",
+    "seconds": 1.3,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system correctly states that no replacement distance is specified for Iridium Racing plugs, matching the ground truth's unanswerable determination without inventing a number."
+    },
+    "facts": {
+      "kind": "abstention",
+      "score": 1.0,
+      "declined": true
+    }
+  },
+  "cerebras-gpt-oss:Q30": {
+    "id": "Q30",
+    "model": "cerebras-gpt-oss",
+    "question": "What recommended replacement distance (in km) does DENSO specify for Iridium Racing spark plugs on an automobile?",
+    "answer": "I do not have enough information in the provided documents to determine the recommended replacement distance (in km) for DENSO Iridium Racing spark plugs on an automobile.",
+    "seconds": 1.2,
+    "judge": {
+      "score": 1.0,
+      "reason": "The question is unanswerable and the system correctly states that the information is not available instead of inventing a value."
+    },
+    "facts": {
+      "kind": "abstention",
+      "score": 1.0,
+      "declined": true
+    }
+  },
+  "nemotron:P1": {
+    "id": "P1",
+    "model": "nemotron",
+    "question": "thuật toán alpha-beta pruning là gì",
+    "answer": "Thuật toán alpha-beta pruning là một phương pháp cắt cụt được sử dụng trong thuật toán Minimax để giảm số lượng nút cần được đánh giá trong cây trò chơi, từ đó tăng hiệu suất tìm kiếm mà không ảnh hưởng đến kết quả cuối cùng. Nó hoạt động bằng cách duy trì hai giá trị: alpha (giá trị tốt nhất hiện tại cho người chơi Max) và beta (giá trị tốt nhất hiện tại cho người chơi Min). Nếu tại bất kỳ điểm nào trong quá trình duyệt cây, alpha trở nên lớn hơn hoặc bằng beta, thì các nhánh còn lại của nút hiện tại có thể bị cắt bỏ (pruned) vì chúng không thể ảnh hưởng đến quyết định cuối cùng.\n\nCác đặc điểm chính của alpha-beta pruning bao gồm:\n- Nó không ảnh hưởng đến kết quả cuối cùng của thuật toán Minimax, chỉ giảm thời gian tìm kiếm.\n- Thứ tự sắp xếp các bước đi trong cây tìm kiếm có ảnh hưởng lớn đến hiệu quả của việc cắt cụt; với một \"sắp xếp hoàn hảo\", độ phức tạp thời gian giảm từ O(b^m) xuống O(b^(m/2)), trong đó b là hệ số phân nhánh và m là độ sâu của cây.\n- Alpha (α) được định nghĩa là giá trị tốt nhất (cao nhất) mà Max có thể đảm bảo đến thời điểm hiện tại; nếu một nút con có giá trị kém hơn alpha, Max sẽ loại bỏ nút đó (cắt nhánh).\n- Beta (β) được định nghĩa tương tự cho Min: là giá trị tốt nhất (thấp nhất) mà Min có thể đảm bảo; nếu một nút con tốt hơn beta, Min sẽ loại bỏ nó.\n\nThuật toán được mô tả qua hai hàm đệ quy: MaxVal và MinVal. Trong MaxVal, alpha được cập nhật bằng giá trị lớn nhất giữa alpha hiện tại và kết quả của MinVal trên các nút con; nếu alpha >= beta, quá trình duyệt dừng lại. Tương tự, trong MinVal, beta được cập nhật bằng giá trị nhỏ nhất giữa beta hiện tại và kết quả của MaxVal trên các nút con; nếu alpha >= beta, quá trình cũng dừng lại.",
+    "seconds": 5.0
+  },
+  "cerebras-gpt-oss:P1": {
+    "id": "P1",
+    "model": "cerebras-gpt-oss",
+    "question": "thuật toán alpha-beta pruning là gì",
+    "answer": "**Alpha‑beta pruning** là một kỹ thuật cắt nhánh được sử dụng trong thuật toán tìm kiếm cây trò chơi (Minimax) để loại bỏ các nhánh không cần thiết mà không ảnh hưởng đến kết quả cuối cùng. Khi duyệt cây, nếu giá trị **α** (giá trị tốt nhất hiện tại của nút Max) lớn hơn hoặc bằng **β** (giá trị tốt nhất hiện tại của nút Min), các nhánh còn lại của nút hiện tại sẽ bị bỏ qua vì chúng không thể cải thiện kết quả đã biết. Nhờ vậy, thời gian tìm kiếm giảm đáng kể mà không làm thay đổi quyết định tối ưu cuối cùng. (Bài 5 - Tìm kiếm có đối thủ.md, p. 34)",
+    "seconds": 3.0
+  },
+  "nemotron:P2": {
+    "id": "P2",
+    "model": "nemotron",
+    "question": "Deep Blue và AlphaGo đã dùng thuật toán gì để thắng con người?",
+    "answer": "Deep Blue đã sử dụng thuật toán Minimax kết hợp với phương pháp cắt cụt alpha-beta (α-β pruning) để đánh bại Garry Kasparov trong cờ vua năm 1997. AlphaGo đã sử dụng học sâu (Deep Learning) kết hợp với các kỹ thuật như bảng chuyển vị (transposition table), cắt tiến (forward pruning) và bảng tra cứu cho nước đi mở đầu và kết thúc để đánh bại Lee Sedol trong cờ vây năm 2016. (Trang 40, Trang 39, Trang 45)",
+    "seconds": 2.7
+  },
+  "cerebras-gpt-oss:P2": {
+    "id": "P2",
+    "model": "cerebras-gpt-oss",
+    "question": "Deep Blue và AlphaGo đã dùng thuật toán gì để thắng con người?",
+    "answer": "Deep Blue đã thắng con người bằng cách áp dụng **thuật toán Minimax kết hợp cắt cụt α‑β** (alpha‑beta pruning), cho phép duyệt và đánh giá hàng tỷ vị trí trong cây trò chơi mà không làm thay đổi kết quả cuối cùng (xem phần “Advanced techniques” và “Hệ thống chơi cờ” trong tài liệu) [2].  \n\nAlphaGo thắng con người bằng **học sâu (deep learning)**, sử dụng các mạng nơ‑ron để học chiến lược và đánh giá vị trí (được nêu trong phần “AlphaGo” của tài liệu) [2].",
+    "seconds": 1.2
+  },
+  "nemotron:P3": {
+    "id": "P3",
+    "model": "nemotron",
+    "question": "Sau khi lắp máy nén điều hòa mới phải chạy rà như thế nào?",
+    "answer": "Sau khi lắp máy nén điều hòa mới, cần thực hiện quy trình chạy rà (run-in procedure) để phân phối dầu máy nén và bắt đầu quá trình bôi trơn, nhằm ngăn ngừa hư hỏng ngay sau khi lắp đặt mới. Các bước cụ thể như sau:\n\n1. Đặt nhiệt độ ở mức làm lạnh tối đa.  \n2. Bật quạt thông gió ở tốc độ tối đa.  \n3. Khởi động máy và giữ tốc độ máy ở chế độ ralentí.  \n4. Bật hệ thống điều hòa trong ít nhất 5 phút. KHÔNG tăng tốc độ máy trong thời gian này.  \n5. Sau 5 phút, toàn bộ dầu máy nén ban đầu được chứa trong máy nén sẽ được vận chuyển qua toàn bộ hệ thống. Lúc này mới có thể tăng tốc độ máy và kiểm tra hệ thống điều hòa.\n\nQuy trình này được áp dụng đồng nhất trong nhiều phiên bản tài liệu hướng dẫn lắp đặt máy nén điều hòa của DENSO, bao gồm các bản tiếng Anh, Romanian, Spanish và Croatian, với cùng một mục đích: đảm bảo dầu được phân phối đều và tránh hư hỏng do thiếu bôi trơn ngay sau lắp đặt.",
+    "seconds": 4.5
+  },
+  "cerebras-gpt-oss:P3": {
+    "id": "P3",
+    "model": "cerebras-gpt-oss",
+    "question": "Sau khi lắp máy nén điều hòa mới phải chạy rà như thế nào?",
+    "answer": "**Quy trình chạy rà (run‑in) sau khi lắp máy nén điều hòa mới**\n\n1. **Đặt nhiệt độ điều hòa ở mức tối đa lạnh**.  \n2. **Bật quạt cabin ở tốc độ tối đa**.  \n3. **Khởi động động cơ và giữ ở chế độ hãm** (idle).  \n4. **Bật chế độ A/C trong ít nhất 5 phút** và **không tăng tốc độ động cơ** trong thời gian này.  \n5. **Sau 5 phút**, dầu máy nén – vốn ban đầu chỉ nằm trong máy nén – sẽ được phân phối khắp hệ thống. Khi đó, có thể tăng tốc độ động cơ và kiểm tra hoạt động của hệ thống A/C.  \n\n*(Tham khảo: “Procedura de rulare a compresorului” trong tài liệu *AC Compressor Installation Manual.md* – trang 44, tiếng Romania; “Procedimiento de puesta en marcha” trong tài liệu *AC Compressor Installation Manual.md* – trang 20, tiếng Tây Ban Nha.)*",
+    "seconds": 1.4
+  },
+  "nemotron:P4": {
+    "id": "P4",
+    "model": "nemotron",
+    "question": "Dầu DENSO nào dùng cho máy nén kiểu TV với môi chất R-134a?",
+    "answer": "Dầu DENSO 9 (DENSO Oil 9) được dùng cho máy nén kiểu TV với môi chất R-134a. (AC Compressor Leaflet.md)",
+    "seconds": 2.1
+  },
+  "cerebras-gpt-oss:P4": {
+    "id": "P4",
+    "model": "cerebras-gpt-oss",
+    "question": "Dầu DENSO nào dùng cho máy nén kiểu TV với môi chất R-134a?",
+    "answer": "Đối với máy nén kiểu **TV (vane‑type blower)** khi sử dụng môi chất **R‑134a**, DENSO khuyến cáo dùng **DENSO Oil 9**.",
+    "seconds": 1.2
+  }
+}

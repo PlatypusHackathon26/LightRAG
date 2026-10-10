@@ -1,0 +1,21 @@
+[
+  {
+    "id": "L9",
+    "question": "Which DENSO wiper blades fit a 2008 Honda CR-V (RE3)?",
+    "facts": 1.0,
+    "pages": [
+      30,
+      83
+    ],
+    "answerable": true,
+    "note": "p30 CR-V 2006-2011 RE3, RE4 DDP-024R/L DDP-017R/L; p83 CR-V 2006-2011 DCP-026R/L DCP-017R/L DCS-G026 DCS-G017 (another blade series)",
+    "ok": true,
+    "page": true,
+    "cited_pages": [
+      83
+    ],
+    "answer": "[2] WiperBlade-Cat26_Full-Version - lookup.[native-P!].md | page 83 |  CR-V (INCL. HYBRID) | 2006-2011 | RE3, RE4 | DCP-026R/L +SIDE CLIP | DCP-017R/L +SIDE CLIP | DCS-G026 +SIDE CLIP | DCS-G017 +SIDE CLIP | DCV-026 +SIDE CLIP | DCV-017 +SIDE CLIP  \n[4] WiperBlade-Cat26_Full-Version - lookup.[native-P!].md | page 83 |  CR-V | 2007 |  |  |  | DCS-G026 | DCS-G016 | DCV-026 | DCV-016  \n[5] WiperBlade-Cat26_Full-Version - lookup.[native-P!].md | page 83 |  CR-V | 2008 |  |  |  | DCS-G024 | DCS-G017 | DCV-024 | DCV-017  \n[6] WiperBlade-Cat26_Full-Version - lookup.[native-P!].md | page 83 |  CR-V (ALL NEW) | 2008 |  |  |  | DCS-G024 | DCS-G018 | DCV-024 | DCV-018  \n\nFor a 2008 Honda CR-V (RE3), the matching rows are [2], [5], and [6].  \n- Row [2] (2006–2011, RE3/RE4) lists: DCP-026R/L +SIDE CLIP, DCP-017R/L +SIDE CLIP, DCS-G026 +SIDE CLIP, DCS-G017 +SIDE CLIP, DCV-026 +SIDE CLIP, DCV-017 +SIDE CLIP  \n- Row [5] (2008 CR-V) lists: DCS-G024, DCS-G017, DCV-024, DCV-017  \n- Row [6] (2008 CR-V ALL NEW) lists: DCS-G024, DCS-G018, DCV-024, DCV-018  \n\nSince the vehicle is specified as RE3 (not \"ALL NEW\"), row [2] is the most directly applicable for the RE3 chassis. Rows [5] and [6] are for generic 2008 CR-V models without chassis specification, but [2] explicitly includes RE3.  \n\nThus, the DENSO wiper blades that fit a 2008 Honda CR-V (RE3) are:  \n**DCP-026R/L +SIDE CLIP, DCP-017R/L +SIDE CLIP, DCS-G026 +SIDE CLIP, DCS-G017 +SIDE CLIP, DCV-026 +SIDE CLIP, DCV-017 +SIDE CLIP**  \n(from row [2]).  \n\nNote: Rows [5] and [6] provide alternative part numbers for 2008 CR-V models, but since the query specifies RE3, row [2] is the primary match. If the vehicle is confirmed as the \"ALL NEW\" 2008 variant, then row [6] would apply instead. However, based on the RE3 designation, row [2] is correct.",
+    "seconds": 8.7,
+    "route": "Matched 6 catalogue row(s) (lookup, keyword, level 1)"
+  }
+]

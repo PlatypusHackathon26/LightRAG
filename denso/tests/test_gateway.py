@@ -667,3 +667,49 @@ def test_documents_still_answer_when_the_iot_service_is_down(tmp_path):
     r = tc.post("/agent/chat", json={"conversationId": "CONV-LIVE", "message": "SCV bolt torque?"})
     assert r.status_code == 200
     assert r.json()["content"].startswith("From the documents")
+
+
+# ---------------------------------------------------------------- iot_service dashboard relay
+
+
+def _iot_dashboard(request: httpx.Request) -> httpx.Response:
+    path = request.url.path
+    if path == "/dashboard/":
+        return httpx.Response(200, text="<html>control room</html>", headers={"content-type": "text/html"})
+    if path == "/dashboard/app.js":
+        return httpx.Response(200, text="console.log(1)", headers={"content-type": "application/javascript"})
+    if path == "/api/v1/dashboard/events":
+        return httpx.Response(200, json={"query": dict(request.url.params),
+                                         "token": request.headers.get("x-dashboard-token")})
+    if path == "/api/v1/stream":
+        return httpx.Response(200, content=b"event: snapshot\ndata: {}\n\n", headers={"content-type": "text/event-stream"})
+    return httpx.Response(404, json={"detail": "Not Found"})
+
+
+def test_the_dashboard_opens_through_the_gateway(tmp_path):
+    _, tc = _iot_client(tmp_path, _iot_dashboard)
+    r = tc.get("/dashboard", follow_redirects=False)
+    assert r.status_code in (302, 307) and r.headers["location"] == "/dashboard/"
+    r = tc.get("/dashboard/")
+    assert r.text == "<html>control room</html>" and r.headers["content-type"].startswith("text/html")
+    assert tc.get("/dashboard/app.js").headers["content-type"].startswith("application/javascript")
+    # Query string and the dashboard's own token header reach the IoT service.
+    r = tc.get("/api/v1/dashboard/events?limit=50&machine=COMP-TB-01", headers={"X-Dashboard-Token": "t"})
+    assert r.json() == {"query": {"limit": "50", "machine": "COMP-TB-01"}, "token": "t"}
+    assert tc.get("/dashboard/missing.css").status_code == 404
+
+
+def test_the_dashboard_event_stream_is_relayed(tmp_path):
+    _, tc = _iot_client(tmp_path, _iot_dashboard)
+    r = tc.get("/api/v1/stream")
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("text/event-stream")
+    assert r.content == b"event: snapshot\ndata: {}\n\n"
+
+
+def test_no_dashboard_without_the_iot_service(tmp_path):
+    settings = Settings(level_servers=SERVERS, actions_log=tmp_path / "a.jsonl", ops_file=tmp_path / "m.json",
+                        upload_pipeline=False)
+    tc = TestClient(create_app(settings, transport=httpx.MockTransport(lambda r: httpx.Response(500))))
+    assert tc.get("/dashboard/").status_code == 404
+    assert tc.get("/api/v1/stream").status_code == 404

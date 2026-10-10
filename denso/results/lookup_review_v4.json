@@ -1,0 +1,193 @@
+[
+  {
+    "id": "L1",
+    "question": "Which DENSO spark plug fits a 2015 Toyota Corolla 1.3 (NRE180)?",
+    "facts": 1.0,
+    "pages": [
+      139
+    ],
+    "answerable": true,
+    "note": "p139 TOYOTA COROLLA 1.3L 1NR-FE (NRE180_) 2012-2018 SC20HR11",
+    "ok": true,
+    "page": true,
+    "cited_pages": [
+      139
+    ],
+    "answer": "[1] Spark Plug Catalogue 2025 - lookup.[native-P!].md | page 139 |  TOYOTA COROLLA | 1.3L 4CYL 16V 1NR-FE | 1.3 (NRE180_) | 2012-2018 SC20HR11 | - IXEH22TT - | VCH20 4 \n\nThe DENSO spark plug that fits a 2015 Toyota Corolla 1.3 (NRE180) is SC20HR11. The row explicitly lists the engine code NRE180_, model year range 2012–2018, and the corresponding DENSO part number SC20HR11. Since 2015 falls within this range, this is the correct match. No other row references the NRE180 engine code. [1]",
+    "seconds": 5.0,
+    "route": "Matched 12 catalogue row(s) (lookup, keyword, level 1)"
+  },
+  {
+    "id": "L2",
+    "question": "Bugi DENSO nào lắp cho Toyota Corolla 1.5 NZE161G đời 2014?",
+    "facts": 1.0,
+    "pages": [
+      139,
+      299
+    ],
+    "answerable": true,
+    "note": "p139 COROLLA 1.5 (NZE161G) 2012-2017 FK16HR11; p299 COROLLA FIELDER NZE161G FK16HR11",
+    "ok": true,
+    "page": true,
+    "cited_pages": [
+      139,
+      299
+    ],
+    "answer": "Bugi DENSO lắp cho Toyota Corolla 1.5 NZE161G đời 2014 là FK16HR11. [1] [10]",
+    "seconds": 1.5,
+    "route": "Matched 12 catalogue row(s) (lookup, keyword, level 1)"
+  },
+  {
+    "id": "L3",
+    "question": "Which DENSO spark plug is listed for the Toyota Corolla 1.8 Hybrid ZWE186?",
+    "facts": 1.0,
+    "pages": [
+      139,
+      299
+    ],
+    "answerable": true,
+    "note": "p139 COROLLA 1.8 Hybrid (ZWE186_) FC16HR-CY9; p299 AURIS HYBRID ZWE186H SC16HR11",
+    "ok": true,
+    "page": true,
+    "cited_pages": [
+      139
+    ],
+    "answer": "FC16HR-CY9 [1]",
+    "seconds": 2.7,
+    "route": "Matched 12 catalogue row(s) (lookup, keyword, level 1)"
+  },
+  {
+    "id": "L4",
+    "question": "Which DENSO spark plug fits a Honda City 1.5 i-VTEC from 2005?",
+    "facts": 1.0,
+    "pages": [
+      201
+    ],
+    "answerable": true,
+    "note": "p201 City 1.5 i-VTEC 2003-2009 K20PR-U11 SKJ20DR-M13",
+    "ok": true,
+    "page": true,
+    "cited_pages": [
+      201
+    ],
+    "answer": "[1] Spark Plug Catalogue 2025 - lookup.[native-P!].md | page 201 |  CITY 1.5 I-VTEC | 2003-2009 | K20PR-U11 SKJ20DR-M13 | IK20TT | - | IK20L | VK20 \n\nThe DENSO spark plug that fits a Honda City 1.5 i-VTEC from 2005 is K20PR-U11 (standard) or SKJ20DR-M13 (iridium), with IK20TT as the iridium alternative and IK20L/VK20 as other options. The vehicle year 2005 falls within the 2003–2009 production range specified in row [1].",
+    "seconds": 3.2,
+    "route": "Matched 12 catalogue row(s) (lookup, keyword, level 1)"
+  },
+  {
+    "id": "L5",
+    "question": "Which DENSO spark plug fits a 2005 Toyota Fortuner 2.7?",
+    "facts": 1.0,
+    "pages": [
+      207,
+      191
+    ],
+    "answerable": true,
+    "note": "p207 Fortuner 2.7 2005 K20HR-U11; p191 FORTUNER 2.7 SK20HR11",
+    "ok": true,
+    "page": true,
+    "cited_pages": [
+      207,
+      216
+    ],
+    "answer": "[3] Spark Plug Catalogue 2025 - lookup.[native-P!].md | page 207 |  FORTUNER 2.7 | 2005 | K20HR-U11 | IKH20TT | KH20TT | IKH20 | VKH20  \n[8] Spark Plug Catalogue 2025 - lookup.[native-P!].md | page 216 |  FORTUNER 4X2 AT | 2TR | 2005 | K16HPR-U11 | IKH16TT | KH16TT | IKH16 | VKH16  \n\nFor a 2005 Toyota Fortuner 2.7, the DENSO spark plug options are:  \n- K20HR-U11 (from row [3])  \n- K16HPR-U11 (from row [8])  \n\nThese are the only rows matching the model (FORTUNER 2.7), engine (2TR-FE or 2TR), and year (2005). No other rows specify 2005 for this vehicle.  \n\nAnswer: K20HR-U11 or K16HPR-U11.",
+    "seconds": 2.8,
+    "route": "Matched 8 catalogue row(s) (lookup, keyword, level 1)"
+  },
+  {
+    "id": "L6",
+    "question": "Which DENSO wiper blades fit a 2019 Honda Civic sedan (FC1)?",
+    "facts": 1.0,
+    "pages": [
+      30,
+      82
+    ],
+    "answerable": true,
+    "note": "p30 CIVIC SEDAN 2017-2020 FC1 DDP-026R/L DDP-018R/L; p82 DCP-026R/L DCP-018R/L",
+    "ok": true,
+    "page": true,
+    "cited_pages": [
+      30,
+      82
+    ],
+    "answer": "[1] WiperBlade-Cat26_Full-Version - lookup.[native-P!].md | page 30 |  CIVIC SEDAN (INCL. HYBRID) | 2017-2020 | FC1 | DDP-026R/L | DDP-018R/L +SIDE CLIP | DDS-026R/L | DDS-018R/L +SIDE CLIP  \n[2] WiperBlade-Cat26_Full-Version - lookup.[native-P!].md | page 82 |  CIVIC SEDAN (INCL. HYBRID) | 2017-2020 | FC1 | DCP-026R/L | DCP-018R/L | DCS-G026 +SIDE CLIP | DCS-G018 +SIDE CLIP | DCV-026 +SIDE CLIP | DCV-018 +SIDE CLIP  \n\nFor a 2019 Honda Civic sedan (FC1), the following DENSO wiper blades fit:  \n- DDP-026R/L (driver) and DDP-018R/L +SIDE CLIP (passenger) [1]  \n- DCP-026R/L (driver) and DCP-018R/L (passenger), with side clips: DCS-G026 +SIDE CLIP, DCS-G018 +SIDE CLIP, DCV-026 +SIDE CLIP, DCV-018 +SIDE CLIP [2]  \n\nBoth rows [1] and [2] apply to the 2017–2020 FC1 Civic sedan, which includes 2019. No other rows match the FC1 code and 2019 model year.",
+    "seconds": 3.8,
+    "route": "Matched 12 catalogue row(s) (lookup, keyword, level 1)"
+  },
+  {
+    "id": "L7",
+    "question": "Cần gạt mưa DENSO nào lắp cho Ford Ranger đời 2018?",
+    "facts": 1.0,
+    "pages": [
+      29,
+      80
+    ],
+    "answerable": true,
+    "note": "p29 RANGER 2017- DDP-026R/L DDS-026R/L; p80 RANGER 2017- DCP-026R/L DCS-G026 DCV-026 (another blade series)",
+    "ok": true,
+    "page": true,
+    "cited_pages": [
+      29,
+      79,
+      80
+    ],
+    "answer": "Cần gạt mưa DENSO lắp cho Ford Ranger đời 2018 là:  \n- DCP-026R/L (cái trước bên trái/phải)  \n- DCS-G026 (cái sau)  \n- DCV-026 (cái sau)  \n\nThông tin được lấy từ hàng [3] trên trang 80, mô tả cho Ford Ranger từ năm 2017 trở đi với các phiên bản FC, FD, FE, FJ, FX, GC, GD, GX, và liệt kê các bộ phận DENSO tương ứng. Vì năm 2018 nằm trong khoảng 2017–, nên bộ phận này phù hợp.  \n\nHàng [1] cũng liệt kê DDP-026R/L và DDS-026R/L, nhưng đây là bộ phận khác (có thể là loại lót hoặc phiên bản cũ), và không được ưu tiên khi có hàng [3] cung cấp thông tin cụ thể hơn cho cùng khoảng năm và mẫu xe.  \n\nHàng [2] và [4] không phù hợp vì [2] không có thông tin chi tiết về bộ phận và [4] là cho xe Rising Ranger, không phải Ford Ranger thông thường.  \n\nVì vậy, đáp án chính xác là: **DCP-026R/L, DCS-G026, DCV-026**.",
+    "seconds": 4.7,
+    "route": "Matched 4 catalogue row(s) (lookup, keyword, level 1)"
+  },
+  {
+    "id": "L8",
+    "question": "Which DENSO wiper blades fit a 2014 Mazda CX-5?",
+    "facts": 1.0,
+    "pages": [
+      39
+    ],
+    "answerable": true,
+    "note": "p39 CX-5 2012-2017 DDP-024R/L DDP-018R/L",
+    "ok": true,
+    "page": true,
+    "cited_pages": [
+      39,
+      95,
+      153
+    ],
+    "answer": "[1] WiperBlade-Cat26_Full-Version - lookup.[native-P!].md | page 39 |  CX-5 | 2012-2017 | KEEAW, KEEFW, KE2AW, KE2FW, KE5AW, KE5FW | DDP-024R/L | DDP-018R/L | DDS-024R/L | DDS-018R/L  \n[2] WiperBlade-Cat26_Full-Version - lookup.[native-P!].md | page 95 |  CX-5 | 2012-2017 | KEEAW, KEEFW, KE2AW, KE2FW, KE5AW, KE5FW | DCP-024R/L | DCP-018R/L | DCS-G024 | DCS-G018 | DCV-024 | DCV-018  \n[3] WiperBlade-Cat26_Full-Version - lookup.[native-P!].md | page 153 |  CX-5 | 2012-2017 | KEEAW, KEEFW, KE2AW, KE2FW, KE5AW, KE5FW | DRB-014  \n\nFor a 2014 Mazda CX-5, the following DENSO wiper blades fit:  \n- DDP-024R/L and DDP-018R/L (from row [1], page 39)  \n- DCP-024R/L, DCP-018R/L, DCS-G024, DCS-G018, DCV-024, DCV-018 (from row [2], page 95)  \n- DRB-014 (from row [3], page 153)  \n\nAll rows apply to the 2012–2017 model years, which includes 2014, and list the relevant chassis codes (KEEAW, KEEFW, KE2AW, KE2FW, KE5AW, KE5FW) for the CX-5. No further filtering is needed as the question does not specify trim or engine variant.  \n\nAnswer: DDP-024R/L, DDP-018R/L, DCP-024R/L, DCP-018R/L, DCS-G024, DCS-G018, DCV-024, DCV-018, DRB-014.",
+    "seconds": 5.6,
+    "route": "Matched 3 catalogue row(s) (lookup, keyword, level 1)"
+  },
+  {
+    "id": "L9",
+    "question": "Which DENSO wiper blades fit a 2008 Honda CR-V (RE3)?",
+    "facts": 0.5,
+    "pages": [
+      30,
+      83
+    ],
+    "answerable": true,
+    "note": "p30 CR-V 2006-2011 RE3, RE4 DDP-024R/L DDP-017R/L; p83 CR-V 2006-2011 DCP-026R/L DCP-017R/L DCS-G026 DCS-G017 (another blade series)",
+    "ok": false,
+    "page": true,
+    "cited_pages": [
+      30,
+      83,
+      148
+    ],
+    "answer": "[5] WiperBlade-Cat26_Full-Version - lookup.[native-P!].md | page 83 |  CR-V | 2008 |  |  |  | DCS-G024 | DCS-G017 | DCV-024 | DCV-017 \n\nFor a 2008 Honda CR-V (RE3), the DENSO wiper blades that fit are:\n- Driver side: DCS-G024\n- Passenger side: DCS-G017\n- Alternative driver side: DCV-024\n- Alternative passenger side: DCV-017\n\nNote: Row [5] is the only one that matches the 2008 model year and CR-V designation. Although it does not explicitly list \"RE3\" in the engine/code column, the CR-V (2008) model in this row corresponds to the RE3 chassis code as per Honda's application for that year. No other row specifies 2008 for the base CR-V model. Rows [1]–[3] and [6] either cover different years (2006–2011 or 2008 with \"ALL NEW\" designation) or do not match the exact model/year combination. Therefore, row [5] is the correct and only applicable match.",
+    "seconds": 3.2,
+    "route": "Matched 6 catalogue row(s) (lookup, keyword, level 1)"
+  },
+  {
+    "id": "L10",
+    "question": "Which DENSO spark plug fits a 2022 VinFast Fadil?",
+    "facts": null,
+    "pages": [],
+    "answerable": false,
+    "note": "VinFast is not in either catalogue: the answer must say it is not listed",
+    "ok": true,
+    "page": null,
+    "declined": true,
+    "answer": "Fadil Vinfast is not listed in the available DENSO catalogues, so I cannot name a matching part.",
+    "seconds": 0.1,
+    "route": "No catalogue row mentions Fadil Vinfast (lookup, keyword, level 1)"
+  }
+]

@@ -1,0 +1,34 @@
+{
+  "naive:3": {
+    "answer": "The English portion of the Diesel Common Rail System installation guide specifies that the SCV (Suction Control Valve) mounting bolts must be tightened to a torque **between 6.9 Nm and 10.8 Nm**【1】.  \n\n### References\n\n- [1] Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ) → Diesel Common Rail System (English section)",
+    "references": [
+      "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md",
+      "Spark Plug Catalogue 2025.md",
+      "DENSO-AC_brochure_tips-and-tricks_EN.md"
+    ],
+    "latency_s": 9.8,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly identifies the torque range of 6.9 to 10.8 Nm, matching the ground truth exactly."
+    },
+    "id": 3
+  },
+  "mix:3": {
+    "answer": "The English portion of the Diesel Common Rail System installation guide specifies that the SCV mounting bolts must be tightened to a torque range of **6.9 Nm to 10.8 Nm**【1】.\n\n### References\n\n- [1] Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md",
+    "references": [
+      "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md",
+      "AC Compressor Installation Manual.md",
+      "DENSO-AC_brochure_tips-and-tricks_EN.md"
+    ],
+    "latency_s": 45.5,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly identifies the torque range of 6.9 to 10.8 Nm, matching the ground truth exactly."
+    },
+    "id": 3
+  }
+}

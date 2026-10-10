@@ -24,7 +24,7 @@ Dashboard là giao diện quan sát trực quan thời gian thực dành cho k�
 - **Không hard-code cấu hình**: Mọi tên máy, nhãn hiển thị, đơn vị đo, ngưỡng cảnh báo/nguy hiểm và thang đo đều được lấy động từ `config/machines.yaml` thông qua API. Thêm máy hoặc metric mới chỉ cần chỉnh sửa file YAML.
 
 ### 2.1. Cách truy cập Dashboard & Tích hợp WebUI
-- **Chế độ thông thường**: Mở trình duyệt tại địa chỉ `http://localhost:9710/dashboard/`.
+- **Chế độ thông thường**: Mở trình duyệt tại địa chỉ `http://localhost:9710/dashboard/`, hoặc qua DENSO Agent Gateway `http://localhost:9700/dashboard/` (gateway chuyển tiếp dashboard, API chỉ đọc và luồng SSE; mở được cả qua tunnel).
 - **Chế độ màn hình lớn / Kiosk (`?kiosk=1`)**: Mở `http://localhost:9710/dashboard/?kiosk=1`. Chế độ này sẽ ẩn thanh điều khiển trên cùng, phóng to kích thước chữ và số liệu viễn trắc, tự động ẩn con trỏ chuột sau vài giây không tương tác, rất phù hợp để trình chiếu trên màn hình TV lớn của phòng điều hành.
 - **Tích hợp WebUI Agent Copilot**: Cấu hình biến môi trường `WEBUI_URL=http://localhost:5173`. Trên tab "HOẠT ĐỘNG AGENT" của Dashboard sẽ xuất hiện liên kết `Mở trong Agent Copilot ↗` giúp kỹ sư chuyển ngay sang WebUI để bấm duyệt/từ chối hoặc chat với Agent. Nếu để trống biến `WEBUI_URL`, liên kết sẽ tự động ẩn đi.
 

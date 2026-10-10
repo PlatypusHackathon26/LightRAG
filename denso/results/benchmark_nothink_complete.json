@@ -1,0 +1,160 @@
+{
+  "naive:4": {
+    "answer": "ND-oil 11 is a POE (Polyol Ester Oil) base oil type with DENSO part number DND11250.",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "AC Compressor Leaflet.md",
+      "AC Compressor Leaflet - images.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "AC Compressor Installation Manual - images.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin - images.md"
+    ],
+    "latency_s": 3.0,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The answer correctly identifies ND-oil 11 as a POE oil with part number DND11250, matching the ground truth on both asked details."
+    },
+    "id": 4
+  },
+  "naive:11": {
+    "answer": "305 mm",
+    "references": [
+      "WiperBlade-Cat26_Full-Version - images.md",
+      "WiperBlade-Cat26_Full-Version.md"
+    ],
+    "latency_s": 1.9,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer of 305 mm exactly matches the ground truth for both DRA-012 and DRB-012."
+    },
+    "id": 11
+  },
+  "naive:21": {
+    "answer": "Liquid hammer in an A/C compressor is caused by too much compressor oil or refrigerant in the system due to incorrect filling. This condition damages the valve and swash plate inside the compressor.  \n### References\n- [1] DENSO-AC_brochure_tips-and-tricks_EN.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC Compressor Installation Manual - images.md",
+      "AC Compressor Leaflet - images.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "AC-Compressor-Control-Valve-Identification-Bulletin-English - images.md"
+    ],
+    "latency_s": 2.2,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The answer correctly states the cause (excess oil/refrigerant from incorrect filling) and the resulting damage (valve and swash plate), matching the ground truth."
+    },
+    "id": 21
+  },
+  "naive:23": {
+    "answer": "No, ND-oil 8 (DENSO Oil 8) cannot be used in a compressor system that has been converted to R1234yf refrigerant. According to the DENSO practical tips brochure, while ND-oil 12 can be used for both R134a and R1234yf refrigerants, ND-oil 8 cannot be used for R1234yf type refrigerant. The brochure explicitly states: \"However, this doesn't mean the two oils are interchangeable; while ND-oil 12 can be used for both R134a and R1234yf, it doesn't work the other way around and ND-oil 8 cannot be used for R1234yf type refrigerant.\" This is further supported by the AC Compressor Leaflet's oil recommendation table, which specifies that DENSO Oil 8 (ND-oil 8) is only suitable for HFC134a (R-134a) refrigerant, while R1234yf requires DENSO Oil 12 or equivalent. Using ND-oil 8 with R1234yf refrigerant can cause decomposition of the refrigerant and deterioration of resin parts in the A/C system, leading to costly damage.\n\n### References\n\n- [1] DENSO-AC_brochure_tips-and-tricks_EN.md\n- [5] AC Compressor Leaflet.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "AC Compressor Leaflet - images.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "AC Compressor Leaflet.md",
+      "AC Compressor Installation Manual - images.md",
+      "AC-Compressor-Oils-Leaflet-English - images.md",
+      "AC Compressor Installation Manual.md"
+    ],
+    "latency_s": 3.3,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly concludes ND-oil 8 cannot be used with R1234yf, matching the ground truth's reasoning that Oil 8 is specified only for R-134a, Oil 12 for both refrigerants, and that R1234yf with ND-oil 8 causes decomposition and resin deterioration."
+    },
+    "id": 23
+  },
+  "naive:24": {
+    "answer": "Both documents name the same DENSO part number DND08250 for the R134a-only mechanical compressor oil. The leaflet's part-number table names the oil \"ND-oil 8\" while the AC Compressor Leaflet's oil recommendation table names it \"DENSO Oil 8\".",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC Compressor Leaflet - images.md",
+      "AC Compressor Installation Manual - images.md",
+      "AC-Compressor-Oils-Leaflet-English - images.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "AC Compressor Leaflet.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin - images.md"
+    ],
+    "latency_s": 2.4,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 0.5,
+      "reason": "Correctly identifies the naming difference ('ND-oil 8' vs 'DENSO Oil 8') but wrongly claims both documents name part number DND08250, which per ground truth appears only in the Compressor Oils leaflet."
+    },
+    "id": 24
+  },
+  "naive:26": {
+    "answer": "The recommended torque for an M12 spark plug (15–20 N•m) is higher than the SCV mounting bolt torque (6.9–10.8 N•m). At the top of each range, the M12 spark plug torque is higher by 9.2 N•m (20.0 – 10.8 = 9.2).\n\n### References\n\n- [1] Spark Plug Catalogue 2025.md\n- [2] Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md",
+    "references": [
+      "Spark Plug Catalogue 2025.md",
+      "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md"
+    ],
+    "latency_s": 2.7,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer matches the ground truth exactly: M12 spark plug torque (15–20 N·m) is higher than SCV bolt torque (6.9–10.8 N·m), with a 9.2 N·m difference at the top of the ranges."
+    },
+    "id": 26
+  },
+  "naive:28": {
+    "answer": "Yes, both the German and French language sections agree that two guide pins are required during SCV installation. The German section refers to them as \"Führungsstifte\" and the French section as \"goupilles de guidage\".",
+    "references": [
+      "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md",
+      "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ) - images.md"
+    ],
+    "latency_s": 2.7,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The answer correctly states both sections require 2 guide pins and gives the correct German and French terms; omitting the fuel-leakage detail is acceptable extra detail."
+    },
+    "id": 28
+  },
+  "naive:29": {
+    "answer": "The shelf life of DENSO ND-oil 9 is not specified in the provided context.",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "AC Compressor Leaflet.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "EN_AC_Compressor_Failure Analysis_Poster.md"
+    ],
+    "latency_s": 2.0,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system correctly states that the shelf life of ND-oil 9 is not specified in the provided documents, matching the ground truth that the information is unavailable."
+    },
+    "id": 29
+  },
+  "naive:30": {
+    "answer": "DENSO does not specify a recommended replacement distance in kilometers for Iridium Racing spark plugs on an automobile in the provided context.",
+    "references": [
+      "Spark Plug Catalogue 2025.md",
+      "Spark Plug Catalogue 2025 - images.md"
+    ],
+    "latency_s": 2.2,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system correctly states that no replacement distance is specified for Iridium Racing plugs, matching the ground truth's unanswerable conclusion."
+    },
+    "id": 30
+  }
+}

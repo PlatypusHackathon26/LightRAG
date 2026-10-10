@@ -28,7 +28,8 @@ from urllib.parse import quote
 import httpx
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi import Request
+from fastapi.responses import FileResponse, RedirectResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
 import lookup as catalogue  # noqa: E402  (sibling module; app.py runs as a script)
@@ -1071,6 +1072,61 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
         history.clear()
         return {"status": "deleted", "levels": deleted, "notChecked": unreachable,
                 "removedFiles": remove_local_files(doc.get("file_path") or "")}
+
+    # iot_service's read-only control-room dashboard, so it opens at :9700 and through the tunnel
+    # (the service itself listens on 127.0.0.1 only). GET only: it has no write routes.
+    DASHBOARD_HEADERS = ("x-dashboard-token",)
+
+    async def dashboard_get(request: Request, path: str) -> Response:
+        if not settings.iot_url:
+            raise HTTPException(status_code=404, detail="the IoT service is not enabled (-WithIoT)")
+        headers = {k: v for k, v in request.headers.items() if k.lower() in DASHBOARD_HEADERS}
+        try:
+            r = await client.get(f"{settings.iot_url}{path}", params=request.query_params, headers=headers, timeout=15)
+        except httpx.HTTPError:
+            raise HTTPException(status_code=503, detail="the IoT service is not reachable") from None
+        return Response(r.content, status_code=r.status_code, media_type=r.headers.get("content-type"))
+
+    @app.get("/dashboard", include_in_schema=False)
+    async def dashboard_root() -> RedirectResponse:
+        return RedirectResponse("/dashboard/")
+
+    @app.get("/dashboard/{path:path}", include_in_schema=False)
+    async def dashboard_files(path: str, request: Request) -> Response:
+        return await dashboard_get(request, f"/dashboard/{path}")
+
+    @app.get("/api/v1/dashboard/{path:path}", include_in_schema=False)
+    async def dashboard_api(path: str, request: Request) -> Response:
+        return await dashboard_get(request, f"/api/v1/dashboard/{path}")
+
+    @app.get("/api/v1/stream", include_in_schema=False)
+    async def dashboard_stream(request: Request) -> StreamingResponse:
+        """The dashboard's server-sent events, relayed as they arrive (no read timeout)."""
+        if not settings.iot_url:
+            raise HTTPException(status_code=404, detail="the IoT service is not enabled (-WithIoT)")
+        headers = {k: v for k, v in request.headers.items() if k.lower() in DASHBOARD_HEADERS}
+        upstream = client.build_request("GET", f"{settings.iot_url}/api/v1/stream", params=request.query_params,
+                                        headers=headers, timeout=httpx.Timeout(10, read=None))
+        try:
+            r = await client.send(upstream, stream=True)
+        except httpx.HTTPError:
+            raise HTTPException(status_code=503, detail="the IoT service is not reachable") from None
+        if r.status_code != 200:
+            body = await r.aread()
+            await r.aclose()
+            return Response(body, status_code=r.status_code, media_type=r.headers.get("content-type"))
+
+        async def relay():
+            try:
+                async for chunk in r.aiter_bytes():
+                    yield chunk
+            except httpx.HTTPError:
+                pass  # IoT restarted: the dashboard reconnects (or falls back to polling) by itself
+            finally:
+                await r.aclose()
+
+        return StreamingResponse(relay(), media_type="text/event-stream",
+                                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
     @app.get("/agent/incidents")
     async def incidents(user: User = Depends(current_user)) -> list[dict]:

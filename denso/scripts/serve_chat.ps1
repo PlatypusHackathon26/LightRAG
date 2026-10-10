@@ -137,7 +137,7 @@ if ($WithIoT) {
         if ($mqtt) { Start-Bg $iotPy @("-m", "simulator.cli", "run") "iot_simulator" $iot }
     }
     "iot        :9710 db=$($env:DB_MODE) mqtt=$(if ($mqtt) { 'ok, simulator running' } else { 'MISSING - start Docker Desktop for live telemetry' })"
-    "dashboard  http://127.0.0.1:9710/dashboard/"
+    "dashboard  http://localhost:9700/dashboard/  (relayed by the gateway; also <tunnel>/dashboard/)"
     if (-not $env:DENSO_IOT_URL) { "NOTE       the gateway was already running without the IoT service: add -Restart" }
 }
 

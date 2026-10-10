@@ -1,0 +1,542 @@
+{
+  "naive:1": {
+    "answer": "The DENSO part number for the Suction Control Valve Kit covered in the diesel Common Rail installation guide is **DCRS300260 (294009‑2150)**【2†L1-L3】.\n\n### References\n- [2] Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md",
+      "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ) - images.md",
+      "AC-Compressor-Control-Valve-Identification-Bulletin-English.md",
+      "AC Compressor Installation Manual - images.md",
+      "Spark Plug Catalogue 2025.md",
+      "Spark Plug Catalogue 2025 - images.md",
+      "AC Compressor Leaflet.md"
+    ],
+    "latency_s": 3.7,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer matches the ground truth part number DCRS300260 (294009-2150) exactly."
+    },
+    "id": 1
+  },
+  "naive:2": {
+    "answer": "DENSO holds an **over 40 % OE market share** in compressors, as stated in the DENSO A/C Compressors leaflet.\n\n### References\n- [2] AC Compressor Leaflet.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC Compressor Leaflet.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "AC Compressor Leaflet - images.md",
+      "AC Compressor Installation Manual - images.md",
+      "AC-Compressor-Oils-Leaflet-English - images.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md"
+    ],
+    "latency_s": 4.4,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly states DENSO holds over 40% OE market share in compressors, matching the ground truth."
+    },
+    "id": 2
+  },
+  "naive:3": {
+    "answer": "The SCV mounting bolts must be tightened to a torque of **6.9 – 10.8 Nm**【2†L4-L5】.\n\n### References\n- [2] Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ)",
+    "references": [
+      "Spark Plug Catalogue 2025.md",
+      "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md",
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ) - images.md",
+      "WiperBlade-Cat26_Full-Version.md"
+    ],
+    "latency_s": 4.7,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer matches the ground truth torque range of 6.9 to 10.8 Nm exactly."
+    },
+    "id": 3
+  },
+  "naive:4": {
+    "answer": "According to the DENSO Compressor Oils leaflet, ND‑oil 11 is formulated with a **POE (Polyol Ester Oil)** base oil type. Its DENSO part number is **DND11250**.\n\n### References\n* [1] AC-Compressor-Oils-Leaflet-English.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "AC Compressor Leaflet.md",
+      "AC Compressor Leaflet - images.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "AC Compressor Installation Manual - images.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin - images.md"
+    ],
+    "latency_s": 5.7,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly states ND-oil 11 is a POE oil with part number DND11250, matching the ground truth."
+    },
+    "id": 4
+  },
+  "naive:5": {
+    "answer": "The diode placed inside the external control valve on certain DENSO compressors for Mercedes‑Benz applications serves to **eliminate fly‑back**. Fly‑back is a sudden voltage spike that occurs across an inductive load when its supply current is abruptly reduced or interrupted. By suppressing this spike, the diode protects the electronic control unit (ECU) and ensures proper compressor operation; replacing a diode‑equipped compressor with one lacking the diode can cause the compressor to fail and trigger a DTC in the ECU【3†L13-L20】.\n\n### References\n- [3] AC-Compressor-Control-Valve-Identification-Bulletin-English.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC-Compressor-Control-Valve-Identification-Bulletin-English - images.md",
+      "AC-Compressor-Control-Valve-Identification-Bulletin-English.md",
+      "AC Compressor Installation Manual - images.md",
+      "AC Compressor Leaflet.md",
+      "AC Compressor Leaflet - images.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "AC-Compressor-Oils-Leaflet-English.md"
+    ],
+    "latency_s": 7.0,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The answer correctly states the diode eliminates fly-back and accurately defines it as a sudden voltage spike across an inductive load when supply current is reduced or interrupted, with additional correct detail."
+    },
+    "id": 5
+  },
+  "naive:6": {
+    "answer": "According to the DENSO A/C Compressor Installation Guide’s precautions list, you must check the **compressor identification label** (attached to the rear or side of the compressor) to determine which compressor oil is allowed to be used【7†L4-L5】.  \n\n### References\n- [7] AC Compressor Installation Manual.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "AC Compressor Leaflet - images.md",
+      "AC Compressor Installation Manual - images.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "AC Compressor Leaflet.md",
+      "AC Compressor Installation Manual.md"
+    ],
+    "latency_s": 5.0,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system correctly identifies the compressor's own identification label as the one to check, matching the ground truth."
+    },
+    "id": 6
+  },
+  "naive:7": {
+    "answer": "For an M14 spark plug that is **not** one of the special exception types (i.e., “Types other than the ones shown below”), the DENSO Spark Plug Catalogue specifies:\n\n- **Recommended torque:** 20‑30 N·m  \n- **Recommended tightening angle for a new plug:** About ½ turn  \n\nThese values are taken from the torque table on page 6 of the catalogue.\n\n### References\n\n- [1] Spark Plug Catalogue 2025",
+    "references": [
+      "Spark Plug Catalogue 2025.md",
+      "Spark Plug Catalogue 2025 - images.md"
+    ],
+    "latency_s": 9.3,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer matches the ground truth exactly: 20-30 N·m torque and about 1/2 turn tightening angle for a new M14 plug of a non-exception type."
+    },
+    "id": 7
+  },
+  "naive:8": {
+    "answer": "The Graphite Coating on DENSO wiper blades is made of **graphite, which is a type of carbon particle**【2†L7-L9】.  \n\nThis coating **reduces frictional resistance on the glass**, giving **high wiping performance without chattering**, **preserves the water‑repellent coating on the windshield so it lasts longer**, and **ensures smooth wiping** by lowering friction【2†L7-L12】.  \n\n### References\n- [2] WiperBlade-Cat26_Full-Version.md",
+    "references": [
+      "WiperBlade-Cat26_Full-Version - images.md",
+      "WiperBlade-Cat26_Full-Version.md"
+    ],
+    "latency_s": 5.6,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The answer correctly identifies graphite as a carbon particle coating and matches all stated benefits: reduced frictional resistance, high wiping performance without chattering, and preservation of the water-repellent coating."
+    },
+    "id": 8
+  },
+  "naive:9": {
+    "answer": "The DENSO A/C Compressors leaflet contains a recommendation table that lists the appropriate oil for each compressor type and refrigerant. For a Vane‑type blower (TV) compressor operating with HFC134a (R‑134a) refrigerant, the table specifies **DENSO Oil 9** as the recommended oil.\n\n### References\n\n- [5] AC Compressor Leaflet.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "AC Compressor Leaflet - images.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "AC Compressor Leaflet.md",
+      "AC Compressor Installation Manual - images.md",
+      "AC-Compressor-Control-Valve-Identification-Bulletin-English.md",
+      "AC-Compressor-Oils-Leaflet-English - images.md"
+    ],
+    "latency_s": 21.8,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly states DENSO Oil 9 for the Vane-type blower (TV) compressor with HFC134a, matching the ground truth."
+    },
+    "id": 9
+  },
+  "naive:10": {
+    "answer": "In the DENSO VAG compressor consolidation bulletin, the “Compressor differences” table shows the oil quantity for each compressor model. For the DCP32045, the oil quantity is **140 cc**, while for the DCP32060 it is **110 cc**【1】.\n\n### References\n\n- [1] DENSO-AC_brochure_tips-and-tricks_EN.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "AC Compressor Leaflet - images.md",
+      "AC Compressor Leaflet.md",
+      "AC Compressor Installation Manual - images.md"
+    ],
+    "latency_s": 4.4,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer matches the ground truth exactly: DCP32045 has 140cc and DCP32060 has 110cc oil quantity."
+    },
+    "id": 10
+  },
+  "naive:11": {
+    "answer": "The Part No. and Available Length Chart shows that both the DRA‑012 (Rear Wiper – A Type) and the DRB‑012 (Rear Wiper – B Type) correspond to a length of **305 mm**【2†L15-L20】.\n\n### References\n\n- [2] WiperBlade-Cat26_Full-Version.md",
+    "references": [
+      "WiperBlade-Cat26_Full-Version - images.md",
+      "WiperBlade-Cat26_Full-Version.md"
+    ],
+    "latency_s": 4.6,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly states both DRA-012 and DRB-012 correspond to 305 mm, matching the ground truth."
+    },
+    "id": 11
+  },
+  "naive:12": {
+    "answer": "The Spark Plug Replacement Timing table shows that for automobiles, the recommended replacement interval for **IRIDIUM POWER Ni‑TT plugs and conventional plugs** is approximately **20,000 km**, whereas for **IRIDIUM TOUGH, IRIDIUM PLUS, and Platinum plugs** the interval is approximately **100,000 km** (with an asterisk indicating that the actual life may vary with operating conditions)【1】.\n\n### References\n\n- [1] Spark Plug Catalogue 2025",
+    "references": [
+      "Spark Plug Catalogue 2025.md",
+      "Spark Plug Catalogue 2025 - images.md"
+    ],
+    "latency_s": 18.4,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system correctly states the 20,000 km vs 100,000 km interval comparison for the same plug groups, with only a minor paraphrase of the footnote."
+    },
+    "id": 12
+  },
+  "naive:13": {
+    "answer": "**Pulley type and oil quantity**\n\n- **DCP32020** – Pulley type: **B‑PC**; Oil quantity: **80 cc**  \n- **DCP27001** – Pulley type: **R‑SC**; Oil quantity: **140 cc**\n\n**Consolidability**\n\nThe table explicitly lists “Consolidate (Yes/No)” as **No** for both the DCP32020 and the DCP27001 rows, indicating that the two compressors are **not consolidatable**.\n\n*Source: VAG compressor consolidation bulletin, table showing DCP32020 features and comparison (page 25 of the document).*  \n\n### References\n\n- [1] DENSO-AC_brochure_tips-and-tricks_EN.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "EN_AC_Compressor_Failure Analysis_Poster.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "AC Compressor Leaflet.md",
+      "EN_AC_Compressor_Failure Analysis_Poster - images.md"
+    ],
+    "latency_s": 11.3,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "All specified values (B-PC/80cc for DCP32020, R-SC/140cc for DCP27001) and the non-consolidatable conclusion match the ground truth."
+    },
+    "id": 13
+  },
+  "naive:14": {
+    "answer": "The diesel Common Rail installation guide lists the following three steps for removing the Suction Control Valve (SCV) from the pump, in this order:\n\n1. **Mark the connector position of the SCV to the pump** – this ensures the valve can be reinstalled correctly.  \n2. **Loosen and remove the bolts** that secure the SCV to the pump.  \n3. **Remove the large O‑ring (position 1)** from the pump housing.  \n\nThese steps are explicitly described in the “Installation instruction” section of the guide under “Suction Control Valve (SCV) removal”【1†L3-L5】.\n\n### References\n- [1] Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ)",
+    "references": [
+      "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md",
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ) - images.md",
+      "AC-Compressor-Control-Valve-Identification-Bulletin-English.md",
+      "AC Compressor Installation Manual.md"
+    ],
+    "latency_s": 20.2,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer lists all three SCV removal steps in the correct order, matching the ground truth exactly."
+    },
+    "id": 14
+  },
+  "naive:15": {
+    "answer": "**Correct installation sequence for a new Suction Control Valve (SCV) – English version**\n\n1. Install one new O‑ring.  \n2. Install two guide pins in the mounting holes and fit the new gaskets.  \n3. Apply engine oil to the small O‑ring.  \n4. Carefully push the SCV into the housing (to avoid damaging the O‑ring).  \n5. Once the SCV is seated, remove the guide pins.  \n6. Fit the mounting bolts and tighten them to a torque of **6.9 – 10.8 Nm**【1†L3-L4】.\n\n**Warning that applies**\n\n> **IMPORTANT! IT IS NECESSARY TO USE 2 GUIDE PINS DURING INSTALLATION. INSTALLATION WITHOUT PINS COULD CAUSE FUEL LEAKAGE.**【1†L4-L5】\n\n### References\n- [1] Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md  \n- [1] Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md  \n\n*(Both citations refer to the English sections on pages 3 and 4 of the installation guide.)*",
+    "references": [
+      "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md",
+      "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ) - images.md",
+      "Spark Plug Catalogue 2025.md",
+      "AC Compressor Installation Manual.md",
+      "DENSO-AC_brochure_tips-and-tricks_EN.md"
+    ],
+    "latency_s": 9.9,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer matches the ground truth exactly: all six installation steps in the correct order, the 6.9–10.8 Nm torque range, and the warning about using 2 guide pins to prevent fuel leakage."
+    },
+    "id": 15
+  },
+  "naive:16": {
+    "answer": "DENSO’s recommended run‑in procedure after installing a new A/C compressor is:\n\n1. Set the temperature control to **maximum cool**.  \n2. Switch the blower to **maximum speed**.  \n3. Start the engine and keep the RPM at **idle**.  \n4. Turn the A/C **on** and let it run for a **minimum of 5 minutes** – **do not increase engine speed** during this period.  \n5. After the 5‑minute interval, the compressor oil originally stored in the compressor has been circulated through the system, and it is then safe to increase engine speed and test the A/C operation.\n\nThis procedure ensures proper oil distribution and start‑up lubrication to prevent damage immediately after installation【2】.\n\n### References\n* [2] AC Compressor Installation Manual.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC Compressor Installation Manual.md",
+      "AC Compressor Leaflet.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "AC Compressor Installation Manual - images.md"
+    ],
+    "latency_s": 4.9,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer matches all five steps of the ground-truth run-in procedure, including max cool, max blower, idle RPM, minimum 5 minutes with no engine speed increase, and the oil circulation rationale."
+    },
+    "id": 16
+  },
+  "naive:17": {
+    "answer": "DENSO’s procedure for determining how much oil must be removed from a new A/C compressor when flushing is **not** required is based on a simple subtraction:\n\n**Formula:**  \n\\( C = A - B \\)  \nwhere  \n- **A** = total oil amount in the new DENSO compressor (cm³)  \n- **B** = oil amount drained from the old compressor (cm³)  \n- **C** = oil to remove from the new compressor (cm³)  \n\nThis relationship is presented in the troubleshooting bulletin as “A – B = C” and is used to calculate the correct oil quantity to remove before installation【2】.\n\n**Worked example:**  \n- A (new compressor oil) = 120 cm³  \n- B (old compressor oil drained) = 50 cm³  \n- C = 120 cm³ − 50 cm³ = **70 cm³**  \n\nThus, 70 cm³ of oil should be removed from the new compressor in this scenario【2】.\n\n### References\n- [2] EN_AC Compressor oil_troubleshooting_bulletin.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "AC Compressor Installation Manual.md",
+      "AC Compressor Leaflet.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "AC Compressor Leaflet - images.md"
+    ],
+    "latency_s": 7.1,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer matches the ground truth exactly: formula A − B = C with correct variable definitions and the worked example yielding 70 cm³."
+    },
+    "id": 17
+  },
+  "naive:18": {
+    "answer": "The four conditions that must all be satisfied before a technician can apply **Procedure 1** (flushing not required) are:\n\n1. The refrigerant system is clean.  \n2. The correct type of oil is inside the cycle.  \n3. The correct amount and type of UV‑leak dye is used.  \n4. There are no other additives in the refrigerant cycle.  \n\nThese conditions are listed explicitly under the “Condition” heading for Procedure 1 in the DENSO A/C Compressor Installation Guide and are reiterated in the DENSO‑AC brochure’s repair‑procedure description.\n\n### References\n* [1] DENSO-AC_brochure_tips-and-tricks_EN.md\n* [2] AC Compressor Installation Manual.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC Compressor Installation Manual.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "AC Compressor Leaflet.md",
+      "AC Compressor Installation Manual - images.md"
+    ],
+    "latency_s": 7.3,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer lists all four conditions exactly as stated in the ground truth: clean system, correct oil type, correct UV-leak dye amount/type, and no other additives."
+    },
+    "id": 18
+  },
+  "naive:19": {
+    "answer": "**Cause of failure**  \nWhen the suction port of a removed compressor is dirty and black, the stated cause of failure is *insufficient cleaning of the refrigerant cycle and/or not all required parts replaced*. This allows dirt particles to travel through the system and re‑enter the compressor, resulting in bad lubrication or a clogged control valve【1†L1-L4】.\n\n**Recommended repair procedure**  \nFor this condition, the poster recommends **REPAIR PROCEDURE 3**, which involves flushing the refrigerant circuit to remove dirt and black particles【1†L5-L6】.\n\n### References\n\n- [1] DENSO-AC_brochure_tips-and-tricks_EN.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "EN_AC_Compressor_Failure Analysis_Poster - images.md",
+      "EN_AC_Compressor_Failure Analysis_Poster.md",
+      "AC Compressor Installation Manual - images.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin - images.md",
+      "AC Compressor Installation Manual.md",
+      "AC Compressor Leaflet - images.md"
+    ],
+    "latency_s": 30.7,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly states the cause of failure (insufficient cleaning and/or missing part replacement leading to dirt re-entry, bad lubrication, or clogged control valve) and recommends REPAIR PROCEDURE 3, matching the ground truth."
+    },
+    "id": 19
+  },
+  "naive:20": {
+    "answer": "The DENSO practical tips brochure identifies two specific causes that can lead to rubber seals in the A/C system becoming swollen and no longer fitting in their original position:\n\n1. **Charging the system with the wrong type of refrigerant** – using a refrigerant that is not compatible with the seals causes them to swell.  \n2. **Using additives (conditioners) or the wrong type of flushing agents** – these chemicals can react with the rubber seals, resulting in swelling and loss of proper fit.\n\nThese causes are listed under the “Rubber seals are swollen and do not fit in the original position” failure analysis in the brochure【1】.\n\n### References\n\n- [1] DENSO-AC_brochure_tips-and-tricks_EN.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "EN_AC_Compressor_Failure Analysis_Poster.md",
+      "AC Compressor Leaflet.md"
+    ],
+    "latency_s": 5.0,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly identifies both causes: wrong type of refrigerant and use of additives/conditioners or wrong flushing agents, matching the ground truth."
+    },
+    "id": 20
+  },
+  "naive:21": {
+    "answer": "The DENSO practical tips brochure states that **liquid hammer** in an A/C compressor is caused by **too much compressor oil or refrigerant in the air‑conditioning system due to incorrect filling**. This condition leads to **damage to the valve and swash plate inside the compressor**【1†L1-L4】.\n\n### References\n\n- [1] DENSO-AC_brochure_tips-and-tricks_EN.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC Compressor Installation Manual - images.md",
+      "AC Compressor Leaflet - images.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "AC-Compressor-Control-Valve-Identification-Bulletin-English - images.md"
+    ],
+    "latency_s": 4.4,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The answer correctly states the cause (too much compressor oil or refrigerant due to incorrect filling) and the damage (valve and swash plate), matching the ground truth."
+    },
+    "id": 21
+  },
+  "naive:22": {
+    "answer": "The “Failure of Damper Limiter‑Pulleys” bulletin lists three primary causes for the limiter of a DL‑pulley breaking or the optional mass damper coming loose:\n\n1. **Excessive negative force on the DL‑pulley** caused by too much drive‑belt movement.  \n2. **Continuously changing force on the DL‑pulley** resulting from severe rotation‑speed fluctuations.  \n3. **Excessive force on the DL‑pulley** due to too much engine torque.  \n\nThe limiter itself serves as a safety mechanism: it prevents the multi‑belt from breaking when, for example, the compressor locks. If the limiter fails, the pulley can run freely, allowing the belt to retain its drive function and avoid loss of belt drive.\n\n### References\n- [1] DENSO-AC_brochure_tips-and-tricks_EN.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "EN_AC_Compressor_Failure Analysis_Poster.md",
+      "WiperBlade-Cat26_Full-Version.md",
+      "AC-Compressor-Control-Valve-Identification-Bulletin-English.md"
+    ],
+    "latency_s": 11.4,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer matches the ground truth exactly, listing all three causes correctly and accurately describing the limiter's safety function."
+    },
+    "id": 22
+  },
+  "naive:23": {
+    "answer": "No, ND‑oil 8 (DENSO Oil 8) should not be used in a compressor system that has been converted to R1234yf refrigerant.\n\n**Why it is not suitable**\n\n- The DENSO practical tips brochure (“Compressor oils and refrigerants” bulletin) states that DENSO uses ND‑oil 8 for R134a systems, while the new R1234yf refrigerant requires ND‑oil 12, a PAG 46 oil with additives specifically for R1234yf【1†L1-L4】.  \n- It further clarifies that the two oils are not interchangeable: “while ND‑oil 12 can be used for both R134a and R1234yf, it doesn’t work the other way around and ND‑oil 8 cannot be used for R1234yf type refrigerant”【1†L5-L6】.  \n- The brochure warns that “when R1234yf type refrigerant comes in contact with ND‑oil 8, it will decompose and resin parts of the A/C system will start to deteriorate, so it is never recommended to use ND‑oil 8 in combination with R1234yf type refrigerant”【1†L10-L12】.\n\n**What the AC Compressor Leaflet recommends**\n\n- The oil recommendation table in the AC Compressor Leaflet lists DENSO Oil 8 for the refrigerant HFC‑134a (R‑134a) and DENSO Oil 12 (or equivalent) for the refrigerant HFO‑1234yf (R1234yf)【5†L1-L3】.  \n- This confirms that the leaflet’s official guidance matches the brochure: Oil 8 is intended only for R134a, while Oil 12 is the correct choice for R1234yf.\n\n**Conclusion**\n\nBecause ND‑oil 8 lacks the additives required for R1234yf and will chemically decompose when mixed with that refrigerant, it must not be used in a system that has been converted to R1234yf. The correct oil for such a system is ND‑oil 12 (or an equivalent PAG 46 oil with the R1234yf‑specific additives).  \n\n### References\n- [1] DENSO-AC_brochure_tips-and-tricks_EN.md  \n- [5] AC Compressor Leaflet.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "AC Compressor Leaflet - images.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "AC Compressor Leaflet.md",
+      "AC Compressor Installation Manual - images.md",
+      "AC-Compressor-Oils-Leaflet-English - images.md",
+      "AC Compressor Installation Manual.md"
+    ],
+    "latency_s": 9.3,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The answer correctly states ND-oil 8 cannot be used with R1234yf, matching the ground truth's reasoning that Oil 8 is only for R134a, Oil 12 covers both refrigerants, and R1234yf decomposes ND-oil 8 causing resin deterioration."
+    },
+    "id": 23
+  },
+  "naive:24": {
+    "answer": "Both documents refer to the same oil for R134a‑only mechanical compressors: the DENSO oil that is specified for mechanical compressors using R134a. In the DENSO Compressor Oils leaflet this oil is listed as **ND‑oil 8** with the part number **DND08250**【5†L1-L4】. The AC Compressor Leaflet (2013) recommends the same oil but names it simply **DENSO Oil 8** for the HFC134a (R‑134a) refrigerant type【7†L1-L3】.  \n\nThe naming difference is that the AC Compressor Leaflet uses the generic designation “DENSO Oil 8” without a part number, whereas the DENSO Compressor Oils leaflet provides the specific product name “ND‑oil 8” together with its exact part number DND08250.  \n\n### References\n- [5] AC-Compressor-Oils-Leaflet-English.md\n- [7] AC Compressor Leaflet.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC Compressor Leaflet - images.md",
+      "AC Compressor Installation Manual - images.md",
+      "AC-Compressor-Oils-Leaflet-English - images.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "AC Compressor Leaflet.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin - images.md"
+    ],
+    "latency_s": 8.2,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly identifies the same oil in both documents, the naming difference ('ND-oil 8' vs 'DENSO Oil 8'), and that part number DND08250 appears only in the Compressor Oils leaflet, matching the ground truth."
+    },
+    "id": 24
+  },
+  "naive:25": {
+    "answer": "Yes, the oil‑removal formula presented in Repair Procedure 1 of the DENSO A/C Compressor Installation Guide is identical to the calculation method shown in the compressor oil troubleshooting bulletin. Both documents use the same relationship:\n\n**Amount of oil to remove (C) = Total oil in the new compressor (A) – Oil drained from the old compressor (B)**  \n\nor simply **A − B = C**.\n\n- In the Installation Guide (Repair Procedure 1) the formula is expressed as “A = Total oil amount of new compressor; B = Oil amount drained from the old compressor; C = Amount required to change from new compressor. Calculation to establish the correct oil amount to remove from new compressor: A‑B = C”【3】.  \n- In the troubleshooting bulletin the example states: “The total amount of oil in the new compressor (A) is 120 cm³. The oil amount drained from the old compressor (B) is 50 cm³. The amount of oil to remove (C) from the new compressor is A‑B, 120‑50 = 70 cm³”【2】.\n\nSince both sources present the same A‑B = C relationship, the formulas match.\n\n### References\n- [2] EN_AC Compressor oil_troubleshooting_bulletin.md  \n- [3] AC Compressor Installation Manual.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "AC Compressor Installation Manual.md",
+      "AC Compressor Leaflet - images.md",
+      "AC Compressor Installation Manual - images.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "AC Compressor Leaflet.md"
+    ],
+    "latency_s": 16.1,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The answer correctly confirms both documents use the identical A − B = C formula with matching definitions and the 120 − 50 = 70 cm³ worked example, fully agreeing with the ground truth."
+    },
+    "id": 25
+  },
+  "naive:26": {
+    "answer": "The torque required to mount the suction control valve (SCV) bolts in the diesel Common Rail installation guide is **6.9 – 10.8 Nm**【2】.  \nThe recommended torque for an M12 spark plug from the Spark Plug Catalogue is **15 – 20 Nm**【1】.\n\nTherefore, the M12 spark plug torque is higher. At the top of each range, the SCV bolt torque is 10.8 Nm while the M12 spark plug torque is 20 Nm, a difference of roughly **9.2 Nm**.\n\n### References\n- [1] Spark Plug Catalogue 2025.md  \n- [2] Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md",
+    "references": [
+      "Spark Plug Catalogue 2025.md",
+      "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md"
+    ],
+    "latency_s": 6.0,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer matches the ground truth exactly: M12 spark plug torque (15-20 Nm) is higher than SCV bolt torque (6.9-10.8 Nm), with a 9.2 Nm difference at the top of each range."
+    },
+    "id": 26
+  },
+  "naive:27": {
+    "answer": "Yes. The Russian‑language section states that the bolts should be tightened to a torque of **от 6,9 до 10,8 Н‑м** (6.9 to 10.8 Nm)【1†L18-L20】, and the English‑language section specifies the same range: **6.9 to 10.8 [Nm]**【1†L4-L6】.  \n\n### References\n- [1] Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ)",
+    "references": [
+      "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md",
+      "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ) - images.md"
+    ],
+    "latency_s": 4.9,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system correctly confirms both sections specify the same torque range of 6.9 to 10.8 Nm, matching the ground truth."
+    },
+    "id": 27
+  },
+  "naive:28": {
+    "answer": "Yes. Both the German and French language sections of the Diesel Common Rail installation guide specify that **two guide pins** must be used during SCV installation, and they agree on this requirement.\n\n- **German section** (pages 5‑6) states:  \n  *“Zwei Führungsstifte in die Befestigungslöcher einsetzen … WICHTIG! ES IST NOTWENDIG, BEI DER MONTAGE DIE ZWEI FÜHRUNGSSTIFTE ZU VERWENDEN.”*  \n  The component is referred to as **“Führungsstifte”** (guide pins)【1†Trang 5‑6|langue:de】.\n\n- **French section** (pages 9‑10) states:  \n  *“Installer les 2 goupilles de guidage … IMPORTANT! IL EST NÉCÉSSAIRE D’UTILISER LES 2 GOUPILLES DE GUIDAGE PENDANT L’INSTALLATION.”*  \n  The component is referred to as **“goupilles de guidage”** (guide pins)【1†Trang 9‑10|langue:fr】.\n\nThus, the two language versions are consistent: both require **two guide pins**, calling them *Führungsstifte* in German and *goupilles de guidage* in French.\n\n### References\n- [1] Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md",
+    "references": [
+      "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md",
+      "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ) - images.md"
+    ],
+    "latency_s": 16.8,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly states both sections require 2 guide pins and identifies the German term 'Führungsstifte' and French term 'goupilles de guidage', matching the ground truth."
+    },
+    "id": 28
+  },
+  "naive:29": {
+    "answer": "The AC Compressor Leaflet indicates that DENSO ND‑oil 9 is the oil specified for Through Vane (TV) type A/C compressors【3】.  \n\nWhen reviewing the storage and handling section of the DENSO brochure, shelf‑life information is provided for ND‑oil 8, ND‑oil 11 and ND‑oil 12 (e.g., a label showing “SHELF LIFE: 36 MONTHS” for ND‑oil 12)【1】, but no specific shelf‑life value is listed for ND‑oil 9. Consequently, the context does not contain the shelf‑life figure for DENSO ND‑oil 9.\n\n### References\n- [1] DENSO-AC_brochure_tips-and-tricks_EN.md\n- [3] AC Compressor Leaflet.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "AC Compressor Leaflet.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "EN_AC_Compressor_Failure Analysis_Poster.md"
+    ],
+    "latency_s": 11.4,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system correctly states that no shelf-life value for ND-oil 9 is available in the documents, matching the ground truth's unanswerable verdict."
+    },
+    "id": 29
+  },
+  "naive:30": {
+    "answer": "<think>We need to answer: \"What recommended replacement distance (in km) does DENSO specify for Iridium Racing spark plugs on an automobile?\" We must find in the context any mention of recommended replacement distance for Iridium Racing spark plugs on an automobile.\n\nSearch the context for \"Iridium Racing\" and \"replacement distance\" or \"km\". Let's scan.\n\nDocument chunks: many pages. Look for \"Iridium Racing\" and maybe \"replacement\" or \"service life\". In the first chunk (reference_id 1) there is a section about Iridium Racing: \"IRIDIUM RACING 7\" etc. It includes specifications table with \"Trang\", \"TYPE\", \"APPLICATION\", \"SPEC\", \"DIA.\", \"REACH\", \"HEX\", \"GAP\", \"PROJECION\", \"SPARK POSITION\", \"GROUND ELECTRODE HEIGHT\", \"TERMINAL SHAPE\", \"RESISTOR\", \"No.\", \"ONE PC BOX DENSO P/N\". No replacement distance.\n\nLater in the same chunk there is \"Improved acceleration! Improved acceleration!\" etc. Not about replacement.\n\nSearch for \"replacement\" in the context: I see in the warnings: \"Precautions for Selecting Spark Plugs\" etc. Not specific.\n\nMaybe there is a mention of \"service lifetime\" for Iridium Tough earlier: \"The service lifetime of Iridium Tough will depend on operating conditions and the vehicles it is installed on. (Service lifetime may become shorter depending on the vehicle's ignition system.)\" That's for Iridium Tough, not Racing.\n\nBut the question: \"What recommended replacement distance (in km) does DENSO specify for Iridium Racing spark plugs on an automobile?\" Possibly there is a recommended replacement distance like \"30,000 km\" or \"100,000 km\". Let's search for numbers with km.\n\nIn the context, there is a table: \"Automobile\", \"~20,000km\", \"~100,000km\". That appears in a chunk: \"Spark gap example............... For a 1.1 mm gap, set from 1.0 to 1.1 mm.\" Actually that chunk includes a table: Let's locate.\n\nFrom the first chunk: \"Spark gap example............... For a 1.1 mm gap, set from 1.0 to 1.1 mm.\\nInsulator projection................ Length from edge of side housing to top of insulator.\\nThe plus (+) direction is the distance from the edge to the piston head.\\nSpark position....................... Length from edge of side housing to top of center electrode.\\nThe plus (+) direction is the distance from the edge to the piston head.\\nGround electrode height........ Length from edge of side housing to top of ground electrode.\\nThe plus (+) direction is the distance from the edge to the piston head.\\nTerminal shapes..................... S: solid terminal, R: removable, RC: crimped nut, T: threaded\\nNote: Please purchase plugs equipped as original parts at stores that sell original parts.\\n--- [Trang 30 | ngôn ngữ: en] ---\\nHigh Performance Spark Plug\\nIridium alloy fine center electrode DENSO\\nOUGH\\nLasting high performance, long life and high response\\nEconomical and long lasting! Economical and long lasting!\\n####### Fine diameter iridium alloy and Fine diameter iridium alloy and Fine diameter iridium alloy and Fine diameter iridium alloy and Fine diameter iridium alloy and Fine diameter iridium alloy and Fine diameter iridium alloy and Fine diameter iridium alloy and\\nplatinum-tipped ground electrode achieve high durability! platinum-tipped ground electrode achieve high durability! platinum-tipped ground electrode achieve high durability! platinum-tipped ground electrode achieve high durability! platinum-tipped ground electrode achieve high durability! platinum-tipped ground electrode achieve high durability! platinum-tipped ground electrode achieve high durability! platinum-tipped ground electrode achieve high durability!\\n--- [Trang 31 | ngôn ngữ: en] ---\\n####### is recommended for the following user.\\n####### For long distance and heavy-use drivers.\\nBecause of its long lifetime, recommended to drivers for long driving.\\nBy greatly minimizing electrode wear, DENSO improved mileage and extended the plug's useful life. Longevity provides you with peace of mind and safety when using.\\n####### For drivers that care about mileage.\\nAs I drive every day, so I want less fuel consumption.\\nIf you use your car on a daily basis, you may be concerned about fuel consumption. is one solution.\\n####### Improved Mileage\\n####### High Durability\\n####### ■Comparison of Durability\\n* From taxi monitoring test results.\\n- Displacement is mainly 2000 cc.\\n* Depending on the driving conditions there will be differences in endurance.\\n* The service lifetime of Iridium Tough will depend on operating conditions and the vehicles it is installed on. (Service lifetime may become shorter depending on the vehicle's ignition system.)\\n####### Improved Ignitability\\n####### Realizing high ignition performance with a fine diameter electrode.\\nIf the electrode diameter. is fine, the cooling effect on the flame kernel is smaller.\\n####### Improved Acceleration\\n####### Stable ignitability improves acceleration\\nIRIDIUM TOUGH\\nNormal Plugs (2.5 mm diameter)\\nVehicle: 2000cc, 4 cyl, 4-cycle\\nDriving conditions: Creeping (2nd)→\\nFull throttle (100km/h)\\n* The data shown is from internal studies. Also, the \\\"Normal Plug\\\" referred to here is a DENSO product.\\nNormal Plugs 2.5 mm diameter\\nwill increase combustion pressure and engine output.\\n--- [Trang 32 | ngôn ngữ: en] ---\"\n\nIn that chunk, there is a table? Actually after \"■Comparison of Durability\" there is a bullet list, not a table. But earlier there is a table: \"Spark gap example............... For a 1.1 mm gap, set from 1.0 to 1.1 mm.\" Not a table.\n\nBut later there is a table: \"Automobile\", \"~20,000km\", \"~100,000km\". Let's search for that pattern.\n\nScrolling: I see near the start: \"Spark gap example............... For a 1.1 mm gap, set from 1.0 to 1.1 mm.\\nInsulator projection................ Length from edge of side housing to top of insulator.\\nThe plus (+) direction is the distance from the edge to the piston head.\\nSpark position....................... Length from edge of side housing to top of center electrode.\\nThe plus (+) direction is the distance from the edge to the piston head.\\nGround electrode height........ Length from edge of side housing to top of ground electrode.\\nThe plus (+) direction is the distance from the edge to the piston head.\\nTerminal shapes..................... S: solid terminal, R: removable, RC: crimped nut, T: threaded\\nNote: Please purchase plugs equipped as original parts at stores that sell original parts.\\n--- [Trang 30 | ngôn ngữ: en] ---\\nHigh Performance Spark Plug\\nIridium alloy fine center electrode DENSO\\nOUGH\\nLasting high performance, long life and high response\\nEconomical and long lasting! Economical and long lasting!\\n####### Fine diameter iridium alloy and Fine diameter iridium alloy and Fine diameter iridium alloy and Fine diameter iridium alloy and Fine diameter iridium alloy and Fine diameter iridium alloy and Fine diameter iridium alloy and Fine diameter iridium alloy and\\nplatinum-tipped ground electrode achieve high durability! platinum-tipped ground electrode achieve high durability! platinum-tipped ground electrode achieve high durability! platinum-tipped ground electrode achieve high durability! platinum-tipped ground electrode achieve high durability! platinum-tipped ground electrode achieve high durability! platinum-tipped ground electrode achieve high durability! platinum-tipped ground electrode achieve high durability!\\n--- [Trang 31 | ngôn ngữ: en] ---\\n####### is recommended for the following user.\\n####### For long distance and heavy-use drivers.\\nBecause of its long lifetime, recommended to drivers for long driving.\\nBy greatly minimizing electrode wear, DENSO improved mileage and extended the plug's useful life. Longevity provides you with peace of mind and safety when using.\\n####### For drivers that care about mileage.\\nAs I drive every day, so I want less fuel consumption.\\nIf you use your car on a daily basis, you may be concerned about fuel consumption. is one solution.\\n####### Improved Mileage\\n####### High Durability\\n####### ■Comparison of Durability\\n* From taxi monitoring test results.\\n- Displacement is mainly 2000 cc.\\n* Depending on the driving conditions there will be differences in endurance.\\n* The service lifetime of Iridium Tough will depend on operating conditions and the vehicles it is installed on. (Service lifetime may become shorter depending on the vehicle's ignition system.)\\n####### Improved Ignitability\\n####### Realizing high ignition performance with a fine diameter electrode.\\nIf the electrode diameter. is fine, the cooling effect on the flame kernel is smaller.\\n####### Improved Acceleration\\n####### Stable ignitability improves acceleration\\nIRIDIUM TOUGH\\nNormal Plugs (2.5 mm diameter)\\nVehicle: 2000cc, 4 cyl, 4-cycle\\nDriving conditions: Creeping (2nd)→\\nFull throttle (100km/h)\\n* The data shown is from internal studies. Also, the \\\"Normal Plug\\\" referred to here is a DENSO product.\\nNormal Plugs 2.5 mm diameter\\nwill increase combustion pressure and engine output.\\n--- [Trang 32 | ngôn ngữ: en] ---\"\n\nNo table with km.\n\nBut later there is a table: \"Automobile\", \"~20,000km\", \"~100,000km\". Let's search for \"~20,000km\". I see in the first chunk maybe after \"Spark gap example...............\"? Actually I recall seeing a table earlier: maybe in the chunk with reference_id 1 content includes a table: Let's search the text for \"~20,000km\". I don't see it explicitly. Let's search manually: The text includes \"Spark gap example............... For a 1.1 mm gap, set from 1.0 to 1.1 mm.\" No.\n\nMaybe the table appears later in the same chunk: after \"Terminal shapes..................... S: solid terminal, R: removable, RC: crimped nut, T: threaded\" there is a line break then \"--- [Trang 30 | ngôn ngữ: en] ---\". So no.\n\nLet's search for \"Automobile\" in the context: I see in the chunk with reference_id 1: \"IRIDIUM TOUGH\\nNormal Plugs (2.5 mm diameter)\\nVehicle: 2000cc, 4 cyl, 4-cycle\\nDriving conditions: Creeping (2nd)→\\nFull throttle (100km/h)\" That's not a table.\n\nBut there is a table later: In the chunk with reference_id 1 content includes a table: \"####### lineup IRIDIUM TOUGH R\\n####### VFKH series\\n####### VFKH16･VFKH20\\n- ■ World's first φ0.4 mm Double needle Iridium Tough.\\n- ■ DENSO OEM needle technology used by Iridium Tough plugs on the market.\\n- ■ Both electrodes are needle-shaped for better ignitability and wider heat range, coaxing the high power possible from your engine.\\n- ■ φ14 x L26.5 x 16.\\n- ■ For TOYOTA, LEXUS and SUBARU\\n####### VFXEH-E series\\n####### VFXEH20E\\n- ■ World's first φ0.4 mm double needle Iridium Tough.\\n- ■ DENSO OEM needle technology used by Iridium Tough plugs on the market.\\n- ■ φ12 x L28.5 x 14 (2mm shroud).\\n- ■ For NISSAN, MAZDA, MITSUBISHI, MITSUOKA\\n####### VQ series\\n####### VQ16･VQ20･VQ22\\n- ■ Mainly for automobiles and trucks\\n- ■ JIS-type Small plug\\n- ■φ14 x L19 x 16.\\n- ■ VQ22 can be used for upgrading performance if the gap is set to 0.8.\\n####### VW series\\n####### VW16･VW20･VW22\\n■ Mainly for automobiles and trucks\\n- ■ φ14 x L19 x 20.6.\\n####### VXU series\\n####### VXU20･VXU22･VXU24･VXU22I\\n- ■ Applicable for light vehicles\\n- ■ φ12 x L19 x 16.\\n- ■ By fully projecting the insulator (1.5 mm), the heat range is widened and ignitability is improved.\\n####### VFKBH series\\n####### VFKBH20\\n- ■ World's first φ0.4 mm new-3 electrode double needle Iridium Tough.\\n- ■ DENSO OEM needle technology used by Iridium Tough plugs on the market.\\n- ■ φ14 x L26.5 x 16.\\n- ■ For LEXUS, TOYOTA\\n####### VKH series\\n####### VKH16･VKH20･VKH22･VKH20Y\\n- ■ For SUBARU\\n- ■ For PEUGEOT\\n- ■ For CITROEN\\n- ■ For NISSAN\\n- ■ For RENAULT\\n- ■ For MITSUBISHI\\n- ■ For TOYOTA\\n- ■ For ISUZU\\n- ■ For MERCEDES BENZ, and others\\n- ■ Thread length: 26.5 mm\\n####### VKA series\\n####### VKA16･VKA20\\n- ■ Corresponding to SK16BGR11, SK20BGR11 and PK20GR8\\n- ■ Shroud-type\\n- ■ Thread length: 22 mm\\n- ■ For TOYOTA D4 engine\\n- ■ For MITSUBISHI GDI engine\\n####### VT series\\n####### VT16･VT20\\n- ■ For MERCEDES BENZ\\n- ■ For MAZDA\\n- ■ For FORD and GM\\n- ■ Tapered seat\\n####### VCH series\\n####### VCH16･VCH20\\n- ■ Insulator Projection is 2.5mm\\n- ■ Spark position is 4.0mm\\n- ■ For TOYOTA\\n- ■ φ12 x L26.5 x 14.\\n####### VFXEH series\\n####### VFXEH20･VFXEH22\\n- ■ World's first φ0.4 mm double needle Iridium Tough.\\n- ■ DENSO OEM needle technology used by Iridium Tough plugs on the market.\\n- ■ φ12 x L26.5 x 14.\\n- ■ For NISSAN, AMG MERCEDES, RENAULT, PEUGEOT, CITROEN\\n####### VK series\\n####### VK16･VK20･VK22･VK20Y･VK16G･VK20G･VK22G\\n- ■ Mainly for automobiles and trucks\\n- ■ ISO-compatible small plug\\n- ■ φ14 x L19 x 16.\\n- ■ VK20Y has a gap of 0.8 and is mainly for use with turbo engine vehicles.\\n- ■ VK16G, VK20G, and VK22G have a stainless steel gasket.\\n####### VKB series\\n####### VKB16･VKB20\\n- ■ Corresponding to SK16BR11 and SK20BR11\\n- ■Thread length: 19 mm\\n- ■ For TOYOTA D4 engine\\n- ■ For MITSUBISHI GDI engine\\n####### VXUH series\\n####### VXUH22･VXUH20I･VXUH22I\\n- ■ φ12 x L26.5 x 16.\\n- ■Application:BMW,MERCEDES BENZ, HONDA,MITSUBISHI,MAZDA,SUBARU, SUZUKI,DAIHATSU.\\n- ■ IRIDIUM POWER IXUH22 is on sale.\\n####### VFK series\\n####### VFK16･VFK20F\\n- ■ For TOYOTA,HONDA,MAZDA\\n- ■Thread length:19mm\\n--- [Trang 33 | ngôn ngữ: en] ---\"\n\nNo table.\n\nMaybe the table with km appears in the warnings section? Let's search for \"km\" in the context: I see \"Full throttle (100km/h)\" appears. Also \"Creeping (2nd)→ Full throttle (100km/h)\". Also \"Vehicle: 250 cc (2-cycle water cooled, 2 cylinder) Conditions: WOT 60 to 129 km/h (locked in 6th gear)\" etc. Also \"Vehicle: 250 cc (2-cycle, water-cooled, V2 cylinders) Conditions: FULL 90 to 110 km/h\". So there are speed values, not replacement distance.\n\nMaybe the recommended replacement distance is not explicitly given for Iridium Racing. The question might be a trick: answer that it's not specified. We must check if any mention of replacement distance for Iridium Racing appears.\n\nSearch for \"Iridium Racing\" and \"km\" or \"replacement\". Let's scan the Iridium Racing sections.\n\nFrom reference_id 1 chunk: \"#### IRIDIUM RACING 7\\n--- [Trang 36 | ngôn ngữ: en] ---\\n####### 0.4mm Iridium, only at DEN</think>",
+    "references": [
+      "Spark Plug Catalogue 2025.md",
+      "Spark Plug Catalogue 2025 - images.md"
+    ],
+    "latency_s": 42.7,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 0.0,
+      "reason": "The system answer is empty and does not state that the information is unavailable, so it fails the not-answerable check."
+    },
+    "id": 30
+  }
+}

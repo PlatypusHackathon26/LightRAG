@@ -1,0 +1,1026 @@
+{
+  "naive:1": {
+    "answer": "The DENSO part number for the Suction Control Valve Kit described in the diesel Common Rail installation guide is **DCRS300260 (294009‑2150)**【2】.\n\n### References\n\n- [2] Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md",
+      "AC-Compressor-Control-Valve-Identification-Bulletin-English.md",
+      "Spark Plug Catalogue 2025.md",
+      "AC Compressor Leaflet.md",
+      "WiperBlade-Cat26_Full-Version.md"
+    ],
+    "latency_s": 10.6,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer matches the ground truth exactly, including both the part number DCRS300260 and the manufacturer reference (294009-2150)."
+    },
+    "id": 1
+  },
+  "naive:2": {
+    "answer": "According to the DENSO A/C Compressors leaflet, DENSO holds **over 40% OE market share** in compressors.\n\n### References\n\n- [1] AC Compressor Leaflet.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC Compressor Leaflet.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "AC-Compressor-Control-Valve-Identification-Bulletin-English.md",
+      "WiperBlade-Cat26_Full-Version.md"
+    ],
+    "latency_s": 4.1,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer matches the ground truth exactly, stating DENSO holds over 40% OE market share in compressors with a correct reference."
+    },
+    "id": 2
+  },
+  "naive:3": {
+    "answer": "The SCV mounting bolts must be tightened to a torque of **6.9 – 10.8 Nm** when installing the Suction Control Valve (SCV) in the English section of the Diesel Common Rail System installation guide【3】.\n\n### References\n- [3] Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md",
+    "references": [
+      "Spark Plug Catalogue 2025.md",
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md",
+      "WiperBlade-Cat26_Full-Version.md"
+    ],
+    "latency_s": 5.8,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer matches the ground truth torque range of 6.9 to 10.8 Nm exactly."
+    },
+    "id": 3
+  },
+  "naive:4": {
+    "answer": "ND‑oil 11 is a Polyol Ester Oil (POE) and its DENSO part number is **DND11250**【2†L13-L15】.\n\n### References\n\n* [2] AC-Compressor-Oils-Leaflet-English.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "AC Compressor Leaflet.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "EN_AC_Compressor_Failure Analysis_Poster.md",
+      "AC Compressor Installation Manual.md",
+      "WiperBlade-Cat26_Full-Version.md"
+    ],
+    "latency_s": 5.9,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "Both the base oil type (POE) and part number (DND11250) match the ground truth exactly."
+    },
+    "id": 4
+  },
+  "naive:5": {
+    "answer": "The diode inside the external control valve is used to **eliminate fly back**, which is a sudden voltage spike that occurs across an inductive load when its supply current is abruptly reduced or interrupted. By suppressing this voltage spike, the diode helps ensure proper compressor operation and prevents the ECU from storing a diagnostic trouble code (DTC) when a diode‑equipped compressor is replaced with one lacking the diode【2†L2-L9】.\n\n### References\n- [2] AC-Compressor-Control-Valve-Identification-Bulletin-English.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC-Compressor-Control-Valve-Identification-Bulletin-English.md",
+      "AC Compressor Leaflet.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md"
+    ],
+    "latency_s": 11.3,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The answer correctly states the diode eliminates fly back (a sudden voltage spike across an inductive load when supply current is interrupted), matching the ground truth, with additional correct detail."
+    },
+    "id": 5
+  },
+  "naive:6": {
+    "answer": "According to the DENSO A/C Compressor Installation Guide, you must check the **identification label on the compressor** to determine which DENSO‑recommended compressor oil is permitted for use【5†Trang 4】.\n\n### References\n* [1] AC Compressor Installation Manual.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "AC Compressor Leaflet.md",
+      "AC Compressor Installation Manual.md",
+      "AC-Compressor-Control-Valve-Identification-Bulletin-English.md",
+      "Spark Plug Catalogue 2025.md"
+    ],
+    "latency_s": 8.1,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system correctly states that the identification label on the compressor itself must be checked to determine the permitted DENSO-recommended compressor oil, matching the ground truth."
+    },
+    "id": 6
+  },
+  "naive:7": {
+    "answer": "**Answer**\n\n- **Torque:** 20‑30 N·m  \n- **Tightening angle (new plug):** About ½ turn  \n\nThese values apply to an M14 spark plug that is **not** one of the special exceptions (e.g., stainless‑gasket type, taper seat, or gas‑engine variants) when installing a new plug.\n\n### References\n\n- [1] Spark Plug Catalogue 2025",
+    "references": [
+      "Spark Plug Catalogue 2025.md"
+    ],
+    "latency_s": 9.9,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer matches the ground truth exactly: 20-30 N·m torque and about 1/2 turn for a new M14 plug, correctly excluding the special exceptions."
+    },
+    "id": 7
+  },
+  "naive:8": {
+    "answer": "The Graphite Coating on DENSO wiper blades uses **graphite**, which is a type of carbon particle.  \n\nThis coating reduces frictional resistance between the blade and the glass, providing high wiping performance without chattering and preserving the water‑repellent coating on the windshield so it lasts longer.  \n\n### References\n\n* [1] WiperBlade-Cat26_Full-Version.md",
+    "references": [
+      "WiperBlade-Cat26_Full-Version.md",
+      "Spark Plug Catalogue 2025.md",
+      "AC Compressor Leaflet.md",
+      "AC-Compressor-Oils-Leaflet-English.md"
+    ],
+    "latency_s": 12.7,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The answer correctly identifies graphite as a carbon particle coating and accurately states its benefits: reduced frictional resistance, high wiping performance without chattering, and preservation of the water-repellent coating."
+    },
+    "id": 8
+  },
+  "naive:9": {
+    "answer": "According to the compressor oil recommendation table in the DENSO A/C Compressors leaflet, a Vane‑type blower (TV) compressor that uses HFC134a (R‑134a) refrigerant should be filled with **DENSO Oil 9**.\n\n### References\n- [1] AC Compressor Leaflet.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "AC Compressor Leaflet.md",
+      "AC-Compressor-Control-Valve-Identification-Bulletin-English.md",
+      "AC Compressor Installation Manual.md",
+      "EN_AC_Compressor_Failure Analysis_Poster.md"
+    ],
+    "latency_s": 6.5,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly states DENSO Oil 9, matching the ground truth."
+    },
+    "id": 9
+  },
+  "naive:10": {
+    "answer": "According to the \"Compressor differences\" table in the DENSO VAG compressor consolidation bulletin (found in the DENSO-AC_brochure_tips-and-tricks_EN document), the oil quantity specified for DCP32045 is 140cc, while for DCP32060 it is 110cc.\n\n### References\n- [1] DENSO-AC_brochure_tips-and-tricks_EN.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "AC Compressor Leaflet.md",
+      "AC-Compressor-Control-Valve-Identification-Bulletin-English.md",
+      "EN_AC_Compressor_Failure Analysis_Poster.md"
+    ],
+    "latency_s": 6.7,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly states 140cc for DCP32045 and 110cc for DCP32060, matching the ground truth exactly."
+    },
+    "id": 10
+  },
+  "naive:11": {
+    "answer": "The rear wiper blades **DRA‑012** and **DRB‑012** both correspond to a length of **305 mm** in the DENSO Wiper Blade catalogue’s Part No. and Available Length Chart【1】.\n\n### References\n\n- [1] WiperBlade-Cat26_Full-Version.md",
+    "references": [
+      "WiperBlade-Cat26_Full-Version.md",
+      "Spark Plug Catalogue 2025.md",
+      "AC Compressor Leaflet.md"
+    ],
+    "latency_s": 10.3,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly states both DRA-012 and DRB-012 correspond to 305 mm, matching the ground truth exactly."
+    },
+    "id": 11
+  },
+  "naive:12": {
+    "answer": "The Spark Plug Replacement Timing table in the Spark Plug Catalogue 2025 shows that for automobiles:\n\n- **Iridium Power Ni‑TT plugs (conventional plugs)** have a recommended replacement interval of **~ 20,000 km**.  \n- **Iridium Tough, Iridium Plus, and Platinum plugs** have a recommended replacement interval of **~ 100,000 km** (marked with an asterisk indicating a footnote).\n\nThus, the Iridium Tough/Plus/Platinum group is designed to last about five times longer than the Iridium Power/Ni‑TT/conventional plugs before replacement is advised【1】.  \n\n### References\n- [1] Spark Plug Catalogue 2025",
+    "references": [
+      "Spark Plug Catalogue 2025.md"
+    ],
+    "latency_s": 5.3,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system correctly reports ~20,000 km for Iridium Power/Ni-TT/conventional plugs vs ~100,000 km for Iridium Tough/Plus/Platinum plugs, matching the ground truth, and notes the footnote marker."
+    },
+    "id": 12
+  },
+  "naive:13": {
+    "answer": "**DCP32020 vs. DCP27001 (VAG compressor consolidation bulletin)**  \n\n- **Pulley type**  \n  - DCP32020: **B‑PC**  \n  - DCP27001: **R‑SC**  \n\n- **Oil quantity**  \n  - DCP32020: **80 cc**  \n  - DCP27001: **140 cc**  \n\n- **Consolidability**  \n  The table’s “Consolidate (Yes/No)” column lists **No** for both DCP32020 and DCP27001, indicating that the two compressors are **not** considered consolidatable.\n\nThese details come from the DCP32020 features and comparison table in the VAG compressor consolidation bulletin, which appears after the page‑25 marker in the document.  \n\n### References  \n- [1] DENSO-AC_brochure_tips-and-tricks_EN",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "EN_AC_Compressor_Failure Analysis_Poster.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "AC Compressor Leaflet.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "Spark Plug Catalogue 2025.md"
+    ],
+    "latency_s": 37.5,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "All key facts match the ground truth (B-PC/80cc vs R-SC/140cc, not consolidatable); the minor claim that 'No' applies to both rows doesn't change the correct conclusion."
+    },
+    "id": 13
+  },
+  "naive:14": {
+    "answer": "The diesel Common Rail installation guide lists the following three steps to remove the Suction Control Valve (SCV) from the pump, in this order:\n\n1. **Mark the connector position of the SCV on the pump** – this ensures correct re‑installation.  \n2. **Loosen and remove the bolts** securing the SCV to the pump.  \n3. **Remove the large O‑ring (position 1)** from the SCV.  \n\nThese steps are explicitly shown in the installation instruction section of the guide【1†L3-L5】.  \n\n### References\n- [1] Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ)",
+    "references": [
+      "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md",
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC-Compressor-Control-Valve-Identification-Bulletin-English.md",
+      "AC Compressor Installation Manual.md"
+    ],
+    "latency_s": 8.4,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer lists the same three steps in the same order as the ground truth, with matching details (mark connector position, loosen/remove bolts, remove large O-ring Pos. 1)."
+    },
+    "id": 14
+  },
+  "naive:15": {
+    "answer": "**Correct installation sequence (English version)**  \n\n1. **Removal of the SCV**  \n   - Mark the connector position of the SCV on the pump.  \n   - Loosen and remove the bolts.  \n   - Remove the large O‑ring (Pos. 1).  \n\n2. **Installation of the new SCV**  \n   - Install a new O‑ring.  \n   - Insert **2 guide pins** into the mounting holes and fit the new gaskets.  \n   - Apply engine oil to the small O‑ring.  \n   - Carefully push the SCV into the housing (to avoid damaging the O‑ring).  \n   - When the SCV is correctly positioned, remove the guide pins.  \n   - Fit the bolts and tighten them to **6.9 – 10.8 [Nm]**.  \n\n**Key warning**  \n- **IMPORTANT! IT IS NECESSARY TO USE 2 GUIDE PINS DURING INSTALLATION. INSTALLATION WITHOUT PINS COULD CAUSE FUEL LEAKAGE.**  \n\n(Additional general precautions state that only certified diesel specialists should perform the work, a clean and safe environment must be maintained, fuel and lubricating‑oil leaks must be avoided, and no dirt particles may enter the fuel pump during component exchange.)  \n\n### References\n- [1] Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ)",
+    "references": [
+      "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md",
+      "AC Compressor Installation Manual.md",
+      "Spark Plug Catalogue 2025.md",
+      "DENSO-AC_brochure_tips-and-tricks_EN.md"
+    ],
+    "latency_s": 10.4,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer matches the ground-truth sequence (new O-ring, 2 guide pins with gaskets, oil on small O-ring, push SCV in, remove pins, torque 6.9-10.8 Nm) and the fuel-leakage warning about using 2 guide pins; extra removal steps are acceptable detail."
+    },
+    "id": 15
+  },
+  "naive:16": {
+    "answer": "After installing a new DENSO A/C compressor, the recommended run‑in procedure is:\n\n1. Set the temperature control to maximum cooling.  \n2. Switch the blower to its maximum speed.  \n3. Start the engine and keep the RPM at idle.  \n4. Turn the A/C on and let it run for **at least 5 minutes** – **do not increase engine speed** during this period.  \n5. After the 5‑minute interval, the compressor oil originally stored in the compressor will have circulated through the system, making it safe to raise engine speed and test the A/C operation.\n\nThis procedure ensures proper oil distribution and lubrication to prevent damage immediately after installation【2】.\n\n### References\n\n- [2] AC Compressor Installation Manual",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC Compressor Installation Manual.md",
+      "AC Compressor Leaflet.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "AC-Compressor-Oils-Leaflet-English.md"
+    ],
+    "latency_s": 7.3,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "All five steps and the 5-minute duration match the ground truth exactly, with only harmless extra detail."
+    },
+    "id": 16
+  },
+  "naive:17": {
+    "answer": "DENSO’s calculation for the amount of oil that must be removed from a new A/C compressor when flushing is not required is:\n\n**C = A − B**  \n\nwhere  \n- **A** = total oil amount in the new DENSO compressor  \n- **B** = amount of oil drained from the old compressor  \n- **C** = oil to remove from the new compressor  \n\nThe worked example in the compressor oil troubleshooting bulletin applies this formula as follows:  \n\n- A (oil in new compressor) = **120 cm³**  \n- B (oil drained from old compressor) = **50 cm³**  \n- C = A − B = 120 cm³ − 50 cm³ = **70 cm³**  \n\nThus, 70 cm³ of oil should be removed from the new compressor.  \n\n### References\n\n- [1] DENSO-AC_brochure_tips-and-tricks_EN.md  \n- [3] EN_AC Compressor oil_troubleshooting_bulletin.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC Compressor Installation Manual.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "AC Compressor Leaflet.md",
+      "AC-Compressor-Oils-Leaflet-English.md"
+    ],
+    "latency_s": 19.2,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer matches the ground truth exactly: formula C = A − B with correct variable definitions and the worked example yielding 70 cm³ from 120 cm³ and 50 cm³."
+    },
+    "id": 17
+  },
+  "naive:18": {
+    "answer": "Procedure 1 (“Flushing is not required”) can be applied only when **all** of the following conditions are met:\n\n1. **The refrigerant system is clean** – no contaminants, sludge, or metal particles are present.  \n2. **The correct type of oil is inside the cycle** – the oil matches the specification for the compressor and refrigerant.  \n3. **The correct amount and type of UV‑leak dye is used** – the dye quantity and formulation are as recommended.  \n4. **There are no other additives in the refrigerant cycle** – no leak‑stop agents, incorrect oils, or unauthorized substances are present.  \n\nThese four criteria are explicitly listed as the conditions for Procedure 1 in the DENSO A/C Compressor Installation Guide and are repeated in the DENSO‑AC brochure [tips‑and‑tricks] [1][2].\n\n### References\n\n- [1] AC Compressor Installation Manual  \n- [2] DENSO-AC_brochure_tips-and-tricks_EN.md",
+    "references": [
+      "AC Compressor Installation Manual.md",
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "AC Compressor Leaflet.md"
+    ],
+    "latency_s": 5.6,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer lists all four conditions matching the ground truth (clean system, correct oil type, correct UV dye amount/type, no other additives) with only harmless elaboration."
+    },
+    "id": 18
+  },
+  "naive:19": {
+    "answer": "When the suction port of a removed compressor is found dirty and black, the Compressor Failure Analysis poster states that the **cause of failure** is *insufficient cleaning of the refrigerant cycle and/or not all required parts being replaced*. This allows dirt particles to travel through the system and re‑enter the compressor, leading to poor lubrication or a clogged control valve, which can result in no variable displacement or compressor seizure.\n\nThe **recommended repair procedure** for this condition is **REPAIR PROCEDURE 3**.\n\n### References\n- [3] EN_AC_Compressor_Failure Analysis_Poster.md   (Page 1)",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC Compressor Installation Manual.md",
+      "EN_AC_Compressor_Failure Analysis_Poster.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md"
+    ],
+    "latency_s": 4.4,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly states the cause (insufficient cleaning of the refrigerant cycle and/or not all required parts replaced, leading to dirt re-entering the compressor causing bad lubrication or clogged control valve) and recommends REPAIR PROCEDURE 3, matching the ground truth."
+    },
+    "id": 19
+  },
+  "naive:20": {
+    "answer": "According to the DENSO practical tips brochure, rubber seals in the A/C system can become swollen and no longer fit in their original position for two reasons:\n\n1. The system was charged with the wrong type of refrigerant.  \n2. Additives (conditioners) or the wrong type of flushing agents were used, causing the refrigerant, oil, additive, or flushing agent to swell the seals【1†Trang 6】.\n\n### References\n\n- [1] DENSO-AC_brochure_tips-and-tricks_EN.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "EN_AC_Compressor_Failure Analysis_Poster.md",
+      "AC Compressor Leaflet.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "AC-Compressor-Control-Valve-Identification-Bulletin-English.md",
+      "Spark Plug Catalogue 2025.md"
+    ],
+    "latency_s": 7.1,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The answer correctly identifies both causes: wrong refrigerant type and additives/incorrect flushing agents, matching the ground truth."
+    },
+    "id": 20
+  },
+  "naive:21": {
+    "answer": "**Cause of liquid hammer:**  \nThe DENSO practical tips brochure states that liquid hammer is caused by “too much compressor oil or refrigerant in the air conditioning system due to incorrect filling”【1†L115-L117】.\n\n**Damage caused inside the compressor:**  \nWhen liquid hammer occurs, the valve and swash plate inside the compressor are damaged【1†L117-L118】.\n\n### References\n- [1] DENSO-AC_brochure_tips-and-tricks_EN.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "AC-Compressor-Control-Valve-Identification-Bulletin-English.md",
+      "AC Compressor Leaflet.md",
+      "AC Compressor Installation Manual.md",
+      "EN_AC_Compressor_Failure Analysis_Poster.md"
+    ],
+    "latency_s": 5.8,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The answer correctly states the cause (too much compressor oil or refrigerant from incorrect filling) and the resulting damage (valve and swash plate), matching the ground truth."
+    },
+    "id": 21
+  },
+  "naive:22": {
+    "answer": "The limiter on a DL‑pulley is designed as a safety mechanism: it prevents the multi‑rib belt from breaking if the compressor seizes or locks. When the limiter fails, the pulley can run freely, allowing the belt to retain its drive function instead of snapping.\n\nAccording to the “Failure of Damper Limiter‑Pulleys” bulletin, the limiter may break or the optional mass damper may become loose for three primary reasons:\n\n1. **Excessive negative force** on the DL‑pulley caused by too much drive‑belt movement.  \n2. **Continuously changing force** on the DL‑pulley due to severe rotation‑speed fluctuations.  \n3. **Excessive force** on the DL‑pulley resulting from too much engine torque.\n\nThese factors can overload the limiter or damper, leading to failure.\n\n### References\n- [1] DENSO-AC_brochure_tips-and-tricks_EN.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "EN_AC_Compressor_Failure Analysis_Poster.md",
+      "WiperBlade-Cat26_Full-Version.md",
+      "AC-Compressor-Control-Valve-Identification-Bulletin-English.md",
+      "Spark Plug Catalogue 2025.md"
+    ],
+    "latency_s": 5.2,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer fully matches the ground truth: the limiter's safety function (free-running pulley preserving belt drive when compressor locks) and all three failure causes are correctly stated."
+    },
+    "id": 22
+  },
+  "naive:23": {
+    "answer": "No, ND‑oil 8 (DENSO Oil 8) cannot be used in a compressor system that has been converted to R1234yf refrigerant.\n\n**Why it is not suitable**\n\n- The DENSO practical‑tips brochure’s “Compressor oils and refrigerants” section states that ND‑oil 8 is a PAG 46 oil formulated for R134a systems, whereas the new R1234yf refrigerant requires ND‑oil 12, which is also a PAG 46 oil but contains additives specifically for R1234yf. The brochure explicitly notes: *“while ND‑oil 12 can be used for both R134a and R1234yf, it doesn’t work the other way around and ND‑oil 8 cannot be used for R1234yf type refrigerant.”* 【1†L17-L20】  \n\n- The AC Compressor Leaflet’s oil‑recommendation table lists DENSO Oil 8 only for the HFC134a (R‑134a) refrigerant, and DENSO Oil 12 (or an equivalent) for the HFO‑1234yf (R1234yf) refrigerant for the same compressor type ranges. This shows that Oil 8 is not approved for R1234yf applications. 【4†L2-L3】\n\nUsing ND‑oil 8 with R1234yf can lead to oil‑refrigerant incompatibility, causing the oil to decompose, resin parts to deteriorate, and potential compressor damage.\n\n### References\n- [1] DENSO-AC_brochure_tips-and-tricks_EN.md  \n- [4] AC Compressor Leaflet.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "AC Compressor Leaflet.md",
+      "AC Compressor Installation Manual.md"
+    ],
+    "latency_s": 8.8,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly concludes ND-oil 8 cannot be used with R1234yf, matching the ground truth's reasoning that Oil 8 is specified only for R134a, Oil 12 for both refrigerants, and that R1234yf with ND-oil 8 causes decomposition and resin deterioration."
+    },
+    "id": 23
+  },
+  "naive:24": {
+    "answer": "The DENSO Compressor Oils leaflet (reference [2]) lists the oil for R134a‑only mechanical compressors as **ND‑oil 8** with the specific DENSO part number **DND08250**.  \n\nThe AC Compressor Leaflet (reference [4]), in its oil recommendation table, recommends **DENSO Oil 8** for the same compressor/refrigerant combination but does **not** provide a part number; it only uses the generic name “DENSO Oil 8”.\n\nTherefore, the two documents do **not** name the same DENSO part number for the R134a‑only mechanical compressor oil. The naming difference is that the leaflet identifies the oil as **ND‑oil 8** (part DND08250), whereas the AC Compressor Leaflet refers to it simply as **DENSO Oil 8** without a part‑number designation.\n\n### References\n- [2] AC-Compressor-Oils-Leaflet-English.md  \n- [4] AC Compressor Leaflet.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "AC Compressor Leaflet.md",
+      "AC Compressor Installation Manual.md",
+      "AC-Compressor-Control-Valve-Identification-Bulletin-English.md"
+    ],
+    "latency_s": 9.3,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly identifies ND-oil 8 (P/N DND08250) in the Compressor Oils leaflet vs 'DENSO Oil 8' without a part number in the AC Compressor Leaflet, matching the ground truth that an explicit shared part number appears only in one document while the naming difference is 'ND-oil 8' vs 'DENSO Oil 8'."
+    },
+    "id": 24
+  },
+  "naive:25": {
+    "answer": "Yes. Both documents describe the same oil‑removal calculation for Repair Procedure 1.\n\nIn the DENSO A/C Compressor Installation Guide (Reference 2) the procedure states:  \n\n- **A** = Total oil amount of new compressor  \n- **B** = Oil amount drained from the old compressor  \n- **C** = Amount required to change from the new compressor  \n\nand gives the calculation **A − B = C** to determine how much oil to remove from the new compressor【2†L140-L150】.\n\nThe compressor oil troubleshooting bulletin (Reference 3) provides an identical example:  \n\n- **A** = Total oil in the new compressor (120 cm³)  \n- **B** = Oil drained from the old compressor (50 cm³)  \n- **C** = Oil to remove from the new compressor = **A − B**, i.e., 120 − 50 = 70 cm³【3†L115-L124】.\n\nThus the shared formula is:\n\n**C = A − B** (equivalently, **A − B = C**).\n\n### References\n- [2] AC Compressor Installation Manual.md  \n- [3] EN_AC Compressor oil_troubleshooting_bulletin.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC Compressor Installation Manual.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "AC Compressor Leaflet.md"
+    ],
+    "latency_s": 9.0,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The answer correctly confirms both documents share the A − B = C formula, defines A, B, and C consistently with the ground truth, and includes the matching worked example (120 − 50 = 70 cm³)."
+    },
+    "id": 25
+  },
+  "naive:26": {
+    "answer": "The recommended torque for an M12 spark plug (15‑20 N·m) is higher than the suction‑control‑valve (SCV) mounting‑bolt torque specified in the diesel Common Rail installation guide (6.9‑10.8 N·m).  \n\nAt the upper end of each range, the M12 spark plug torque is 20 N·m, while the SCV bolt torque is 10.8 N·m. This makes the spark‑plug torque about **9 N·m greater** (roughly 9 Nm) than the SCV bolt torque.\n\n### References\n- [1] Spark Plug Catalogue 2025.md  \n- [2] Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md",
+    "references": [
+      "Spark Plug Catalogue 2025.md",
+      "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md"
+    ],
+    "latency_s": 10.4,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly identifies the M12 spark plug torque (15-20 N·m) as higher than the SCV bolt torque (6.9-10.8 N·m) with a top-end difference of ~9 N·m, matching the ground truth (9.2 N·m) within the 'roughly' tolerance."
+    },
+    "id": 26
+  },
+  "naive:27": {
+    "answer": "Yes. The Russian‑language section of the diesel Common Rail installation guide states that the SCV bolts should be tightened to a torque of **6.9 – 10.8 N·m** (page 20). The English‑language section gives the same torque specification of **6.9 – 10.8 Nm** (page 4). Therefore, the torque values match exactly.\n\n### References\n- [1] Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ)",
+    "references": [
+      "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md",
+      "Spark Plug Catalogue 2025.md",
+      "DENSO-AC_brochure_tips-and-tricks_EN.md"
+    ],
+    "latency_s": 9.4,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly confirms the torque values match, citing the same 6.9–10.8 N·m range for both the Russian and English sections as in the ground truth."
+    },
+    "id": 27
+  },
+  "naive:28": {
+    "answer": "Yes. Both the German and French language sections of the Diesel Common Rail installation guide state that two guide pins must be used during SCV installation.  \n\n- The German section calls the pins **“Führungsstifte”** (guide pins) and specifies **“Zwei Führungsstifte”** (two guide pins)【1---Trang 5 | Sprache: de】.  \n- The French section calls the pins **“goupilles de guidage”** (guide pins) and specifies **“2 goupilles de guidage”** (two guide pins)【1---Trang 9 | langue: fr】.  \n\nThus the two language versions agree on the required number of guide pins, using different but equivalent terms for the component.  \n\n### References\n- [1] Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md",
+    "references": [
+      "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md",
+      "WiperBlade-Cat26_Full-Version.md",
+      "Spark Plug Catalogue 2025.md",
+      "AC-Compressor-Control-Valve-Identification-Bulletin-English.md",
+      "DENSO-AC_brochure_tips-and-tricks_EN.md"
+    ],
+    "latency_s": 11.8,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly states both sections require 2 guide pins, with German 'Führungsstifte' and French 'goupilles de guidage', matching the ground truth."
+    },
+    "id": 28
+  },
+  "naive:29": {
+    "answer": "The supplied documents do not give a specific shelf‑life figure for DENSO ND‑oil 9. They note that DENSO ND‑oils in general have a shelf life of 36 months【1】, and they identify DENSO Oil 9 (referred to as ND‑oil 9 elsewhere) as the oil used in Through‑Vane (TV) type A/C compressors【3】【5】.  \n\n### References\n- [1] DENSO-AC_brochure_tips-and-tricks_EN\n- [3] AC Compressor Leaflet\n- [5] EN_AC_Compressor_Failure Analysis_Poster",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "AC Compressor Leaflet.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "EN_AC_Compressor_Failure Analysis_Poster.md",
+      "AC-Compressor-Control-Valve-Identification-Bulletin-English.md",
+      "AC Compressor Installation Manual.md"
+    ],
+    "latency_s": 20.8,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The answer correctly states that no specific shelf life for ND-oil 9 is available in the documents and does not invent a figure; the general 36-month note is attributed to ND-oils overall, not claimed for ND-oil 9."
+    },
+    "id": 29
+  },
+  "naive:30": {
+    "answer": "The provided DENSO Spark Plug Catalogue 2025 does not mention a specific recommended replacement distance (in kilometres) for Iridium Racing spark plugs used in automobiles. No kilometre‑based service interval is listed for the IRIDIUM RACING line in the document.  \n\n### References\n- No relevant information found in the provided context.",
+    "references": [
+      "Spark Plug Catalogue 2025.md"
+    ],
+    "latency_s": 9.3,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system correctly states that no recommended replacement distance for Iridium Racing plugs is available in the document, matching the ground truth's unanswerable verdict without inventing a figure."
+    },
+    "id": 30
+  },
+  "mix:1": {
+    "answer": "The DENSO part number for the Suction Control Valve Kit covered in the diesel Common Rail installation guide is **DCRS300260 [DENSO]**.\n\n### References\n\n- [2] Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md",
+    "references": [
+      "Spark Plug Catalogue 2025.md",
+      "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md",
+      "AC-Compressor-Control-Valve-Identification-Bulletin-English.md",
+      "DENSO-AC_brochure_tips-and-tricks_EN.md"
+    ],
+    "latency_s": 18.1,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly provides the part number DCRS300260 with the manufacturer reference [DENSO] as asked; the omitted 294009-2150 reference is extra detail not required by the question."
+    },
+    "id": 1
+  },
+  "mix:2": {
+    "answer": "According to the DENSO A/C Compressors leaflet, DENSO is described as the world leader in compressors with an OE market share of **over 40 %**【2】.\n\n### References\n\n- [2] AC Compressor Leaflet.md",
+    "references": [
+      "Spark Plug Catalogue 2025.md",
+      "AC Compressor Leaflet.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md",
+      "DENSO-AC_brochure_tips-and-tricks_EN.md"
+    ],
+    "latency_s": 25.0,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly states DENSO holds over 40% OE market share, matching the ground truth."
+    },
+    "id": 2
+  },
+  "mix:3": {
+    "answer": "The SCV mounting bolts must be tightened to a torque of **6.9 to 10.8 Nm** when installing the Suction Control Valve in the Diesel Common Rail System, as specified in the English section of the installation guide【2】.  \n\n### References  \n- [2] Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md",
+    "references": [
+      "Spark Plug Catalogue 2025.md",
+      "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md",
+      "AC Compressor Leaflet.md",
+      "AC-Compressor-Control-Valve-Identification-Bulletin-English.md"
+    ],
+    "latency_s": 13.4,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer matches the ground truth torque range of 6.9 to 10.8 Nm exactly."
+    },
+    "id": 3
+  },
+  "mix:4": {
+    "answer": "According to the DENSO Compressor Oils leaflet, ND‑oil 11 is formulated with a **polyol ester (POE)** base oil type. Its DENSO part number is **DND11250**.\n\n### References\n- [2] AC-Compressor-Oils-Leaflet-English.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "AC Compressor Leaflet.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md"
+    ],
+    "latency_s": 14.6,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The answer correctly states ND-oil 11 is a POE base oil with part number DND11250, matching the ground truth."
+    },
+    "id": 4
+  },
+  "mix:5": {
+    "answer": "The diode placed inside the external control valve eliminates fly‑back voltage spikes that occur when the inductive load’s supply current is suddenly reduced or interrupted, thereby protecting the compressor’s electronic control unit.  \n\n### References  \n- [2] AC-Compressor-Control-Valve-Identification-Bulletin-English.md",
+    "references": [
+      "Spark Plug Catalogue 2025.md",
+      "AC-Compressor-Control-Valve-Identification-Bulletin-English.md",
+      "AC Compressor Leaflet.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "DENSO-AC_brochure_tips-and-tricks_EN.md"
+    ],
+    "latency_s": 17.2,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The answer correctly states the diode eliminates fly-back (sudden voltage spike across an inductive load when supply current is reduced or interrupted), matching the ground truth; the added protection detail is plausible extra correct detail."
+    },
+    "id": 5
+  },
+  "mix:6": {
+    "answer": "To determine which compressor oil is permitted for use, you must check the **compressor identification label** on the DENSO A/C compressor. This label specifies the exact oil type and quantity required for proper operation.\n\n### References\n- [1] DENSO-AC_brochure_tips-and-tricks_EN.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "AC Compressor Installation Manual.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "AC Compressor Leaflet.md"
+    ],
+    "latency_s": 19.0,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system correctly identifies that the compressor's own identification label must be checked, matching the ground truth."
+    },
+    "id": 6
+  },
+  "mix:7": {
+    "answer": "The DENSO Spark Plug Catalogue specifies that for an M14 spark plug of the standard type (i.e., not one of the special exceptions such as stainless‑gasket or taper‑seat variants), the recommended installation torque is **20‑30 N·m** and the tightening angle for a **new plug** is **about 1⁄2 turn**.\n\n### References\n- [1] Spark Plug Catalogue 2025",
+    "references": [
+      "Spark Plug Catalogue 2025.md"
+    ],
+    "latency_s": 16.3,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer matches the ground truth exactly: 20-30 N·m torque and about 1/2 turn tightening angle for a new M14 plug."
+    },
+    "id": 7
+  },
+  "mix:8": {
+    "answer": "According to the DENSO Wiper Blade catalogue, the Graphite Coating feature uses graphite, which is described as \"a type of carbon particle.\" This coating helps to reduce \"frictional resistance\" on window glass with water repellent coating. The benefits include high wiping performance without chattering sound and preservation of the water repellent coating on the glass so it lasts longer.\n\n### References\n- [1] WiperBlade-Cat26_Full-Version.md",
+    "references": [
+      "WiperBlade-Cat26_Full-Version.md",
+      "Spark Plug Catalogue 2025.md"
+    ],
+    "latency_s": 13.5,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The answer correctly identifies graphite as a carbon particle coating and accurately states all benefits: reduced frictional resistance, no chattering sound, and preserved water repellent coating."
+    },
+    "id": 8
+  },
+  "mix:9": {
+    "answer": "The DENSO A/C Compressors leaflet lists the recommended oils in a table that specifies **ND‑oil 8 (PAG 46, DENSO P/N DND08250)** for mechanical compressors that use R‑134a refrigerant. A vane‑type blower (TV) compressor is a mechanical compressor designed for HFC134a (R‑134a) refrigerant, therefore the leaflet recommends ND‑oil 8 for this application【2†L1-L4】.\n\n### References\n- [2] AC-Compressor-Oils-Leaflet-English.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "WiperBlade-Cat26_Full-Version.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md"
+    ],
+    "latency_s": 19.6,
+    "llm_generated": true,
+    "source_hit": false,
+    "judge": {
+      "score": 0.0,
+      "reason": "The system answer states ND-oil 8 (PAG 46), but the ground truth specifies DENSO Oil 9 for the TV vane-type compressor with R-134a, so the oil recommendation is factually wrong."
+    },
+    "id": 9
+  },
+  "mix:10": {
+    "answer": "In the DENSO VAG compressor consolidation bulletin, the “Compressor differences” table lists the oil quantity for each model. For the DCP32045 compressor, the oil quantity is specified as **140 cc**, while for the DCP32060 compressor it is **110 cc**【1†L1-L4】.\n\n### References\n\n- [1] DENSO-AC_brochure_tips-and-tricks_EN.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "WiperBlade-Cat26_Full-Version.md"
+    ],
+    "latency_s": 19.7,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly states DCP32045 has 140 cc and DCP32060 has 110 cc, matching the ground truth exactly."
+    },
+    "id": 10
+  },
+  "mix:11": {
+    "answer": "According to the Part No. and Available Length Chart in the DENSO Wiper Blade catalogue, the rear wiper blades DRA‑012 and DRB‑012 both correspond to a blade length of **305 mm**【1†L15-L22】.\n\n### References\n\n* [1] WiperBlade-Cat26_Full-Version.md",
+    "references": [
+      "WiperBlade-Cat26_Full-Version.md"
+    ],
+    "latency_s": 18.5,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly states both DRA-012 and DRB-012 correspond to 305 mm, matching the ground truth exactly."
+    },
+    "id": 11
+  },
+  "mix:12": {
+    "answer": "According to the Spark Plug Replacement Timing table in the DENSO Spark Plug Catalogue 2025, the recommended replacement intervals for automobiles differ significantly between the two groups of plugs:\n\n- **Iridium Power / Ni‑TT / Conventional plugs** are advised to be replaced after approximately **20,000 km**.\n- **Iridium Tough / Iridium Plus / Platinum plugs** have a much longer economic life, with a recommended replacement interval of approximately **100,000 km**.\n\nThus, the latter group’s interval is about five times longer than that of the former group.\n\n### References\n\n* [1] Spark Plug Catalogue 2025.md",
+    "references": [
+      "Spark Plug Catalogue 2025.md"
+    ],
+    "latency_s": 26.8,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system correctly states ~20,000 km for Iridium Power/Ni-TT/Conventional and ~100,000 km for Iridium Tough/Iridium Plus/Platinum, matching the ground truth; omitting the footnote is acceptable since it is extra detail."
+    },
+    "id": 12
+  },
+  "mix:13": {
+    "answer": "Based on the DCP32020 features and comparison table in the VAG compressor consolidation bulletin:\n\n- **Pulley type**: DCP32020 specifies \"B-PC\" while DCP27001 specifies \"R-SC\"\n- **Oil quantity**: DCP32020 specifies \"80cc\" while DCP27001 specifies \"140cc\"\n- **Consolidatability**: Both compressors are listed as \"No\" in the \"Consolidate (Yes/No)\" column, indicating they are not consolidatable\n\nThis information is directly shown in the comparison table under \"DCP32020 Features and Comparison\" which states: \"The DCP32005, DCP27001 and DCP27002 compressors listed on the right cannot be replaced by the DCP32020\" and details the technical differences including pulley type and oil quantity.\n\n### References\n- [1] DENSO-AC_brochure_tips-and-tricks_EN.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC Compressor Installation Manual.md",
+      "EN_AC_Compressor_Failure Analysis_Poster.md",
+      "AC-Compressor-Oils-Leaflet-English.md"
+    ],
+    "latency_s": 34.7,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly reports pulley types (B-PC vs R-SC), oil quantities (80cc vs 140cc), and that the compressors are not consolidatable, matching the ground truth."
+    },
+    "id": 13
+  },
+  "mix:14": {
+    "answer": "The Diesel Common Rail installation guide lists the following three steps for removing the Suction Control Valve (SCV) from the pump, in this exact order:\n\n1. **Mark the connector position of the SCV to the pump** – so the connector can be reinstalled correctly.  \n2. **Loosen and remove the bolts** that secure the SCV to the pump.  \n3. **Remove the large O‑ring (position 1)** from the SCV.  \n\nThese steps are described in the removal section of the installation guide for the Suction Control Valve Kit (part number DCRS300260).  \n\n### References\n\n- [2] Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md",
+      "WiperBlade-Cat26_Full-Version.md",
+      "AC-Compressor-Control-Valve-Identification-Bulletin-English.md"
+    ],
+    "latency_s": 23.5,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The three steps match the ground truth in content and order, with only extra correct detail (part number and reference) added."
+    },
+    "id": 14
+  },
+  "mix:15": {
+    "answer": "**Correct sequence for installing a new Suction Control Valve (SCV) – English Diesel Common Rail Installation Guide**\n\n1. **Install a new O‑ring** on the SCV.  \n2. **Insert two guide pins** into the SCV mounting holes.  \n3. **Install the new gasket(s)** with the SCV.  \n4. **Apply engine oil** to the small O‑ring (the O‑ring that will be seated on the SCV).  \n5. **Push the SCV carefully into the housing** (to avoid damaging the O‑ring).  \n6. **Remove the guide pins** once the SCV is fully seated.  \n7. **Fit the mounting bolts** and tighten them to the specified torque of **6.9 – 10.8 Nm**.  \n\n**Warning:**  \n*It is necessary to use **two guide pins** during installation. Installing the SCV without the guide pins could cause a fuel leak.*  \n\n### References\n- [3] Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md",
+    "references": [
+      "Spark Plug Catalogue 2025.md",
+      "AC-Compressor-Control-Valve-Identification-Bulletin-English.md",
+      "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md",
+      "AC Compressor Leaflet.md",
+      "DENSO-AC_brochure_tips-and-tricks_EN.md"
+    ],
+    "latency_s": 21.0,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "All steps, the 6.9-10.8 Nm torque range, and the two-guide-pin/fuel-leak warning match the ground truth."
+    },
+    "id": 15
+  },
+  "mix:16": {
+    "answer": "The DENSO run‑in procedure that must be followed after a new A/C compressor is installed consists of the following steps:\n\n1. Set the temperature control to the maximum cooling position.  \n2. Switch the cabin blower (fan) to its maximum speed.  \n3. Start the engine and keep the engine speed at idle (no increase in RPM).  \n4. Turn the A/C system on and leave it running for a minimum of **five minutes**.  \n5. After the five‑minute period, the compressor oil that was originally contained in the compressor will have circulated through the entire refrigerant circuit; at this point it is safe to increase engine speed and proceed with testing the A/C system.  \n\nThis procedure ensures proper oil distribution and initial lubrication, helping to prevent compressor damage immediately after installation【3】.\n\n### References\n- [3] AC Compressor Installation Manual.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "Spark Plug Catalogue 2025.md",
+      "AC Compressor Installation Manual.md"
+    ],
+    "latency_s": 24.2,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "All five steps and the 5-minute duration match the ground truth exactly, with only harmless extra explanatory detail."
+    },
+    "id": 16
+  },
+  "mix:17": {
+    "answer": "The DENSO procedure for determining how much oil must be removed from a new A/C compressor when flushing is **not** required uses the simple subtraction formula:\n\n**A − B = C**  \n\n- **A** = total oil amount in the new compressor  \n- **B** = oil volume drained from the old compressor  \n- **C** = oil that must be removed from the new compressor  \n\nThis formula is explicitly shown in the DENSO installation‑tip documentation [1].\n\nIn the compressor‑oil troubleshooting bulletin, a worked example applies the formula:\n\n- Total oil in the new compressor (A) = **120 cm³**  \n- Oil drained from the old compressor (B) = **50 cm³**  \n\nCalculation: **C = 120 cm³ − 50 cm³ = 70 cm³**  \n\nThus, **70 cm³** of oil must be removed from the new compressor [2].\n\n### References\n\n- [1] DENSO-AC_brochure_tips-and-tricks_EN.md  \n- [2] EN_AC Compressor oil_troubleshooting_bulletin.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "AC Compressor Installation Manual.md"
+    ],
+    "latency_s": 19.3,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly states the A − B = C formula with matching variable definitions and the worked example result of 70 cm³, fully agreeing with the ground truth."
+    },
+    "id": 17
+  },
+  "mix:18": {
+    "answer": "Before a technician can apply 'Procedure 1' (flushing not required) from the DENSO A/C Compressor Installation Guide's repair procedures, all four of the following conditions must be true:\n\n- The system is clean.\n- The correct type of oil is inside the cycle.\n- The correct amount and type of UV-leak dye is used.\n- There are no other additives in the refrigerant cycle.\n\nThese conditions are explicitly listed under \"PROCEDURE 1: Flushing is not required > adjust the oil quantity from the new compressor when necessary\" in the Installation Guide.\n\n### References\n- [2] AC Compressor Installation Manual.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC Compressor Installation Manual.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md"
+    ],
+    "latency_s": 14.1,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer lists all four conditions exactly as stated in the ground truth."
+    },
+    "id": 18
+  },
+  "mix:19": {
+    "answer": "**Cause of failure (suction port dirty and black)**  \nThe poster states that a dirty and black suction port results from *insufficient cleaning of the refrigerant cycle and/or not all required parts being replaced*. This allows dirt particles to travel through the system and re‑enter the compressor, causing bad lubrication or a clogged control valve.  \n\n**Recommended repair procedure**  \nFor this condition, the repair procedure indicated is **Repair Procedure 3**, which involves flushing the system to remove dirt and black particles from the",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "EN_AC_Compressor_Failure Analysis_Poster.md",
+      "AC Compressor Installation Manual.md"
+    ],
+    "latency_s": 49.1,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly identifies the cause (insufficient cleaning/not all parts replaced leading to dirt re-entry, bad lubrication, or clogged control valve) and recommends Repair Procedure 3, matching the ground truth."
+    },
+    "id": 19
+  },
+  "mix:20": {
+    "answer": "I’m sorry, but the provided DENSO practical tips brochure (reference ID 1) does not contain the information about the two causes that lead to rubber seals in the A/C system becoming swollen and no longer fitting in their original position. Therefore, I cannot answer the question based on the available context.",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "Spark Plug Catalogue 2025.md",
+      "AC-Compressor-Control-Valve-Identification-Bulletin-English.md",
+      "EN_AC_Compressor_Failure Analysis_Poster.md"
+    ],
+    "latency_s": 22.3,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 0.0,
+      "reason": "The question is answerable from the document, but the system incorrectly claimed the information was unavailable instead of providing the two causes (wrong refrigerant type; additives/conditioners or wrong flushing agents)."
+    },
+    "id": 20
+  },
+  "mix:21": {
+    "answer": "The DENSO practical tips brochure states that **liquid hammer** in an A/C compressor is caused by **too much compressor oil or refrigerant in the air‑conditioning system resulting from incorrect filling**. This excess fluid creates a hydraulic shock inside the compressor.\n\nThe damage caused by liquid hammer is **damage to the valve and swash plate inside the compressor**, which can lead to a loss of power, noisy operation, and ultimately compressor seizure.\n\n### References\n- [1] DENSO-AC_brochure_tips-and-tricks_EN.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "WiperBlade-Cat26_Full-Version.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md"
+    ],
+    "latency_s": 16.9,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The answer correctly identifies the cause (excess oil/refrigerant from incorrect filling) and the damage (valve and swash plate), matching the ground truth with only extra plausible detail."
+    },
+    "id": 21
+  },
+  "mix:22": {
+    "answer": "According to the “Failure of Damper Limiter‑Pulleys” bulletin (DENSO‑AC_brochure_tips-and-tricks_EN) [1]:\n\n**Three main reasons why the limiter of a DL‑Pulley breaks or the optional mass damper comes loose**  \n1. **Excessive negative force** on the DL‑pulley caused by too much drive‑belt movement.  \n2. **Continuously changing force** on the DL‑pulley resulting from severe rotation‑speed fluctuation.  \n3. **Excessive force** on the DL‑pulley due to too much engine torque.\n\n**Safety function of the limiter**  \nThe limiter of the DL‑Pulley is a safety mechanism that prevents the multi‑belt from breaking (e.g., when the compressor locks). When the limiter breaks, the pulley can run freely, so the multi‑belt does not lose its drive function [1].\n\n### References\n- [1] DENSO-AC_brochure_tips-and-tricks_EN.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "Spark Plug Catalogue 2025.md",
+      "EN_AC_Compressor_Failure Analysis_Poster.md"
+    ],
+    "latency_s": 14.2,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer accurately lists all three causes (excessive negative force from belt movement, continuously changing force from speed fluctuation, excessive force from engine torque) and correctly describes the limiter's safety function."
+    },
+    "id": 22
+  },
+  "mix:23": {
+    "answer": "No, ND‑oil 8 (DENSO Oil 8) should not be used in a compressor system that has been converted to R1234yf refrigerant.\n\n**Why it is not suitable**\n\n* According to the **AC Compressor Leaflet** oil recommendation table, for mechanical compressors (type ranges #PA, #S, #SB, #SE, SC, 6CA) the prescribed oil for **HFO 1234yf (R1234yf)** is **DENSO Oil 12 or equivalent** – not DENSO Oil 8 【4†L13-L16】.  \n* The **DENSO practical tips brochure** (“Compressor oils and refrigerants” section) explicitly states: “DENSO uses ND‑oil 8 for its R134a type refrigerant compressors … The new refrigerant type uses ND‑oil 12 … however, this doesn’t mean the two oils are interchangeable; … ND‑oil 8 cannot be used for R1234yf type refrigerant” 【1†L9-L15】.  \n* It further warns that when R1234yf comes into contact with ND‑oil 8, the refrigerant will decompose and resin parts of the A/C system will start to deteriorate, causing costly damage 【1†L22-L26】.\n\nBecause ND‑oil 8 lacks the specific additives present in ND‑oil 12 that are required for stability with R1234yf, using it in an R1234yf‑converted system leads to oil‑refrigerant incompatibility, decomposition of the refrigerant, and potential damage to compressor seals and other components. Therefore, the correct oil for such a system is DENSO Oil 12 (or an approved equivalent).  \n\n### References\n- *[1] DENSO-AC_brochure_tips-and-tricks_EN.md*  \n- *[4] AC Compressor Leaflet.md*",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "AC Compressor Leaflet.md"
+    ],
+    "latency_s": 35.3,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The answer correctly states ND-oil 8 cannot be used with R1234yf, citing the leaflet table (Oil 12 for HFO1234yf) and the brochure's warning about refrigerant decomposition and resin deterioration, matching the ground truth."
+    },
+    "id": 23
+  },
+  "mix:24": {
+    "answer": "Both documents refer to the same oil for R‑134a‑only mechanical compressors, which is identified by the DENSO part number **DND08250**.  \n\n- The **DENSO Compressor Oils leaflet** lists this oil as **“ND‑oil 8”** with the part number **DND08250** and specifies it for “Mechanical compressors using R134a”【3†L1-L4】.  \n- The **AC Compressor Leaflet (2013)** recommends **“DENSO Oil 8”** for the same compressor type (HFC134a/R‑134a) in its oil recommendation table【5†L1-L3】.  \n\nThus, while the part number is identical (DND08250), the naming differs: the leaflet calls it **ND‑oil 8**, whereas the AC Compressor Leaflet calls it **DENSO Oil 8**.  \n\n### References\n- [3] AC-Compressor-Oils-Leaflet-English.md  \n- [5] AC Compressor Leaflet.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC-Compressor-Control-Valve-Identification-Bulletin-English.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "AC Compressor Leaflet.md"
+    ],
+    "latency_s": 17.0,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 0.5,
+      "reason": "Correctly identifies the naming difference ('ND-oil 8' vs 'DENSO Oil 8') but wrongly claims the part number DND08250 is identical/shared in both documents, which the ground truth explicitly states is not repeated in the AC Compressor Leaflet."
+    },
+    "id": 24
+  },
+  "mix:25": {
+    "answer": "Yes, the oil‑removal formula presented in the DENSO A/C Compressor Installation Guide’s Repair Procedure 1 is identical to the calculation method shown in the compressor oil troubleshooting bulletin. Both documents describe the same three‑step process:  \n\n1. Determine the total oil quantity in the new compressor (A).  \n2. Measure the oil drained from the old compressor (B).  \n3. Subtract B from A to obtain the amount of oil that must be removed from the new compressor (C).  \n\nIn the Installation Guide, Repair Procedure 1 states:  \n\n- “A = Total oil amount of new compressor.”  \n- “B = Oil amount drained from the old compressor.”  \n- “C = Amount required to change from new compressor.”  \n- “Calculation to establish the correct oil amount to remove from new compressor: A‑B = C”【3†L1-L4】.  \n\nThe troubleshooting bulletin gives an explicit example:  \n\n- “The total amount of oil in the new compressor (A) is 120 cm³.  \n- The oil amount drained from the old compressor (B) is 50 cm³.  \n- The amount of oil to remove (C) from the new compressor is A‑B, 120‑50 = 70 cm³.”【2†L1-L3】  \n\nThus, the shared formula is **A − B = C**.\n\n### References\n- [3] AC Compressor Installation Manual.md  \n- [2] EN_AC Compressor oil_troubleshooting_bulletin.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "AC Compressor Installation Manual.md"
+    ],
+    "latency_s": 15.6,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The answer correctly confirms both documents use the identical formula A − B = C, includes the definitions of A, B, and C, and cites the same worked example (120 − 50 = 70 cm³), fully matching the ground truth."
+    },
+    "id": 25
+  },
+  "mix:26": {
+    "answer": "The torque specified for the suction‑control‑valve (SCV) mounting bolts in the Diesel Common Rail installation guide is **6.9 – 10.8 Nm**【2†L4-L5】.  \nThe recommended torque for an M12 thread spark plug listed in the Spark Plug Catalogue is **15 – 20 Nm**【1†L13-L14】.\n\nComparing the upper ends of the ranges:\n\n- SCV bolt torque (max): 10.8 Nm  \n- M12 spark‑plug torque (max): 20.0 Nm  \n\nThe M12 spark‑plug torque is higher, by roughly **20.0 Nm − 10.8 Nm ≈ 9.2 Nm**.\n\n### References\n- [1] Spark Plug Catalogue 2025.md  \n- [2] Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md",
+    "references": [
+      "Spark Plug Catalogue 2025.md",
+      "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md"
+    ],
+    "latency_s": 12.7,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer matches the ground truth exactly: SCV bolt torque 6.9–10.8 Nm, M12 spark plug torque 15–20 Nm, with the spark plug higher by ~9.2 Nm at the top of the ranges."
+    },
+    "id": 26
+  },
+  "mix:27": {
+    "answer": "Yes. The Russian‑language section states that the SCV mounting bolts must be tightened to a torque of **6,9 – 10,8 N‑m**, while the Romanian‑language section specifies a torque of **6.9 – 10.8 Nm**. Both sections give the same torque range, only differing in the decimal separator (comma vs. period) and the unit notation.  \n\n**Sources**  \n- Romanian section: “Fixați șuruburile și strângeți-le cu o forță de 6.9 până la 10.8 Nm.”【1†L17-L18】  \n- Russian section: “Установить болты и затянуть их моментом в диапазоне от 6,9 до 10,8 Н‑м.”【1†L19-L20】  \n\n### References\n- [1] Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md",
+    "references": [
+      "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md",
+      "Spark Plug Catalogue 2025.md",
+      "AC Compressor Installation Manual.md"
+    ],
+    "latency_s": 28.3,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 0.5,
+      "reason": "The final 'Yes' and the Russian torque value (6,9–10,8 Н-м) match the ground truth, but the answer compares the Russian section to the Romanian section instead of the English-language section the question asks about."
+    },
+    "id": 27
+  },
+  "mix:28": {
+    "answer": "Yes. Both the German and French language sections of the diesel Common Rail installation guide state that two guide pins are required during SCV installation.  \n\n- In the German section (pages 5‑6), the text specifies **“Zwei Führungsstifte”** (two guide pins) and emphasizes that the two **Führungsstifte** must be used to avoid fuel leaks.  \n- In the French section (pages 9‑10), the text specifies **“2 goupilles de guidage”** (two guide pins) and states that the two **goupilles de guidage** are necessary during installation to prevent fuel leakage.  \n\nThus, the two language versions agree on the quantity (two) and each uses its own term for the component: **Führungsstifte** in German and **goupilles de guidage** in French.  \n\n### References  \n\n- [1] Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md",
+    "references": [
+      "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md",
+      "AC Compressor Installation Manual.md",
+      "Spark Plug Catalogue 2025.md"
+    ],
+    "latency_s": 40.6,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly states both sections require 2 guide pins, uses the correct terms (Führungsstifte in German, goupilles de guidage in French), and mentions the fuel leakage warning, matching the ground truth."
+    },
+    "id": 28
+  },
+  "mix:29": {
+    "answer": "The shelf life of DENSO ND‑oil 9, the compressor oil recommended for Through‑Vane (TV) type A/C compressors, is 36 months. This shelf‑life information applies to DENSO ND‑oils in general, as stated in the storage and handling section of the DENSO brochure, which notes that DENSO ND‑oils have a shelf life of 36 months, with the expiry date printed on the can label.\n\n### References\n\n- [1] DENSO-AC_brochure_tips-and-tricks_EN.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "AC Compressor Leaflet.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md"
+    ],
+    "latency_s": 16.4,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 0.0,
+      "reason": "The system hallucinated a 36-month shelf life for ND-oil 9, but the documents only list shelf life for ND-oil 8, 11, and 12, so the correct response was to state the information is unavailable."
+    },
+    "id": 29
+  },
+  "mix:30": {
+    "answer": "The provided context does not specify a recommended replacement distance (in kilometers) for DENSO Iridium Racing spark plugs when used in automobiles. No such interval is mentioned in the documentation or knowledge‑graph entries supplied.\n\n### References\n\n*(No supporting documents were found for this query.)*",
+    "references": [
+      "Spark Plug Catalogue 2025.md",
+      "WiperBlade-Cat26_Full-Version.md",
+      "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md"
+    ],
+    "latency_s": 30.0,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The question is unanswerable and the system correctly states that no replacement distance for Iridium Racing plugs is specified, without inventing a value."
+    },
+    "id": 30
+  }
+}

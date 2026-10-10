@@ -1,0 +1,1720 @@
+[
+  {
+    "id": "I01",
+    "lang": "vi",
+    "kind": "fact",
+    "question": "Nếu thay máy nén có diode trong van điều khiển ngoài bằng một máy nén không có diode thì điều gì xảy ra?",
+    "truth": "Máy nén sẽ không hoạt động và ECU sẽ lưu mã lỗi DTC.",
+    "facts": [
+      [
+        "không hoạt động",
+        "will not operate",
+        "không chạy",
+        "ngừng hoạt động"
+      ],
+      [
+        "DTC"
+      ]
+    ],
+    "doc": "AC-Compressor-Control-Valve-Identification",
+    "pages": [
+      2
+    ],
+    "answer_ok": true,
+    "doc_ok": true,
+    "page_ok": true,
+    "page_exact": true,
+    "cited_pages": [
+      2
+    ],
+    "other_docs": [],
+    "run": 0,
+    "judge": 1.0,
+    "judge_reason": "The system answer matches the ground truth exactly: the compressor will not operate and the ECU will store a DTC, with a correct source citation.",
+    "answer": "Nếu thay máy nén có diode trong van điều khiển ngoài bằng một máy nén không có diode trong van điều khiển ngoài, máy nén sẽ không hoạt động và ECU sẽ lưu trữ một mã lỗi DTC. (AC-Compressor-Control-Valve-Identification-Bulletin-English.md, p. 2)",
+    "seconds": 20.6,
+    "citations": [
+      [
+        "AC-Compressor-Control-Valve-Identification-Bulletin-English",
+        "2"
+      ]
+    ]
+  },
+  {
+    "id": "I02",
+    "lang": "en",
+    "kind": "fact",
+    "question": "What does the CS function of a Ps control valve do when liquid refrigerant has accumulated in the compressor?",
+    "truth": "The CS (Crank to Suction) valve quickly discharges the liquid refrigerant to the suction chamber to improve the response of the variable displacement compressor.",
+    "facts": [
+      [
+        "discharge"
+      ],
+      [
+        "suction chamber"
+      ]
+    ],
+    "doc": "AC-Compressor-Control-Valve-Identification",
+    "pages": [
+      3
+    ],
+    "answer_ok": true,
+    "doc_ok": true,
+    "page_ok": true,
+    "page_exact": true,
+    "cited_pages": [
+      3
+    ],
+    "other_docs": [
+      "DENSO-AC_brochure_tips-and-tricks_EN"
+    ],
+    "run": 0,
+    "judge": 1.0,
+    "judge_reason": "The system answer correctly states that the CS valve quickly discharges liquid refrigerant to the suction chamber to improve compressor response, matching the ground truth, with additional plausible supporting detail.",
+    "answer": "When liquid refrigerant accumulates in the compressor, the CS (Crank to Suction) valve quickly discharges liquid refrigerant to the suction chamber to improve the response of the variable displacement compressor. This prevents the crank chamber pressure from rising, which would otherwise hinder the refrigerant discharge capacity and cooling performance. The CS function is specifically designed to address liquid refrigerant accumulation that occurs when the vehicle is parked for a long time, allowing gas refrigerant to cool and condense inside the compressor due to its large heat capacity. [2, p. 3] [2, p. 4]",
+    "seconds": 9.8,
+    "citations": [
+      [
+        "DENSO-AC_brochure_tips-and-tricks_EN",
+        "5, 6, 8, 9, 27, 28, …"
+      ],
+      [
+        "AC-Compressor-Control-Valve-Identification-Bulletin-English",
+        "3"
+      ]
+    ]
+  },
+  {
+    "id": "I03",
+    "lang": "vi",
+    "kind": "fact",
+    "question": "Khi tháo máy nén cũ, cần xả bao nhiêu phần trăm tổng lượng dầu?",
+    "truth": "Từ 30 đến 50% tổng lượng dầu.",
+    "facts": [
+      [
+        "30"
+      ],
+      [
+        "50"
+      ]
+    ],
+    "doc": "EN_AC Compressor oil_troubleshooting_bulletin",
+    "pages": [
+      2
+    ],
+    "answer_ok": true,
+    "doc_ok": true,
+    "page_ok": true,
+    "page_exact": true,
+    "cited_pages": [
+      2
+    ],
+    "other_docs": [],
+    "run": 0,
+    "judge": 1.0,
+    "judge_reason": "System answer matches the ground truth range of 30–50% of total oil exactly.",
+    "answer": "Khi tháo máy nén cũ, cần xả từ 30% đến 50% tổng lượng dầu. (EN_AC Compressor oil_troubleshooting_bulletin, p. 2)",
+    "seconds": 15.9,
+    "citations": [
+      [
+        "EN_AC Compressor oil_troubleshooting_bulletin",
+        "2"
+      ]
+    ]
+  },
+  {
+    "id": "I04",
+    "lang": "en",
+    "kind": "fact",
+    "question": "According to DENSO, what is the second most common reason for A/C compressor failure?",
+    "truth": "Insufficient lubrication due to universal oil.",
+    "facts": [
+      [
+        "universal oil"
+      ],
+      [
+        "lubrication"
+      ]
+    ],
+    "doc": "EN_AC Compressor oil_troubleshooting_bulletin",
+    "pages": [
+      1
+    ],
+    "answer_ok": true,
+    "doc_ok": true,
+    "page_ok": true,
+    "page_exact": true,
+    "cited_pages": [
+      1
+    ],
+    "other_docs": [
+      "DENSO-AC_brochure_tips-and-tricks_EN"
+    ],
+    "run": 0,
+    "judge": 1.0,
+    "judge_reason": "The system answer matches the ground truth exactly, correctly identifying insufficient lubrication due to universal oil as the second most common cause of A/C compressor failure.",
+    "answer": "Insufficient lubrication due to universal oil is the second most common reason for A/C compressor failure.",
+    "seconds": 11.1,
+    "citations": [
+      [
+        "DENSO-AC_brochure_tips-and-tricks_EN",
+        "9"
+      ],
+      [
+        "EN_AC Compressor oil_troubleshooting_bulletin",
+        "1"
+      ]
+    ]
+  },
+  {
+    "id": "I05",
+    "lang": "vi",
+    "kind": "fact",
+    "question": "Nếu dầu PAO bị cho vào chu trình môi chất lạnh có dầu PAG thì gây ra hậu quả gì?",
+    "truth": "PAG và PAO không hòa trộn, tạo chất giống parafin làm tắc van điều khiển và/hoặc chu trình: mất chức năng biến thiên dung tích, tắc hệ thống hoặc kẹt máy nén.",
+    "facts": [
+      [
+        "parafin",
+        "paraffin"
+      ],
+      [
+        "tắc",
+        "clog",
+        "nghẹt",
+        "bít"
+      ]
+    ],
+    "doc": "EN_AC_Compressor_Failure Analysis_Poster|DENSO-AC_brochure_tips-and-tricks",
+    "pages": [
+      1,
+      5,
+      6
+    ],
+    "note": "The brochure reprints the failure-analysis content on pp. 5-6 (verified in the PDF).",
+    "answer_ok": true,
+    "doc_ok": true,
+    "page_ok": true,
+    "page_exact": true,
+    "cited_pages": [
+      1,
+      5,
+      6
+    ],
+    "other_docs": [],
+    "run": 0,
+    "judge": 1.0,
+    "judge_reason": "The system answer fully matches the ground truth: PAG and PAO do not mix, forming a paraffin-like substance that clogs the control valve/cycle, causing loss of variable displacement, system blockage, or compressor seizure.",
+    "answer": "Khi dầu PAO được cho vào chu trình môi chất lạnh đã chứa dầu PAG, hai loại dầu này sẽ không hòa quyện với nhau, dẫn đến việc tạo ra chất có dạng paraffine (paraffin-like substance). Chất này có thể gây tắc nghẹn van điều khiển và/hoặc chu trình môi chất lạnh, kết quả là không có sự thay đổi độ dịch chuyển (no variable displacement), tắc nghẹn hệ thống hoặc kẹt máy nén (compressor seizure). (EN_AC_Compressor_Failure Analysis_Poster, p. 1)",
+    "seconds": 9.8,
+    "citations": [
+      [
+        "DENSO-AC_brochure_tips-and-tricks_EN",
+        "5, 6"
+      ],
+      [
+        "EN_AC_Compressor_Failure Analysis_Poster",
+        "1"
+      ]
+    ]
+  },
+  {
+    "id": "I06",
+    "lang": "en",
+    "kind": "fact",
+    "question": "Which oil does the compressor failure analysis poster list for a rotary TV type compressor using R1234yf?",
+    "truth": "None - it is listed as Discontinued.",
+    "facts": [
+      [
+        "discontinued"
+      ]
+    ],
+    "doc": "EN_AC_Compressor_Failure Analysis_Poster",
+    "pages": [
+      1
+    ],
+    "answer_ok": true,
+    "doc_ok": true,
+    "page_ok": true,
+    "page_exact": true,
+    "cited_pages": [
+      1
+    ],
+    "other_docs": [],
+    "run": 0,
+    "judge": 1.0,
+    "judge_reason": "The system correctly states the oil is listed as Discontinued, matching the ground truth without inventing an oil type.",
+    "answer": "Discontinued",
+    "seconds": 14.7,
+    "citations": [
+      [
+        "EN_AC_Compressor_Failure Analysis_Poster",
+        "1"
+      ]
+    ]
+  },
+  {
+    "id": "I07",
+    "lang": "vi",
+    "kind": "fact",
+    "question": "Có được đổ dầu trực tiếp vào máy nén không? Nếu cần thêm dầu thì phải đổ vào đâu?",
+    "truth": "Không bao giờ đổ dầu trực tiếp vào máy nén; khi cần thì thêm vào bình ngưng (condenser), bình lọc ẩm (receiver dryer) hoặc dàn bay hơi thứ hai.",
+    "facts": [
+      [
+        "không",
+        "never"
+      ],
+      [
+        "condenser",
+        "bình ngưng",
+        "dàn ngưng"
+      ],
+      [
+        "receiver",
+        "lọc ẩm",
+        "bình chứa"
+      ]
+    ],
+    "doc": "AC Compressor Installation Manual",
+    "pages": [
+      4
+    ],
+    "answer_ok": false,
+    "doc_ok": true,
+    "page_ok": true,
+    "page_exact": true,
+    "cited_pages": [
+      4
+    ],
+    "other_docs": [],
+    "run": 0,
+    "judge": 0.5,
+    "judge_reason": "Đúng phần cấm đổ dầu trực tiếp vào máy nén, nhưng các vị trí thêm dầu không khớp: 'máy lạnh' khác 'bình ngưng (condenser)', và 'bộ lọc khô'/'chu kỳ bốc hơi thứ hai' chỉ gần đúng với 'bình lọc ẩm'/'dàn bay hơi thứ hai'.",
+    "answer": "Không được đổ dầu trực tiếp vào máy nén. Khi cần điều chỉnh lượng dầu, dầu phải được đổ vào máy lạnh, bộ lọc khô hoặc chu kỳ bốc hơi thứ hai. (AC Compressor Installation Manual, p. 4)",
+    "seconds": 221.9,
+    "citations": [
+      [
+        "AC Compressor Installation Manual",
+        "4"
+      ]
+    ]
+  },
+  {
+    "id": "I08",
+    "lang": "en",
+    "kind": "fact",
+    "question": "Does DENSO recommend using an A/C service station to flush the refrigerant cycle?",
+    "truth": "No. Use dedicated flushing equipment and the correct type of refrigerant; an A/C service station is not recommended.",
+    "facts": [
+      [
+        "not recommended",
+        "no",
+        "does not"
+      ],
+      [
+        "flushing equipment",
+        "dedicated"
+      ]
+    ],
+    "doc": "AC Compressor Installation Manual",
+    "pages": [
+      4
+    ],
+    "answer_ok": true,
+    "doc_ok": true,
+    "page_ok": true,
+    "page_exact": true,
+    "cited_pages": [
+      4
+    ],
+    "other_docs": [
+      "DENSO-AC_brochure_tips-and-tricks_EN",
+      "AC Compressor Leaflet",
+      "EN_AC Compressor oil_troubleshooting_bulletin"
+    ],
+    "run": 0,
+    "judge": 1.0,
+    "judge_reason": "The system answer correctly states that DENSO does not recommend an A/C service station and that dedicated flushing equipment with the correct refrigerant should be used, matching the ground truth.",
+    "answer": "No, DENSO does not recommend using an A/C service station to flush the refrigerant cycle. According to the provided context, when flushing the refrigerant cycle, DENSO recommends the use of dedicated flushing equipment and the correct type of refrigerant, and explicitly states that the use of an A/C service station is not recommended. This is mentioned in the \"REFRIGERANT CYCLE FLUSHING\" section of the AC Compressor Installation Manual.",
+    "seconds": 13.9,
+    "citations": [
+      [
+        "DENSO-AC_brochure_tips-and-tricks_EN",
+        "4, 8, 10, 18"
+      ],
+      [
+        "AC Compressor Installation Manual",
+        "4"
+      ],
+      [
+        "AC Compressor Leaflet",
+        "2"
+      ],
+      [
+        "EN_AC Compressor oil_troubleshooting_bulletin",
+        "1, 2"
+      ]
+    ]
+  },
+  {
+    "id": "I09",
+    "lang": "vi",
+    "kind": "fact",
+    "question": "Khi hệ thống có chất chống rò rỉ (leak stop) thì có súc rửa được không?",
+    "truth": "Không, khi có leak stop thì không thể súc rửa; phải thay toàn bộ các chi tiết.",
+    "facts": [
+      [
+        "không"
+      ],
+      [
+        "thay",
+        "replace"
+      ]
+    ],
+    "doc": "AC Compressor Installation Manual|DENSO-AC_brochure_tips-and-tricks",
+    "pages": [
+      4,
+      8
+    ],
+    "note": "The brochure reprints repair procedure 4 (leak stop: flushing not possible) on p. 8.",
+    "answer_ok": true,
+    "doc_ok": true,
+    "page_ok": true,
+    "page_exact": false,
+    "cited_pages": [
+      4,
+      6,
+      8
+    ],
+    "other_docs": [],
+    "run": 0,
+    "judge": 1.0,
+    "judge_reason": "The answer correctly states flushing is not possible with leak stop and full replacement is required, matching the ground truth.",
+    "answer": "Khi hệ thống có chất chống rò rỉ (leak stop), không thể thực hiện súc rửa được. Trong trường hợp này, cần thay thế toàn bộ hệ thống vì súc rửa không thể loại bỏ chất chống rò rỉ và các chất phụ gia khác.  \n(AC Compressor Installation Manual.md, p. 4)  \n(AC Compressor Installation Manual.md, p. 6)  \n(DENSO-AC_brochure_tips-and-tricks_EN.md, p. 8)",
+    "seconds": 16.3,
+    "citations": [
+      [
+        "DENSO-AC_brochure_tips-and-tricks_EN",
+        "4, 6, 8"
+      ],
+      [
+        "AC Compressor Installation Manual",
+        "4, 6"
+      ]
+    ]
+  },
+  {
+    "id": "I10",
+    "lang": "vi",
+    "kind": "fact",
+    "question": "Có được dùng bugi DENSO để đánh lửa cho đầu đốt gas (gas burner) không?",
+    "truth": "Không; bugi DENSO không được thiết kế cho việc đó, có thể gây đánh lửa hỏng hoặc hư thiết bị do quá nhiệt.",
+    "facts": [
+      [
+        "không",
+        "never"
+      ],
+      [
+        "quá nhiệt",
+        "overheat",
+        "hư hỏng",
+        "hỏng thiết bị",
+        "damage"
+      ]
+    ],
+    "doc": "Spark Plug Catalogue 2025",
+    "pages": [
+      4,
+      5
+    ],
+    "answer_ok": true,
+    "doc_ok": true,
+    "page_ok": true,
+    "page_exact": false,
+    "cited_pages": [
+      4,
+      31,
+      35
+    ],
+    "other_docs": [],
+    "run": 0,
+    "judge": 1.0,
+    "judge_reason": "The system answer correctly states DENSO spark plugs should not be used for gas burner ignition, matching the ground truth about design limitations and risks of ignition failure and overheating damage.",
+    "answer": "Không được dùng bugi DENSO để đánh lửa cho đầu đốt gas (gas burner).  \nBugi DENSO được thiết kế và sản xuất chỉ cho các động cơ ô tô, và việc sử dụng chúng cho mục đích khác như đầu đốt gas có thể gây ra sự cố như không khởi động được hoặc hỏng hóc thiết bị do quá nhiệt.  \nLưu ý: Bugi DENSO không được thiết kế và sản xuất cho việc sử dụng trong gas burner ignition, vì vậy việc sử dụng chúng cho mục đích này có thể dẫn đến sự cố ignition hoặc hỏng hóc thiết bị do quá nhiệt.",
+    "seconds": 30.1,
+    "citations": [
+      [
+        "Spark Plug Catalogue 2025",
+        "4, 31, 35"
+      ]
+    ]
+  },
+  {
+    "id": "I11",
+    "lang": "en",
+    "kind": "fact",
+    "question": "What can happen if a spark plug is installed with too low torque?",
+    "truth": "Damage to the engine and the plugs due to leakage of combustion gas or vibration.",
+    "facts": [
+      [
+        "combustion gas",
+        "gas leak"
+      ],
+      [
+        "vibration"
+      ]
+    ],
+    "doc": "Spark Plug Catalogue 2025",
+    "pages": [
+      6,
+      7
+    ],
+    "answer_ok": true,
+    "doc_ok": true,
+    "page_ok": true,
+    "page_exact": false,
+    "cited_pages": [
+      4,
+      5,
+      6
+    ],
+    "other_docs": [],
+    "run": 0,
+    "judge": 1.0,
+    "judge_reason": "The system answer matches the ground truth exactly, stating damage to engine and plugs from combustion gas leakage or vibration.",
+    "answer": "If a spark plug is installed with too low torque, it may cause damage to the engine and the plugs due to leakage of combustion gas or vibration. (Spark Plug Catalogue 2025)",
+    "seconds": 14.3,
+    "citations": [
+      [
+        "Spark Plug Catalogue 2025",
+        "4, 5, 6"
+      ]
+    ]
+  },
+  {
+    "id": "I12",
+    "lang": "en",
+    "kind": "fact",
+    "question": "What does the terminal shape code R mean for a DENSO spark plug?",
+    "truth": "Nut type (not caulked): the terminal nut can be easily removed.",
+    "facts": [
+      [
+        "nut"
+      ],
+      [
+        "not caulked",
+        "easily removed",
+        "can be removed"
+      ]
+    ],
+    "doc": "Spark Plug Catalogue 2025",
+    "pages": [
+      4,
+      5
+    ],
+    "answer_ok": false,
+    "doc_ok": true,
+    "page_ok": true,
+    "page_exact": false,
+    "cited_pages": [
+      2,
+      3,
+      4,
+      5,
+      16,
+      17
+    ],
+    "other_docs": [],
+    "run": 0,
+    "judge": 1.0,
+    "judge_reason": "The answer 'R: removable' correctly conveys that the terminal nut can be easily removed, matching the ground truth.",
+    "answer": "R: removable",
+    "seconds": 22.8,
+    "citations": [
+      [
+        "Spark Plug Catalogue 2025",
+        "2, 3, 4, 5, 16, 17, …"
+      ]
+    ]
+  },
+  {
+    "id": "I13",
+    "lang": "vi",
+    "kind": "fact",
+    "question": "Theo slide, trong cờ vua hệ số phân nhánh b và độ sâu m khoảng bao nhiêu?",
+    "truth": "b ~ 35, m ~ 100.",
+    "facts": [
+      [
+        "35"
+      ],
+      [
+        "100"
+      ]
+    ],
+    "doc": "Bài 5 - Tìm kiếm có đối thủ",
+    "pages": [
+      27
+    ],
+    "answer_ok": true,
+    "doc_ok": true,
+    "page_ok": true,
+    "page_exact": true,
+    "cited_pages": [
+      27
+    ],
+    "other_docs": [],
+    "run": 0,
+    "judge": 1.0,
+    "judge_reason": "System answer matches ground truth exactly: b ~ 35 and m ~ 100.",
+    "answer": "b ~ 35, m ~100",
+    "seconds": 6.9,
+    "citations": [
+      [
+        "Bài 5 - Tìm kiếm có đối thủ",
+        "27"
+      ]
+    ]
+  },
+  {
+    "id": "I14",
+    "lang": "vi",
+    "kind": "fact",
+    "question": "Độ sâu tìm kiếm 12-ply tương đương với trình độ nào?",
+    "truth": "Tương đương Deep Blue, Kasparov.",
+    "facts": [
+      [
+        "Deep Blue",
+        "Kasparov"
+      ]
+    ],
+    "doc": "Bài 5 - Tìm kiếm có đối thủ",
+    "pages": [
+      27
+    ],
+    "answer_ok": true,
+    "doc_ok": true,
+    "page_ok": true,
+    "page_exact": true,
+    "cited_pages": [
+      27
+    ],
+    "other_docs": [],
+    "run": 0,
+    "judge": 1.0,
+    "judge_reason": "The system answer correctly states that 12-ply search depth corresponds to the level of Deep Blue and Garry Kasparov, matching the ground truth.",
+    "answer": "Độ sâu tìm kiếm 12-ply tương đương với trình độ của Deep Blue và Garry Kasparov. (Trang 27 | ngôn ngữ: vi)",
+    "seconds": 10.6,
+    "citations": [
+      [
+        "Bài 5 - Tìm kiếm có đối thủ",
+        "27"
+      ]
+    ]
+  },
+  {
+    "id": "I15",
+    "lang": "vi",
+    "kind": "fact",
+    "question": "Chương trình Chinook đánh bại nhà vô địch cờ đam năm nào và dựa vào cơ sở dữ liệu gì?",
+    "truth": "Năm 1994; dùng cơ sở dữ liệu tàn cuộc tính sẵn cho mọi thế cờ có từ 8 quân trở xuống (444 tỷ thế cờ).",
+    "facts": [
+      [
+        "1994"
+      ],
+      [
+        "8"
+      ]
+    ],
+    "doc": "Bài 5 - Tìm kiếm có đối thủ",
+    "pages": [
+      45
+    ],
+    "answer_ok": true,
+    "doc_ok": true,
+    "page_ok": true,
+    "page_exact": true,
+    "cited_pages": [
+      45
+    ],
+    "other_docs": [],
+    "run": 0,
+    "judge": 1.0,
+    "judge_reason": "System answer matches ground truth: 1994, precomputed endgame database for all positions with 8 or fewer pieces (444 billion positions), with correct extra detail (Marion Tinsley).",
+    "answer": "Chương trình Chinook đã đánh bại nhà vô địch cờ đam Marion Tinsley vào năm 1994, dựa vào một cơ sở dữ liệu kết thúc trận đấu được tính toán trước, xác định cách chơi hoàn hảo cho tất cả các vị trí có 8 hoặc ít hơn quân cờ trên bàn, tổng cộng 444 tỷ vị trí.",
+    "seconds": 9.1,
+    "citations": [
+      [
+        "Bài 5 - Tìm kiếm có đối thủ",
+        "45"
+      ]
+    ]
+  },
+  {
+    "id": "I16",
+    "lang": "en",
+    "kind": "fact",
+    "question": "According to the slides, how many evaluations per move did Deep Blue perform?",
+    "truth": "30 billion evaluations per move.",
+    "facts": [
+      [
+        "30 billion",
+        "30 tỷ",
+        "30,000,000,000"
+      ]
+    ],
+    "doc": "Bài 5 - Tìm kiếm có đối thủ",
+    "pages": [
+      40
+    ],
+    "answer_ok": true,
+    "doc_ok": true,
+    "page_ok": true,
+    "page_exact": false,
+    "cited_pages": [
+      4,
+      40
+    ],
+    "other_docs": [],
+    "run": 0,
+    "judge": 1.0,
+    "judge_reason": "The system answer exactly matches the ground truth of 30 billion evaluations per move.",
+    "answer": "Deep Blue performed 30 billion evaluations per move.",
+    "seconds": 8.0,
+    "citations": [
+      [
+        "Bài 5 - Tìm kiếm có đối thủ",
+        "4, 40"
+      ]
+    ]
+  },
+  {
+    "id": "I17",
+    "lang": "vi",
+    "kind": "scan",
+    "question": "Trong phiếu bảo trì thay van SCV, bộ kit có mã gì?",
+    "truth": "DCRS300260 (294009-2150).",
+    "facts": [
+      [
+        "DCRS300260"
+      ],
+      [
+        "294009-2150"
+      ]
+    ],
+    "doc": "Phieu_bao_tri_SCV_scan",
+    "pages": [
+      1
+    ],
+    "answer_ok": true,
+    "doc_ok": true,
+    "page_ok": true,
+    "page_exact": true,
+    "cited_pages": [
+      1
+    ],
+    "other_docs": [
+      "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ)"
+    ],
+    "run": 0,
+    "judge": 1.0,
+    "judge_reason": "System answer matches the ground-truth kit code DCRS300260 (294009-2150) exactly, with a valid source citation.",
+    "answer": "Bộ kit: DCRS300260 (294009-2150) (Phieu_bao_tri_SCV_scan, p. 1)",
+    "seconds": 10.1,
+    "citations": [
+      [
+        "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ)",
+        "1"
+      ],
+      [
+        "Phieu_bao_tri_SCV_scan",
+        "1"
+      ]
+    ]
+  },
+  {
+    "id": "I18",
+    "lang": "en",
+    "kind": "scan",
+    "question": "In the photo of the compressor oil table, which oil is listed for #PA, #S, #SB, #SE, SC, 6CA compressors with HFO 1234yf?",
+    "truth": "DENSO Oil 12.",
+    "facts": [
+      [
+        "Oil 12",
+        "Oil12"
+      ]
+    ],
+    "doc": "AC_oil_table_photo|AC Compressor Leaflet",
+    "pages": [
+      1,
+      2
+    ],
+    "answer_ok": true,
+    "doc_ok": true,
+    "page_ok": true,
+    "page_exact": true,
+    "cited_pages": [
+      1,
+      2
+    ],
+    "other_docs": [],
+    "run": 0,
+    "judge": 1.0,
+    "judge_reason": "System answer exactly matches the ground truth DENSO Oil 12.",
+    "answer": "DENSO Oil 12",
+    "seconds": 9.2,
+    "citations": [
+      [
+        "AC_oil_table_photo",
+        "1"
+      ],
+      [
+        "AC Compressor Leaflet",
+        "2"
+      ]
+    ]
+  },
+  {
+    "id": "I19",
+    "lang": "ja",
+    "kind": "scan",
+    "question": "SCV取付時にガイドピンを使わないとどうなりますか?",
+    "truth": "燃料漏れの恐れがある。",
+    "facts": [
+      [
+        "燃料漏れ",
+        "燃料の漏れ",
+        "漏れ"
+      ]
+    ],
+    "doc": "SCV_ghi_chu_JP_scan|Diesel_SCV Kit",
+    "pages": [
+      1,
+      3,
+      4
+    ],
+    "answer_ok": true,
+    "doc_ok": true,
+    "page_ok": true,
+    "page_exact": true,
+    "cited_pages": [
+      1
+    ],
+    "other_docs": [],
+    "run": 0,
+    "judge": 1.0,
+    "judge_reason": "System answer matches ground truth: risk of fuel leakage when installing SCV without the guide pin.",
+    "answer": "ガイドピンなしで取り付けると燃料漏れの恐れがあります。 (SCV_ghi_chu_JP_scan.md, p. 1)",
+    "seconds": 16.8,
+    "citations": [
+      [
+        "SCV_ghi_chu_JP_scan",
+        "1"
+      ]
+    ]
+  },
+  {
+    "id": "I20",
+    "lang": "vi",
+    "kind": "refusal",
+    "question": "Một lon dầu DENSO ND-oil 12 giá bao nhiêu tiền?",
+    "truth": "Tài liệu không ghi giá.",
+    "answer_ok": true,
+    "doc_ok": null,
+    "page_ok": null,
+    "page_exact": null,
+    "run": 0,
+    "judge": 1.0,
+    "judge_reason": "The system correctly states that the document does not contain pricing information instead of inventing a price.",
+    "answer": "Tài liệu được cung cấp không chứa thông tin về giá cả của lon dầu DENSO ND-oil 12. Do đó, tôi không thể cung cấp câu trả lời về giá tiền của sản phẩm này dựa trên ngữ cảnh đã cho.",
+    "seconds": 14.0,
+    "citations": []
+  },
+  {
+    "id": "I21",
+    "lang": "en",
+    "kind": "refusal",
+    "question": "How many months of warranty does DENSO give on a new A/C compressor?",
+    "truth": "The documents do not state a warranty period.",
+    "answer_ok": true,
+    "doc_ok": null,
+    "page_ok": null,
+    "page_exact": null,
+    "run": 0,
+    "judge": 1.0,
+    "judge_reason": "The system correctly states that the warranty period is not specified in the documents, matching the unanswerable ground truth.",
+    "answer": "The provided context does not specify the warranty period for DENSO A/C compressors.",
+    "seconds": 11.0,
+    "citations": []
+  },
+  {
+    "id": "I22",
+    "lang": "vi",
+    "kind": "refusal",
+    "question": "Thuật toán Monte Carlo Tree Search hoạt động như thế nào?",
+    "truth": "Slide không đề cập Monte Carlo Tree Search.",
+    "answer_ok": true,
+    "doc_ok": null,
+    "page_ok": null,
+    "page_exact": null,
+    "run": 0,
+    "judge": 1.0,
+    "judge_reason": "The question is unanswerable from the documents, and the system correctly declined to answer instead of inventing information.",
+    "answer": "Tôi không có đủ thông tin để trả lời câu hỏi này.",
+    "seconds": 12.5,
+    "citations": []
+  },
+  {
+    "id": "I01",
+    "lang": "vi",
+    "kind": "fact",
+    "question": "Nếu thay máy nén có diode trong van điều khiển ngoài bằng một máy nén không có diode thì điều gì xảy ra?",
+    "truth": "Máy nén sẽ không hoạt động và ECU sẽ lưu mã lỗi DTC.",
+    "facts": [
+      [
+        "không hoạt động",
+        "will not operate",
+        "không chạy",
+        "ngừng hoạt động"
+      ],
+      [
+        "DTC"
+      ]
+    ],
+    "doc": "AC-Compressor-Control-Valve-Identification",
+    "pages": [
+      2
+    ],
+    "answer_ok": true,
+    "doc_ok": true,
+    "page_ok": true,
+    "page_exact": true,
+    "cited_pages": [
+      2
+    ],
+    "other_docs": [],
+    "run": 1,
+    "judge": 1.0,
+    "judge_reason": "The system answer matches the ground truth exactly: the compressor will not operate and the ECU will store a DTC, with a correct source citation.",
+    "answer": "Nếu thay máy nén có diode trong van điều khiển ngoài bằng một máy nén không có diode trong van điều khiển ngoài, máy nén sẽ không hoạt động và ECU sẽ lưu trữ một mã lỗi DTC. (AC-Compressor-Control-Valve-Identification-Bulletin-English.md, p. 2)",
+    "seconds": 20.2,
+    "citations": [
+      [
+        "AC-Compressor-Control-Valve-Identification-Bulletin-English",
+        "2"
+      ]
+    ]
+  },
+  {
+    "id": "I02",
+    "lang": "en",
+    "kind": "fact",
+    "question": "What does the CS function of a Ps control valve do when liquid refrigerant has accumulated in the compressor?",
+    "truth": "The CS (Crank to Suction) valve quickly discharges the liquid refrigerant to the suction chamber to improve the response of the variable displacement compressor.",
+    "facts": [
+      [
+        "discharge"
+      ],
+      [
+        "suction chamber"
+      ]
+    ],
+    "doc": "AC-Compressor-Control-Valve-Identification",
+    "pages": [
+      3
+    ],
+    "answer_ok": true,
+    "doc_ok": true,
+    "page_ok": true,
+    "page_exact": true,
+    "cited_pages": [
+      3
+    ],
+    "other_docs": [
+      "DENSO-AC_brochure_tips-and-tricks_EN"
+    ],
+    "run": 1,
+    "judge": 1.0,
+    "judge_reason": "The core claim matches the ground truth exactly, and the added details are consistent supporting information.",
+    "answer": "When liquid refrigerant accumulates in the compressor, the CS (Crank to Suction) valve quickly discharges liquid refrigerant to the suction chamber to improve the response of the variable displacement compressor. This prevents the crank chamber pressure from rising, which would otherwise hinder the refrigerant discharge capacity and cooling performance. The CS function is specifically designed to address liquid refrigerant accumulation that occurs when the vehicle is parked for a long time, allowing gas refrigerant to cool and liquefy inside the compressor due to its large heat capacity. [2, p. 3] [2, p. 4]",
+    "seconds": 27.7,
+    "citations": [
+      [
+        "DENSO-AC_brochure_tips-and-tricks_EN",
+        "5, 6, 8, 9, 27, 28, …"
+      ],
+      [
+        "AC-Compressor-Control-Valve-Identification-Bulletin-English",
+        "3"
+      ]
+    ]
+  },
+  {
+    "id": "I03",
+    "lang": "vi",
+    "kind": "fact",
+    "question": "Khi tháo máy nén cũ, cần xả bao nhiêu phần trăm tổng lượng dầu?",
+    "truth": "Từ 30 đến 50% tổng lượng dầu.",
+    "facts": [
+      [
+        "30"
+      ],
+      [
+        "50"
+      ]
+    ],
+    "doc": "EN_AC Compressor oil_troubleshooting_bulletin",
+    "pages": [
+      2
+    ],
+    "answer_ok": true,
+    "doc_ok": true,
+    "page_ok": true,
+    "page_exact": true,
+    "cited_pages": [
+      2
+    ],
+    "other_docs": [
+      "DENSO-AC_brochure_tips-and-tricks_EN"
+    ],
+    "run": 1,
+    "judge": 1.0,
+    "judge_reason": "System answer matches the ground truth range of 30% to 50% of total oil exactly.",
+    "answer": "Khi tháo máy nén cũ, cần xả từ 30% đến 50% tổng lượng dầu. (Trang 2 | ngôn ngữ: en)",
+    "seconds": 9.1,
+    "citations": [
+      [
+        "DENSO-AC_brochure_tips-and-tricks_EN",
+        "10, 14"
+      ],
+      [
+        "EN_AC Compressor oil_troubleshooting_bulletin",
+        "2"
+      ]
+    ]
+  },
+  {
+    "id": "I04",
+    "lang": "en",
+    "kind": "fact",
+    "question": "According to DENSO, what is the second most common reason for A/C compressor failure?",
+    "truth": "Insufficient lubrication due to universal oil.",
+    "facts": [
+      [
+        "universal oil"
+      ],
+      [
+        "lubrication"
+      ]
+    ],
+    "doc": "EN_AC Compressor oil_troubleshooting_bulletin",
+    "pages": [
+      1
+    ],
+    "answer_ok": true,
+    "doc_ok": true,
+    "page_ok": true,
+    "page_exact": true,
+    "cited_pages": [
+      1
+    ],
+    "other_docs": [
+      "DENSO-AC_brochure_tips-and-tricks_EN"
+    ],
+    "run": 1,
+    "judge": 1.0,
+    "judge_reason": "The system answer matches the ground truth exactly, correctly identifying insufficient lubrication due to universal oil as the second most common reason for A/C compressor failure.",
+    "answer": "Insufficient lubrication due to universal oil is the second most common reason for A/C compressor failure.",
+    "seconds": 5.6,
+    "citations": [
+      [
+        "DENSO-AC_brochure_tips-and-tricks_EN",
+        "9"
+      ],
+      [
+        "EN_AC Compressor oil_troubleshooting_bulletin",
+        "1"
+      ]
+    ]
+  },
+  {
+    "id": "I05",
+    "lang": "vi",
+    "kind": "fact",
+    "question": "Nếu dầu PAO bị cho vào chu trình môi chất lạnh có dầu PAG thì gây ra hậu quả gì?",
+    "truth": "PAG và PAO không hòa trộn, tạo chất giống parafin làm tắc van điều khiển và/hoặc chu trình: mất chức năng biến thiên dung tích, tắc hệ thống hoặc kẹt máy nén.",
+    "facts": [
+      [
+        "parafin",
+        "paraffin"
+      ],
+      [
+        "tắc",
+        "clog",
+        "nghẹt",
+        "bít"
+      ]
+    ],
+    "doc": "EN_AC_Compressor_Failure Analysis_Poster|DENSO-AC_brochure_tips-and-tricks",
+    "pages": [
+      1,
+      5,
+      6
+    ],
+    "note": "The brochure reprints the failure-analysis content on pp. 5-6 (verified in the PDF).",
+    "answer_ok": true,
+    "doc_ok": true,
+    "page_ok": true,
+    "page_exact": false,
+    "cited_pages": [
+      5,
+      6,
+      7,
+      9,
+      10,
+      11
+    ],
+    "other_docs": [],
+    "run": 1,
+    "judge": 1.0,
+    "judge_reason": "The answer matches the ground truth: PAO and PAG do not mix, form a paraffin-like substance, clog the control valve/cycle, causing loss of variable displacement, system blockage, or compressor seizure.",
+    "answer": "Khi dầu PAO bị cho vào chu trình môi chất lạnh có dầu PAG, dầu PAO và dầu PAG sẽ không trộn lẫn nhau, dẫn đến việc tạo ra chất có dạng paraffine. Chất này sẽ gây tắc nghẹn van điều khiển và/hoặc chu trình môi chất lạnh, kết quả là không có điều chỉnh thay đổi thể tích, tắc nghẹn hệ thống hoặc kẹt máy nén. (DENSO-AC_brochure_tips-and-tricks_EN, p. 5)",
+    "seconds": 8.0,
+    "citations": [
+      [
+        "DENSO-AC_brochure_tips-and-tricks_EN",
+        "5, 6, 7, 9, 10, 11, …"
+      ]
+    ]
+  },
+  {
+    "id": "I06",
+    "lang": "en",
+    "kind": "fact",
+    "question": "Which oil does the compressor failure analysis poster list for a rotary TV type compressor using R1234yf?",
+    "truth": "None - it is listed as Discontinued.",
+    "facts": [
+      [
+        "discontinued"
+      ]
+    ],
+    "doc": "EN_AC_Compressor_Failure Analysis_Poster",
+    "pages": [
+      1
+    ],
+    "answer_ok": true,
+    "doc_ok": true,
+    "page_ok": true,
+    "page_exact": true,
+    "cited_pages": [
+      1
+    ],
+    "other_docs": [],
+    "run": 1,
+    "judge": 1.0,
+    "judge_reason": "The system correctly states the oil is listed as Discontinued, matching the ground truth without inventing an oil type.",
+    "answer": "Discontinued",
+    "seconds": 8.7,
+    "citations": [
+      [
+        "EN_AC_Compressor_Failure Analysis_Poster",
+        "1"
+      ]
+    ]
+  },
+  {
+    "id": "I07",
+    "lang": "vi",
+    "kind": "fact",
+    "question": "Có được đổ dầu trực tiếp vào máy nén không? Nếu cần thêm dầu thì phải đổ vào đâu?",
+    "truth": "Không bao giờ đổ dầu trực tiếp vào máy nén; khi cần thì thêm vào bình ngưng (condenser), bình lọc ẩm (receiver dryer) hoặc dàn bay hơi thứ hai.",
+    "facts": [
+      [
+        "không",
+        "never"
+      ],
+      [
+        "condenser",
+        "bình ngưng",
+        "dàn ngưng"
+      ],
+      [
+        "receiver",
+        "lọc ẩm",
+        "bình chứa"
+      ]
+    ],
+    "doc": "AC Compressor Installation Manual",
+    "pages": [
+      4
+    ],
+    "answer_ok": false,
+    "doc_ok": true,
+    "page_ok": true,
+    "page_exact": true,
+    "cited_pages": [
+      4
+    ],
+    "other_docs": [],
+    "run": 1,
+    "judge": 0.5,
+    "judge_reason": "Correctly states oil must not be poured directly into the compressor and matches dryer and second evaporator, but lists 'máy lọc' (filter) instead of the condenser (bình ngưng) required by the ground truth.",
+    "answer": "Không được đổ dầu trực tiếp vào máy nén. Khi cần điều chỉnh lượng dầu, dầu phải được đổ vào máy lọc, máy sấy hoặc máy hơi thứ hai (nếu có). (AC Compressor Installation Manual, p. 4)",
+    "seconds": 64.0,
+    "citations": [
+      [
+        "AC Compressor Installation Manual",
+        "4"
+      ]
+    ]
+  },
+  {
+    "id": "I08",
+    "lang": "en",
+    "kind": "fact",
+    "question": "Does DENSO recommend using an A/C service station to flush the refrigerant cycle?",
+    "truth": "No. Use dedicated flushing equipment and the correct type of refrigerant; an A/C service station is not recommended.",
+    "facts": [
+      [
+        "not recommended",
+        "no",
+        "does not"
+      ],
+      [
+        "flushing equipment",
+        "dedicated"
+      ]
+    ],
+    "doc": "AC Compressor Installation Manual",
+    "pages": [
+      4
+    ],
+    "answer_ok": true,
+    "doc_ok": true,
+    "page_ok": true,
+    "page_exact": true,
+    "cited_pages": [
+      4
+    ],
+    "other_docs": [
+      "DENSO-AC_brochure_tips-and-tricks_EN"
+    ],
+    "run": 1,
+    "judge": 1.0,
+    "judge_reason": "The answer correctly states that DENSO does not recommend an A/C service station and instead recommends dedicated flushing equipment with the correct refrigerant, matching the ground truth with supporting citations.",
+    "answer": "No, DENSO does not recommend using an A/C service station to flush the refrigerant cycle. The use of an A/C service station is not recommended for flushing the refrigerant cycle. Instead, dedicated flushing equipment and the correct type of refrigerant should be used. This is stated in the AC Compressor Installation Manual, which specifies: \"When flushing the refrigerant cycle, we recommend the use of dedicated flushing equipment and the correct type of refrigerant. The use of an A/C service station is not recommended.\" (AC Compressor Installation Manual, p. 4). The same recommendation is reiterated in the DENSO-AC_brochure_tips-and-tricks_EN document, which states: \"When flushing the refrigeration cycle, we recommend the use of a flushing device with refrigerant. The use of of an air conditioning service station is not recommended.\" (DENSO-AC_brochure_tips-and-tricks_EN, p. 8).",
+    "seconds": 11.9,
+    "citations": [
+      [
+        "DENSO-AC_brochure_tips-and-tricks_EN",
+        "4, 8"
+      ],
+      [
+        "AC Compressor Installation Manual",
+        "4"
+      ]
+    ]
+  },
+  {
+    "id": "I09",
+    "lang": "vi",
+    "kind": "fact",
+    "question": "Khi hệ thống có chất chống rò rỉ (leak stop) thì có súc rửa được không?",
+    "truth": "Không, khi có leak stop thì không thể súc rửa; phải thay toàn bộ các chi tiết.",
+    "facts": [
+      [
+        "không"
+      ],
+      [
+        "thay",
+        "replace"
+      ]
+    ],
+    "doc": "AC Compressor Installation Manual|DENSO-AC_brochure_tips-and-tricks",
+    "pages": [
+      4,
+      8
+    ],
+    "note": "The brochure reprints repair procedure 4 (leak stop: flushing not possible) on p. 8.",
+    "answer_ok": true,
+    "doc_ok": true,
+    "page_ok": true,
+    "page_exact": true,
+    "cited_pages": [
+      4,
+      8
+    ],
+    "other_docs": [],
+    "run": 1,
+    "judge": 1.0,
+    "judge_reason": "The answer correctly states flushing is not possible with leak stop and all parts/system must be replaced, matching the ground truth and cited sources.",
+    "answer": "Khi hệ thống có chất chống rò rỉ (leak stop), không thể thực hiện súc rửa được. Trong trường hợp này, cần thay thế toàn bộ hệ thống vì súc rửa không thể loại bỏ chất chống rò rỉ và các chất phụ gia khác.  \nNguồn: [1] DENSO-AC_brochure_tips-and-tricks_EN.md, trang 8 (đoạn: \"Oil additives (flushing is NOT possible with leak stop). All parts must be replaced!\") và [2] AC Compressor Installation Manual.md, trang 4 (đoạn: \"Oil additives (in case of leak stop flushing is NOT possible). All parts need to be replaced!\").",
+    "seconds": 16.1,
+    "citations": [
+      [
+        "DENSO-AC_brochure_tips-and-tricks_EN",
+        "4, 8"
+      ],
+      [
+        "AC Compressor Installation Manual",
+        "4"
+      ]
+    ]
+  },
+  {
+    "id": "I10",
+    "lang": "vi",
+    "kind": "fact",
+    "question": "Có được dùng bugi DENSO để đánh lửa cho đầu đốt gas (gas burner) không?",
+    "truth": "Không; bugi DENSO không được thiết kế cho việc đó, có thể gây đánh lửa hỏng hoặc hư thiết bị do quá nhiệt.",
+    "facts": [
+      [
+        "không",
+        "never"
+      ],
+      [
+        "quá nhiệt",
+        "overheat",
+        "hư hỏng",
+        "hỏng thiết bị",
+        "damage"
+      ]
+    ],
+    "doc": "Spark Plug Catalogue 2025",
+    "pages": [
+      4,
+      5
+    ],
+    "answer_ok": true,
+    "doc_ok": true,
+    "page_ok": true,
+    "page_exact": true,
+    "cited_pages": [
+      4
+    ],
+    "other_docs": [],
+    "run": 1,
+    "judge": 1.0,
+    "judge_reason": "System answer correctly states DENSO spark plugs must not be used for gas burner ignition due to risk of ignition failure or overheating damage, matching the ground truth.",
+    "answer": "Không được dùng bugi DENSO để đánh lửa cho đầu đốt gas (gas burner).  \nBugi DENSO được thiết kế và sản xuất chỉ cho các động cơ ô tô, và việc sử dụng chúng cho mục đích khác như đầu đốt gas có thể gây ra sự cố như không khởi động được hoặc hỏng hóc thiết bị do quá nhiệt.  \nĐiều này được nêu rõ trong phần \"WARNING (Prohibited Usage)\" của tài liệu Spark Plug Catalogue 2025, nơi DENSO khuyến cáo:  \n- \"●Never use DENSO spark plugs for gas burner ignition. The DENSO spark plugs we sell are not designed and manufactured for such use, so that such use may result in ignition failure or equipment damage due to overheating.\"  \n(Tài liệu: Spark Plug Catalogue 2025, trang 4)",
+    "seconds": 19.2,
+    "citations": [
+      [
+        "Spark Plug Catalogue 2025",
+        "4"
+      ]
+    ]
+  },
+  {
+    "id": "I11",
+    "lang": "en",
+    "kind": "fact",
+    "question": "What can happen if a spark plug is installed with too low torque?",
+    "truth": "Damage to the engine and the plugs due to leakage of combustion gas or vibration.",
+    "facts": [
+      [
+        "combustion gas",
+        "gas leak"
+      ],
+      [
+        "vibration"
+      ]
+    ],
+    "doc": "Spark Plug Catalogue 2025",
+    "pages": [
+      6,
+      7
+    ],
+    "answer_ok": true,
+    "doc_ok": true,
+    "page_ok": true,
+    "page_exact": false,
+    "cited_pages": [
+      4,
+      5,
+      6
+    ],
+    "other_docs": [],
+    "run": 1,
+    "judge": 1.0,
+    "judge_reason": "The system answer matches the ground truth exactly, stating damage to engine and plugs from combustion gas leakage or vibration.",
+    "answer": "If a spark plug is installed with too low torque, it may cause damage to the engine and the plugs due to leakage of combustion gas or vibration. (Spark Plug Catalogue 2025)",
+    "seconds": 8.6,
+    "citations": [
+      [
+        "Spark Plug Catalogue 2025",
+        "4, 5, 6"
+      ]
+    ]
+  },
+  {
+    "id": "I12",
+    "lang": "en",
+    "kind": "fact",
+    "question": "What does the terminal shape code R mean for a DENSO spark plug?",
+    "truth": "Nut type (not caulked): the terminal nut can be easily removed.",
+    "facts": [
+      [
+        "nut"
+      ],
+      [
+        "not caulked",
+        "easily removed",
+        "can be removed"
+      ]
+    ],
+    "doc": "Spark Plug Catalogue 2025",
+    "pages": [
+      4,
+      5
+    ],
+    "answer_ok": false,
+    "doc_ok": true,
+    "page_ok": true,
+    "page_exact": false,
+    "cited_pages": [
+      2,
+      3,
+      4,
+      5,
+      16,
+      17
+    ],
+    "other_docs": [],
+    "run": 1,
+    "judge": 1.0,
+    "judge_reason": "The answer correctly states R means removable, matching the ground truth that the terminal nut can be easily removed.",
+    "answer": "R: removable",
+    "seconds": 20.9,
+    "citations": [
+      [
+        "Spark Plug Catalogue 2025",
+        "2, 3, 4, 5, 16, 17, …"
+      ]
+    ]
+  },
+  {
+    "id": "I13",
+    "lang": "vi",
+    "kind": "fact",
+    "question": "Theo slide, trong cờ vua hệ số phân nhánh b và độ sâu m khoảng bao nhiêu?",
+    "truth": "b ~ 35, m ~ 100.",
+    "facts": [
+      [
+        "35"
+      ],
+      [
+        "100"
+      ]
+    ],
+    "doc": "Bài 5 - Tìm kiếm có đối thủ",
+    "pages": [
+      27
+    ],
+    "answer_ok": true,
+    "doc_ok": true,
+    "page_ok": true,
+    "page_exact": true,
+    "cited_pages": [
+      27
+    ],
+    "other_docs": [],
+    "run": 1,
+    "judge": 1.0,
+    "judge_reason": "System answer matches ground truth exactly: b ~ 35 and m ~ 100.",
+    "answer": "b ~ 35, m ~100",
+    "seconds": 5.7,
+    "citations": [
+      [
+        "Bài 5 - Tìm kiếm có đối thủ",
+        "27"
+      ]
+    ]
+  },
+  {
+    "id": "I14",
+    "lang": "vi",
+    "kind": "fact",
+    "question": "Độ sâu tìm kiếm 12-ply tương đương với trình độ nào?",
+    "truth": "Tương đương Deep Blue, Kasparov.",
+    "facts": [
+      [
+        "Deep Blue",
+        "Kasparov"
+      ]
+    ],
+    "doc": "Bài 5 - Tìm kiếm có đối thủ",
+    "pages": [
+      27
+    ],
+    "answer_ok": true,
+    "doc_ok": true,
+    "page_ok": true,
+    "page_exact": true,
+    "cited_pages": [
+      27
+    ],
+    "other_docs": [],
+    "run": 1,
+    "judge": 1.0,
+    "judge_reason": "The system answer correctly states that 12-ply search depth corresponds to Deep Blue and Kasparov, matching the ground truth exactly.",
+    "answer": "12-ply = Deep Blue, Kasparov. (Bài 5 - Tìm kiếm có đối thủ, tr. 27)",
+    "seconds": 19.2,
+    "citations": [
+      [
+        "Bài 5 - Tìm kiếm có đối thủ",
+        "27"
+      ]
+    ]
+  },
+  {
+    "id": "I15",
+    "lang": "vi",
+    "kind": "fact",
+    "question": "Chương trình Chinook đánh bại nhà vô địch cờ đam năm nào và dựa vào cơ sở dữ liệu gì?",
+    "truth": "Năm 1994; dùng cơ sở dữ liệu tàn cuộc tính sẵn cho mọi thế cờ có từ 8 quân trở xuống (444 tỷ thế cờ).",
+    "facts": [
+      [
+        "1994"
+      ],
+      [
+        "8"
+      ]
+    ],
+    "doc": "Bài 5 - Tìm kiếm có đối thủ",
+    "pages": [
+      45
+    ],
+    "answer_ok": true,
+    "doc_ok": true,
+    "page_ok": true,
+    "page_exact": true,
+    "cited_pages": [
+      45
+    ],
+    "other_docs": [],
+    "run": 1,
+    "judge": 1.0,
+    "judge_reason": "The answer correctly states 1994, the pre-computed endgame database covering all positions with 8 or fewer pieces, and 444 billion positions, matching the ground truth with only extra accurate detail.",
+    "answer": "Chương trình Chinook đã kết thúc 40 năm thống trị của nhà vô địch thế giới Marion Tinsley vào năm 1994, bằng cách sử dụng một cơ sở dữ liệu kết thúc trận đấu được tính trước, xác định cách chơi hoàn hảo cho tất cả các vị trí có 8 hoặc ít hơn quân cờ trên bàn, tổng cộng 444 tỷ vị trí.",
+    "seconds": 24.2,
+    "citations": [
+      [
+        "Bài 5 - Tìm kiếm có đối thủ",
+        "45"
+      ]
+    ]
+  },
+  {
+    "id": "I16",
+    "lang": "en",
+    "kind": "fact",
+    "question": "According to the slides, how many evaluations per move did Deep Blue perform?",
+    "truth": "30 billion evaluations per move.",
+    "facts": [
+      [
+        "30 billion",
+        "30 tỷ",
+        "30,000,000,000"
+      ]
+    ],
+    "doc": "Bài 5 - Tìm kiếm có đối thủ",
+    "pages": [
+      40
+    ],
+    "answer_ok": true,
+    "doc_ok": true,
+    "page_ok": true,
+    "page_exact": false,
+    "cited_pages": [
+      4,
+      40
+    ],
+    "other_docs": [],
+    "run": 1,
+    "judge": 1.0,
+    "judge_reason": "The system answer exactly matches the ground truth of 30 billion evaluations per move.",
+    "answer": "Deep Blue performed 30 billion evaluations per move.",
+    "seconds": 4.3,
+    "citations": [
+      [
+        "Bài 5 - Tìm kiếm có đối thủ",
+        "4, 40"
+      ]
+    ]
+  },
+  {
+    "id": "I17",
+    "lang": "vi",
+    "kind": "scan",
+    "question": "Trong phiếu bảo trì thay van SCV, bộ kit có mã gì?",
+    "truth": "DCRS300260 (294009-2150).",
+    "facts": [
+      [
+        "DCRS300260"
+      ],
+      [
+        "294009-2150"
+      ]
+    ],
+    "doc": "Phieu_bao_tri_SCV_scan",
+    "pages": [
+      1
+    ],
+    "answer_ok": true,
+    "doc_ok": true,
+    "page_ok": true,
+    "page_exact": true,
+    "cited_pages": [
+      1
+    ],
+    "other_docs": [
+      "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ)"
+    ],
+    "run": 1,
+    "judge": 1.0,
+    "judge_reason": "System answer matches the ground truth kit code DCRS300260 (294009-2150) exactly.",
+    "answer": "Bộ kit: DCRS300260 (294009-2150) (Phieu_bao_tri_SCV_scan, p. 1)",
+    "seconds": 9.5,
+    "citations": [
+      [
+        "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ)",
+        "1"
+      ],
+      [
+        "Phieu_bao_tri_SCV_scan",
+        "1"
+      ]
+    ]
+  },
+  {
+    "id": "I18",
+    "lang": "en",
+    "kind": "scan",
+    "question": "In the photo of the compressor oil table, which oil is listed for #PA, #S, #SB, #SE, SC, 6CA compressors with HFO 1234yf?",
+    "truth": "DENSO Oil 12.",
+    "facts": [
+      [
+        "Oil 12",
+        "Oil12"
+      ]
+    ],
+    "doc": "AC_oil_table_photo|AC Compressor Leaflet",
+    "pages": [
+      1,
+      2
+    ],
+    "answer_ok": true,
+    "doc_ok": true,
+    "page_ok": true,
+    "page_exact": true,
+    "cited_pages": [
+      1,
+      2
+    ],
+    "other_docs": [],
+    "run": 1,
+    "judge": 1.0,
+    "judge_reason": "System answer exactly matches the ground truth 'DENSO Oil 12'.",
+    "answer": "DENSO Oil 12",
+    "seconds": 12.3,
+    "citations": [
+      [
+        "AC_oil_table_photo",
+        "1"
+      ],
+      [
+        "AC Compressor Leaflet",
+        "2"
+      ]
+    ]
+  },
+  {
+    "id": "I19",
+    "lang": "ja",
+    "kind": "scan",
+    "question": "SCV取付時にガイドピンを使わないとどうなりますか?",
+    "truth": "燃料漏れの恐れがある。",
+    "facts": [
+      [
+        "燃料漏れ",
+        "燃料の漏れ",
+        "漏れ"
+      ]
+    ],
+    "doc": "SCV_ghi_chu_JP_scan|Diesel_SCV Kit",
+    "pages": [
+      1,
+      3,
+      4
+    ],
+    "answer_ok": true,
+    "doc_ok": true,
+    "page_ok": true,
+    "page_exact": true,
+    "cited_pages": [
+      1
+    ],
+    "other_docs": [],
+    "run": 1,
+    "judge": 1.0,
+    "judge_reason": "System answer matches ground truth: risk of fuel leakage when installing SCV without guide pin.",
+    "answer": "ガイドピンなしで取り付けると燃料漏れの恐れがあります。 (SCV_ghi_chu_JP_scan.md, p. 1)",
+    "seconds": 15.3,
+    "citations": [
+      [
+        "SCV_ghi_chu_JP_scan",
+        "1"
+      ]
+    ]
+  },
+  {
+    "id": "I20",
+    "lang": "vi",
+    "kind": "refusal",
+    "question": "Một lon dầu DENSO ND-oil 12 giá bao nhiêu tiền?",
+    "truth": "Tài liệu không ghi giá.",
+    "answer_ok": true,
+    "doc_ok": null,
+    "page_ok": null,
+    "page_exact": null,
+    "run": 1,
+    "judge": 1.0,
+    "judge_reason": "The system correctly states that the documents do not contain pricing information instead of inventing a price.",
+    "answer": "Tài liệu được cung cấp không chứa thông tin về giá cả của lon dầu DENSO ND-oil 12. Do đó, tôi không thể cung cấp câu trả lời về giá tiền của sản phẩm này dựa trên ngữ cảnh đã cho.",
+    "seconds": 14.6,
+    "citations": []
+  },
+  {
+    "id": "I21",
+    "lang": "en",
+    "kind": "refusal",
+    "question": "How many months of warranty does DENSO give on a new A/C compressor?",
+    "truth": "The documents do not state a warranty period.",
+    "answer_ok": true,
+    "doc_ok": null,
+    "page_ok": null,
+    "page_exact": null,
+    "run": 1,
+    "judge": 1.0,
+    "judge_reason": "The system correctly states that no warranty duration is provided in the documents and does not invent a number.",
+    "answer": "The provided context does not specify the warranty period for DENSO A/C compressors. While the documents mention warranty conditions (e.g., warranty void when using incorrect oils), no duration of warranty is stated. Therefore, I cannot determine the number of months of warranty from the given information.",
+    "seconds": 13.1,
+    "citations": []
+  },
+  {
+    "id": "I22",
+    "lang": "vi",
+    "kind": "refusal",
+    "question": "Thuật toán Monte Carlo Tree Search hoạt động như thế nào?",
+    "truth": "Slide không đề cập Monte Carlo Tree Search.",
+    "answer_ok": true,
+    "doc_ok": null,
+    "page_ok": null,
+    "page_exact": null,
+    "run": 1,
+    "judge": 1.0,
+    "judge_reason": "The question is unanswerable from the documents, and the system correctly states the information is unavailable without inventing an answer.",
+    "answer": "Tôi không có đủ thông tin trong tài liệu được cung cấp để giải thích cách hoạt động của thuật toán Monte Carlo Tree Search. Tài liệu chỉ bao gồm các nội dung về thuật toán Minimax, cắt cụt alpha-beta, và các khái niệm liên quan trong trò chơi có đối thủ, nhưng không đề cập đến Monte Carlo Tree Search. Vì vậy, tôi không thể trả lời câu hỏi này dựa trên ngữ cảnh đã cho.",
+    "seconds": 8.9,
+    "citations": []
+  }
+]

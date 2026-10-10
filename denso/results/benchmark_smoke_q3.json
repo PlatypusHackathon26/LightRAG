@@ -1,0 +1,13 @@
+{
+  "naive:3": {
+    "answer": "No relevant context found for the query.",
+    "references": [],
+    "latency_s": 907.5,
+    "source_hit": false,
+    "judge": {
+      "score": 0.0,
+      "reason": "The system answer incorrectly states no relevant context was found, despite the information being answerable and present in the ground-truth answer."
+    },
+    "id": 3
+  }
+}

@@ -1,0 +1,235 @@
+{
+  "naive:1": {
+    "answer": "The DENSO part number for the Suction Control Valve Kit covered by the diesel Common Rail installation guide is DCRS300260 (294009-2150) [2].\n\n### References\n\n- [2] Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ)",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md",
+      "AC-Compressor-Control-Valve-Identification-Bulletin-English.md",
+      "Spark Plug Catalogue 2025.md",
+      "AC Compressor Leaflet.md",
+      "WiperBlade-Cat26_Full-Version.md"
+    ],
+    "latency_s": 14.9,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly provides the exact DENSO part number and manufacturer reference matching the ground truth."
+    },
+    "id": 1
+  },
+  "naive:2": {
+    "answer": "DENSO holds over 40% of the OE market share in compressors, making it the world leader in this area [2].",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC Compressor Leaflet.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "AC-Compressor-Control-Valve-Identification-Bulletin-English.md",
+      "WiperBlade-Cat26_Full-Version.md"
+    ],
+    "latency_s": 100.8,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer accurately matches the ground-truth information regarding DENSO's OE market share."
+    },
+    "id": 2
+  },
+  "naive:3": {
+    "answer": "When installing the Suction Control Valve (SCV) into the housing, the mounting bolts must be tightened with a torque of 6.9 to 10.8 Nm [3].",
+    "references": [
+      "Spark Plug Catalogue 2025.md",
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md",
+      "WiperBlade-Cat26_Full-Version.md"
+    ],
+    "latency_s": 12.5,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly identifies the torque range as 6.9 to 10.8 Nm, matching the ground truth."
+    },
+    "id": 3
+  },
+  "naive:4": {
+    "answer": "According to the DENSO Compressor Oils leaflet, ND-oil 11 is a POE (Polyol Ester Oil) base oil type and its DENSO part number is DND11250. It is suitable for electrical compressors using R134a & R1234yf refrigerants. [2]\n\n### References\n- [2] AC-Compressor-Oils-Leaflet-English.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "AC Compressor Leaflet.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "EN_AC_Compressor_Failure Analysis_Poster.md",
+      "AC Compressor Installation Manual.md",
+      "WiperBlade-Cat26_Full-Version.md"
+    ],
+    "latency_s": 12.9,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer accurately provides the base oil type, part number, and additional correct details matching the ground truth."
+    },
+    "id": 4
+  },
+  "naive:5": {
+    "answer": "The diode inside the external control valve of some DENSO compressors for Mercedes-Benz applications serves to eliminate fly back. Fly back is a sudden voltage spike that occurs across an inductive load when its supply current is abruptly reduced or interrupted. The diode's placement, either within the electronic control unit (ECU) or the external control valve, depends on the specific vehicle application. It is crucial to install the correct type of compressor; if a compressor with an internal diode is replaced by one without it, the compressor will not function, and the ECU will log a Diagnostic Trouble Code (DTC) [2].\n\n### References\n\n- [2] AC-Compressor-Control-Valve-Identification-Bulletin-English",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC-Compressor-Control-Valve-Identification-Bulletin-English.md",
+      "AC Compressor Leaflet.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md"
+    ],
+    "latency_s": 13.2,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer accurately explains the purpose of the diode matching the ground truth, and includes valid extra details from the document."
+    },
+    "id": 5
+  },
+  "naive:6": {
+    "answer": "According to the DENSO A/C Compressor Installation Guide's precautions list, you should check the compressor's identification label to determine which type of compressor oil is allowed to be used [5]. This label is typically attached to the rear or side of the compressor [1, 2, 5].\n\n### References\n\n- [1] DENSO-AC_brochure_tips-and-tricks_EN.md\n- [2] EN_AC Compressor oil_troubleshooting_bulletin.md\n- [5] AC Compressor Installation Manual.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "AC Compressor Leaflet.md",
+      "AC Compressor Installation Manual.md",
+      "AC-Compressor-Control-Valve-Identification-Bulletin-English.md",
+      "Spark Plug Catalogue 2025.md"
+    ],
+    "latency_s": 12.9,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly identifies that the compressor's identification label must be checked for the allowed oil."
+    },
+    "id": 6
+  },
+  "naive:7": {
+    "answer": "For a new M14 spark plug, excluding the special exceptions, the recommended torque is 20-30 N•m, and the recommended tightening angle is about 1/2 turn [1].\n\n### References\n\n- [1] Spark Plug Catalogue 2025",
+    "references": [
+      "Spark Plug Catalogue 2025.md"
+    ],
+    "latency_s": 12.9,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer matches the ground truth for torque and tightening angle for a new M14 spark plug."
+    },
+    "id": 7
+  },
+  "naive:8": {
+    "answer": "The DENSO Wiper Blade catalogue states that the Graphite Coating feature uses graphite, which is a type of carbon particle. This coating helps to reduce frictional resistance on window glass, especially with water-repellent coatings [1].\n\nThe benefits of the Graphite Coating include:\n*   High wiping performance without chattering sounds [1].\n*   It does not damage the water-repellent coating on the glass, allowing it to last longer [1].\n\nAll DENSO Wiper Blade series now come with Graphite Coating, which ensures smooth wiping due to the carbon particles reducing friction [1].\n\n### References\n\n- [1] WiperBlade-Cat26_Full-Version.md",
+    "references": [
+      "WiperBlade-Cat26_Full-Version.md",
+      "Spark Plug Catalogue 2025.md",
+      "AC Compressor Leaflet.md",
+      "AC-Compressor-Oils-Leaflet-English.md"
+    ],
+    "latency_s": 12.9,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer accurately captures both the material used and all key benefits mentioned in the ground-truth answer."
+    },
+    "id": 8
+  },
+  "naive:9": {
+    "answer": "According to the compressor oil recommendation table in the DENSO A/C Compressors leaflet, **DENSO Oil 9** is recommended for a Vane-type blower (TV) compressor running HFC134a (R-134a) refrigerant [4].\n\n### References\n\n- [4] AC Compressor Leaflet",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "AC Compressor Leaflet.md",
+      "AC-Compressor-Control-Valve-Identification-Bulletin-English.md",
+      "AC Compressor Installation Manual.md",
+      "EN_AC_Compressor_Failure Analysis_Poster.md"
+    ],
+    "latency_s": 12.6,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly identifies DENSO Oil 9 as the recommended oil, matching the ground-truth answer."
+    },
+    "id": 9
+  },
+  "naive:10": {
+    "answer": "According to the 'Compressor differences' table in the DENSO VAG compressor consolidation bulletin, the oil quantity for the DCP32045 is 140cc, while for the DCP32060, it is 110cc [1].\n\n### References\n\n- [1] DENSO-AC_brochure_tips-and-tricks_EN.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "AC Compressor Leaflet.md",
+      "AC-Compressor-Control-Valve-Identification-Bulletin-English.md",
+      "EN_AC_Compressor_Failure Analysis_Poster.md"
+    ],
+    "latency_s": 12.7,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer accurately provides the correct oil quantities for both compressors as stated in the ground truth."
+    },
+    "id": 10
+  },
+  "naive:11": {
+    "answer": "According to the Part No. and Available Length Chart in the DENSO Wiper Blade catalogue, both DRA-012 and DRB-012 rear wiper blades correspond to a length of 305 mm. [1]\n\n### References\n\n- [1] WiperBlade-Cat26_Full-Version.md",
+    "references": [
+      "WiperBlade-Cat26_Full-Version.md",
+      "Spark Plug Catalogue 2025.md",
+      "AC Compressor Leaflet.md"
+    ],
+    "latency_s": 13.3,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly identifies the length as 305 mm for both DRA-012 and DRB-012, matching the ground-truth."
+    },
+    "id": 11
+  },
+  "naive:12": {
+    "answer": "According to the Spark Plug Replacement Timing table, the recommended replacement intervals for automobiles are as follows:\n\n*   **Iridium Power / Ni-TT Plugs Conventional Plugs**: Approximately 20,000 km.\n*   **IRIDIUM TOUGH IRIDIUM PLUS Platinum Plugs**: Approximately 100,000 km.\n\n### References\n\n- [1] Spark Plug Catalogue 2025",
+    "references": [
+      "Spark Plug Catalogue 2025.md"
+    ],
+    "latency_s": 13.4,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer accurately provides the correct replacement intervals for all mentioned spark plug types matching the ground truth."
+    },
+    "id": 12
+  },
+  "naive:13": {
+    "answer": "In the DCP32020 features and comparison table, the following specifications are provided:\n\n*   **DCP32020**:\n    *   Pulley type: B-PC\n    *   Oil quantity: 80cc\n*   **DCP27001**:\n    *   Pulley type: R-SC\n    *   Oil quantity: 140cc\n\nThe table indicates that these two compressors are not consolidatable (\"No\") [1].\n\n### References\n\n- [1] DENSO-AC_brochure_tips-and-tricks_EN.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "EN_AC_Compressor_Failure Analysis_Poster.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "AC Compressor Leaflet.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "Spark Plug Catalogue 2025.md"
+    ],
+    "latency_s": 2.9,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer accurately provides all pulley types, oil quantities, and consolidation status matching the ground truth."
+    },
+    "id": 13
+  }
+}

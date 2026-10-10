@@ -1,0 +1,110 @@
+{
+  "naive:6": {
+    "answer": "According to the DENSO A/C Compressor Installation Guide's precautions list, specifically precaution #8, you must check the **identification label of the compressor** to determine which compressor oil is allowed to be used.\n\n### References\n\n- [5] AC Compressor Installation Manual.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "AC Compressor Leaflet.md",
+      "AC Compressor Installation Manual.md",
+      "AC-Compressor-Control-Valve-Identification-Bulletin-English.md",
+      "Spark Plug Catalogue 2025.md"
+    ],
+    "latency_s": 11.0,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system correctly identifies that the compressor's own identification label must be checked, matching the ground truth."
+    },
+    "id": 6
+  },
+  "naive:13": {
+    "answer": "**Answer**\n\n- **DCP32020** – Pulley type: **B‑PC**; Oil quantity: **80 cc**  \n- **DCP27001** – Pulley type: **R‑SC**; Oil quantity: **140 cc**  \n\nIn the comparison table, the “Consolidate (Yes/No)” column lists **“No”** for both the DCP32020 and the DCP27001 rows, indicating that the two compressors are **not listed as consolidatable**.\n\n**References**\n\n- [1] DENSO-AC_brochure_tips-and-tricks_EN.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "EN_AC_Compressor_Failure Analysis_Poster.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "AC Compressor Leaflet.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "Spark Plug Catalogue 2025.md"
+    ],
+    "latency_s": 13.5,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "All pulley types, oil quantities, and the non-consolidatable conclusion match the ground truth exactly."
+    },
+    "id": 13
+  },
+  "naive:14": {
+    "answer": "To remove the Suction Control Valve (SCV) from the pump, follow these three steps in order:\n\n1. **Mark the connector position of the SCV on the pump** – this ensures the valve can be re‑installed correctly.  \n2. **Loosen and remove the bolts** that secure the SCV to the pump.  \n3. **Remove the large O‑ring (Pos. 1)** from the pump housing.  \n\nThese steps are outlined in the installation guide under the “Suction Control Valve (SCV) removal” section.  \n\n### References\n- [1] Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md",
+    "references": [
+      "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md",
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC-Compressor-Control-Valve-Identification-Bulletin-English.md",
+      "AC Compressor Installation Manual.md"
+    ],
+    "latency_s": 9.9,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "All three steps match the ground truth in order and content, including the O-ring (Pos. 1) detail."
+    },
+    "id": 14
+  },
+  "mix:6": {
+    "answer": "To determine which compressor oil is allowed for use, you must check the **identification label attached to the DENSO A/C compressor** (specifically, the compressor’s identification label on the rear or side of the unit). This label indicates the correct oil type and quantity required for the compressor 【2†L1-L4】【1†L1-L4】.  \n\n### References  \n- [1] DENSO-AC_brochure_tips-and-tricks_EN.md  \n- [2] EN_AC Compressor oil_troubleshooting_bulletin.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "AC Compressor Leaflet.md"
+    ],
+    "latency_s": 38.4,
+    "llm_generated": true,
+    "source_hit": false,
+    "judge": {
+      "score": 1.0,
+      "reason": "Correctly identifies that the compressor's own identification label must be checked, matching the ground truth; the added location detail is minor."
+    },
+    "id": 6
+  },
+  "mix:13": {
+    "answer": "In the DCP32020 features and comparison table of the VAG compressor consolidation bulletin, the pulley type and oil quantity are specified as follows:\n\n- **DCP32020** – Pulley type: **B‑PC**; Oil quantity: **80 cc**.  \n- **DCP27001** – Pulley type: **R‑SC**; Oil quantity: **140 cc**.\n\nThe table also includes a “Consolidate (Yes/No)” column, which shows **“No”** for each of the listed characteristics, indicating that the two compressors are **not listed as consolidatable**【1†L1-L12】.\n\n### References\n\n- [1] DENSO-AC_brochure_tips-and-tricks_EN.md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "EN_AC_Compressor_Failure Analysis_Poster.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "AC Compressor Installation Manual.md"
+    ],
+    "latency_s": 20.9,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer correctly states DCP32020 has B-PC pulley and 80cc oil, DCP27001 has R-SC pulley and 140cc oil, and that they are not consolidatable, matching the ground truth."
+    },
+    "id": 13
+  },
+  "mix:14": {
+    "answer": "According to the diesel Common Rail installation guide, the removal of the Suction Control Valve (SCV) from the pump consists of the following three steps, performed in this order:\n\n1. **Mark the connector position of the SCV on the pump** – this ensures the electrical connector can be reinstalled correctly.  \n2. **Loosen and remove the bolts** that secure the SCV to the pump housing.  \n3. **Remove the large O‑ring (position 1)** from the SCV.\n\nThese steps are explicitly listed in the installation guide under the “Suction Control Valve (SCV) removal” procedure.\n\n### References\n\n- [2] Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md",
+    "references": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md",
+      "AC Compressor Installation Manual.md",
+      "WiperBlade-Cat26_Full-Version.md",
+      "AC-Compressor-Control-Valve-Identification-Bulletin-English.md"
+    ],
+    "latency_s": 16.2,
+    "llm_generated": true,
+    "source_hit": true,
+    "judge": {
+      "score": 1.0,
+      "reason": "The system answer lists the same three steps in the same order as the ground truth, including the O-ring (Pos. 1) detail."
+    },
+    "id": 14
+  }
+}

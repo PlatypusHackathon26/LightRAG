@@ -1,0 +1,23 @@
+[
+  {
+    "id": "L9",
+    "question": "Which DENSO wiper blades fit a 2008 Honda CR-V (RE3)?",
+    "facts": 1.0,
+    "pages": [
+      30,
+      83
+    ],
+    "answerable": true,
+    "note": "p30 CR-V 2006-2011 RE3, RE4 DDP-024R/L DDP-017R/L; p83 CR-V 2006-2011 DCP-026R/L DCP-017R/L DCS-G026 DCS-G017 (another blade series)",
+    "ok": true,
+    "page": true,
+    "cited_pages": [
+      30,
+      83,
+      148
+    ],
+    "answer": "[1] WiperBlade-Cat26_Full-Version - lookup.[native-P!].md | page 30 |  CR-V (INCL. HYBRID) | 2006-2011 | RE3, RE4 | *7 DDP-024R/L +SIDE CLIP | DDP-017R/L +SIDE CLIP | *7 DDS-024R/L +SIDE CLIP | DDS-017R/L +SIDE CLIP  \n[2] WiperBlade-Cat26_Full-Version - lookup.[native-P!].md | page 83 |  CR-V (INCL. HYBRID) | 2006-2011 | RE3, RE4 | DCP-026R/L +SIDE CLIP | DCP-017R/L +SIDE CLIP | DCS-G026 +SIDE CLIP | DCS-G017 +SIDE CLIP | DCV-026 +SIDE CLIP | DCV-017 +SIDE CLIP  \n[3] WiperBlade-Cat26_Full-Version - lookup.[native-P!].md | page 148 |  CR-V (INCL. HYBRID) | 2006-2011 | RE3, RE4 | DRA-014  \n\nFor a 2008 Honda CR-V (RE3), the following DENSO wiper blades fit:  \n- DDP-024R/L +SIDE CLIP (driver) and DDP-017R/L +SIDE CLIP (passenger) [1]  \n- DDS-024R/L +SIDE CLIP (driver) and DDS-017R/L +SIDE CLIP (passenger) [1]  \n- DCP-026R/L +SIDE CLIP (driver) and DCP-017R/L +SIDE CLIP (passenger) [2]  \n- DCS-G026 +SIDE CLIP (driver) and DCS-G017 +SIDE CLIP (passenger) [2]  \n- DCV-026 +SIDE CLIP (driver) and DCV-017 +SIDE CLIP (passenger) [2]  \n- DRA-014 [3]  \n\nAll listed rows cover the 2006–2011 model years and include the RE3 chassis code, so the 2008 model is within range. No other rows apply.",
+    "seconds": 11.8,
+    "route": "Matched 3 catalogue row(s) (lookup, keyword, level 1)"
+  }
+]

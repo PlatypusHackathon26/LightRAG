@@ -1,0 +1,72 @@
+[
+  {
+    "lang": "vi",
+    "question": "Mô-men xoắn siết bu-lông SCV trên bơm Common Rail diesel là bao nhiêu?",
+    "answer_lang": "vi",
+    "mixed": [],
+    "answer": "Mô-men xoắn siết bu-lông SCV trên bơm Common Rail diesel là từ 6,9 đến 10,8 Nm. (Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ), p. 4)"
+  },
+  {
+    "lang": "vi",
+    "question": "Dầu DENSO nào dùng cho máy nén kiểu TV với môi chất R-134a?",
+    "answer_lang": "vi",
+    "mixed": [],
+    "answer": "Dầu DENSO 9 (DENSO Oil 9) được dùng cho máy nén kiểu TV với môi chất R-134a. (AC Compressor Leaflet, p. 2)"
+  },
+  {
+    "lang": "vi",
+    "question": "Vì sao gioăng cao su trong hệ thống điều hòa bị phồng và cần làm gì?",
+    "answer_lang": "vi",
+    "mixed": [],
+    "answer": "Gioăng cao su trong hệ thống điều hòa bị phồng do hai nguyên nhân chính: (1) hệ thống được nạp sai loại môi chất lạnh, hoặc (2) sử dụng chất điều kiện (conditioner) hoặc chất tẩy rửa (flushing agent) không phù hợp. Khi xảy ra hiện tượng này, cần thực hiện quy trình sửa chữa số 2 (REPAIR PROCEDURE 2) và thay mới các vòng đinh O (O-rings)."
+  },
+  {
+    "lang": "vi",
+    "question": "Quy trình lắp SCV mới lên bơm Common Rail gồm những bước nào?",
+    "answer_lang": "vi",
+    "mixed": [],
+    "answer": "Quy trình lắp SCV mới lên bơm Common Rail gồm các bước sau:\n\n1. **Lắp đặt O-ring mới**: Lắp đặt 1 O-ring mới.\n2. **Lắp đặt 2 ghim dẫn hướng**: Lắp đặt 2 ghim dẫn hướng vào các lỗ montaje và lắp đặt các guarniture mới.\n3. **Áp dụng dầu động cơ trên O-ring nhỏ**: Áp dụng dầu động cơ lên O-ring nhỏ.\n4. **Lắp đặt SCV**: Lắp đặt SCV bằng cách đẩy nhẹ nó vào hộp (để tránh làm hỏng O-ring). Khi SCV ở vị trí đúng, gỡ bỏ các ghim dẫn hướng.\n5. **Lắp đặt và siết chặt bu-lông**: Lắp đặt bu-lông và siết chặt chúng với mô-men siết từ 6.9 đến 10.8 Nm.\n\n**Lưu ý quan trọng**: Việc sử dụng 2 ghim dẫn hướng trong quá trình lắp đặt là bắt buộc. Lắp đặt mà không có ghim dẫn hướng có thể gây ra rò rỉ nhiên liệu."
+  },
+  {
+    "lang": "vi",
+    "question": "Phần tiếng Nga của hướng dẫn SCV ghi mô-men xoắn là bao nhiêu?",
+    "answer_lang": "vi",
+    "mixed": [],
+    "answer": "6,9 đến 10,8 Nm. (Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ), p. 19)"
+  },
+  {
+    "lang": "en",
+    "question": "What is the run-in procedure after installing a new A/C compressor?",
+    "answer_lang": "en",
+    "mixed": [],
+    "answer": "After installing a new A/C compressor, the run-in procedure is as follows:  \n1. Set the temperature to maximum cooling.  \n2. Switch the blower to maximum speed.  \n3. Start the engine and keep the engine RPM at idle.  \n4. Turn on the A/C for a minimum of 5 minutes. Do not increase engine speed.  \n5. After 5 minutes, the compressor oil originally stored in the compressor is transported through the system. At this point, it is safe to increase engine speed and test the A/C.  \n\nThis procedure ensures proper distribution of compressor oil and initial lubrication to prevent damage after installation."
+  },
+  {
+    "lang": "en",
+    "question": "Why can rubber seals in an A/C system become swollen?",
+    "answer_lang": "en",
+    "mixed": [],
+    "answer": "Rubber seals in an A/C system can become swollen due to the system being charged with the wrong type of refrigerant or the use of additives (conditioners) or wrong type flushing agents, which cause the refrigerant, oil, additive, or flushing agent to result in swelling of the rubber seals. (DENSO-AC_brochure_tips-and-tricks_EN, p. 6)"
+  },
+  {
+    "lang": "en",
+    "question": "Does the SCV torque in the Russian-language section match the English section?",
+    "answer_lang": "en",
+    "mixed": [],
+    "answer": "Yes, the SCV torque in the Russian-language section matches the English section: both specify 6.9 to 10.8 [Nm] for tightening the bolts after installing the Suction Control Valve (SCV). This is stated in the English section on page 4 and in the German section on page 6, and the Russian section follows the same installation instructions as the other language sections in the document. The torque value is consistently provided across language versions."
+  },
+  {
+    "lang": "ja",
+    "question": "ディーゼル用SCVの取付ボルトの締め付けトルクはいくつですか?",
+    "answer_lang": "ja",
+    "mixed": [],
+    "answer": "6.9から10.8 [Nm] (Diesel_SCV Kit_DCRS300260_installation guide (đa ngôn ngữ).md, p. 4)"
+  },
+  {
+    "lang": "ja",
+    "question": "新しいエアコンコンプレッサーを取り付けた後の慣らし運転の手順を教えてください。",
+    "answer_lang": "ja",
+    "mixed": [],
+    "answer": "新しいエアコンコンプレッサーを取り付けた後の慣らし運転の手順は以下の通りです。\n\n1. 温度を最大冷却に設定します。\n2. ブロワーを最大速度に設定します。\n3. エンジンを始動し、アイドリング状態に保ちます。\n4. エアコンを最低5分間作動させます。この間、エンジン回転数を上げてはいけません。\n5. 5分経過後、コンプレッサー内に最初にあったオイルがシステム全体に分配されます。これでエンジン回転数を上げてエアコンをテストすることができます。\n\nこの手順は、コンプレッサーオイルをシステム全体に分配し、潤滑を開始して新しい設置直後の損傷を防ぐことを目的としています。"
+  }
+]

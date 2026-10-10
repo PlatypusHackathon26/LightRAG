@@ -231,7 +231,7 @@ Dịch vụ đang chạy thì `serve_chat.ps1` giữ nguyên, chỉ bật nhữn
 | 7998 | reranker ngôn ngữ |
 | 5001 | Docling |
 | 11434 | Ollama |
-| 9710 | dịch vụ IoT (`-WithIoT`), dashboard ở `/dashboard/` |
+| 9710 | dịch vụ IoT (`-WithIoT`); dashboard phòng điều khiển mở qua gateway: http://localhost:9700/dashboard/ (cả qua tunnel) |
 | 1883 / 5433 | MQTT / TimescaleDB (`iot_service/docker-compose.yml`) |
 
 ### 4.2. Upload và xoá tài liệu

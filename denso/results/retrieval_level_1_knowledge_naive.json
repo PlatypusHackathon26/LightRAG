@@ -1,0 +1,429 @@
+[
+  {
+    "id": 1,
+    "category": "direct_fact",
+    "citations": 1,
+    "ranks": [
+      1
+    ],
+    "best": 1,
+    "all": 1,
+    "top3_files": [
+      "Diesel_SCV Kit_DCRS300260_installation guide ",
+      "Diesel_SCV Kit_DCRS300260_installation guide ",
+      "Diesel_SCV Kit_DCRS300260_installation guide "
+    ]
+  },
+  {
+    "id": 2,
+    "category": "direct_fact",
+    "citations": 1,
+    "ranks": [
+      1
+    ],
+    "best": 1,
+    "all": 1,
+    "top3_files": [
+      "AC Compressor Leaflet.md",
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC-Compressor-Oils-Leaflet-English.md"
+    ]
+  },
+  {
+    "id": 3,
+    "category": "direct_fact",
+    "citations": 1,
+    "ranks": [
+      2
+    ],
+    "best": 2,
+    "all": 2,
+    "top3_files": [
+      "Diesel_SCV Kit_DCRS300260_installation guide ",
+      "Diesel_SCV Kit_DCRS300260_installation guide ",
+      "Diesel_SCV Kit_DCRS300260_installation guide "
+    ]
+  },
+  {
+    "id": 4,
+    "category": "direct_fact",
+    "citations": 1,
+    "ranks": [
+      1
+    ],
+    "best": 1,
+    "all": 1,
+    "top3_files": [
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "DENSO-AC_brochure_tips-and-tricks_EN.md"
+    ]
+  },
+  {
+    "id": 5,
+    "category": "direct_fact",
+    "citations": 1,
+    "ranks": [
+      1
+    ],
+    "best": 1,
+    "all": 1,
+    "top3_files": [
+      "AC-Compressor-Control-Valve-Identification-Bu",
+      "AC Compressor Leaflet.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin"
+    ]
+  },
+  {
+    "id": 6,
+    "category": "direct_fact",
+    "citations": 1,
+    "ranks": [
+      null
+    ],
+    "best": null,
+    "all": null,
+    "top3_files": [
+      "AC Compressor Installation Manual.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin",
+      "DENSO-AC_brochure_tips-and-tricks_EN.md"
+    ]
+  },
+  {
+    "id": 7,
+    "category": "direct_fact",
+    "citations": 1,
+    "ranks": [
+      1
+    ],
+    "best": 1,
+    "all": 1,
+    "top3_files": [
+      "Spark Plug Catalogue 2025.md",
+      "Spark Plug Catalogue 2025.md",
+      "Spark Plug Catalogue 2025.md"
+    ]
+  },
+  {
+    "id": 8,
+    "category": "direct_fact",
+    "citations": 1,
+    "ranks": [
+      1
+    ],
+    "best": 1,
+    "all": 1,
+    "top3_files": [
+      "WiperBlade-Cat26_Full-Version.md",
+      "WiperBlade-Cat26_Full-Version.md",
+      "WiperBlade-Cat26_Full-Version.md"
+    ]
+  },
+  {
+    "id": 9,
+    "category": "table_data",
+    "citations": 1,
+    "ranks": [
+      5
+    ],
+    "best": 5,
+    "all": 5,
+    "top3_files": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "DENSO-AC_brochure_tips-and-tricks_EN.md"
+    ]
+  },
+  {
+    "id": 10,
+    "category": "table_data",
+    "citations": 1,
+    "ranks": [
+      1
+    ],
+    "best": 1,
+    "all": 1,
+    "top3_files": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "DENSO-AC_brochure_tips-and-tricks_EN.md"
+    ]
+  },
+  {
+    "id": 11,
+    "category": "table_data",
+    "citations": 1,
+    "ranks": [
+      3
+    ],
+    "best": 3,
+    "all": 3,
+    "top3_files": [
+      "WiperBlade-Cat26_Full-Version.md",
+      "WiperBlade-Cat26_Full-Version.md",
+      "WiperBlade-Cat26_Full-Version.md"
+    ]
+  },
+  {
+    "id": 12,
+    "category": "table_data",
+    "citations": 1,
+    "ranks": [
+      1
+    ],
+    "best": 1,
+    "all": 1,
+    "top3_files": [
+      "Spark Plug Catalogue 2025.md",
+      "Spark Plug Catalogue 2025.md",
+      "Spark Plug Catalogue 2025.md"
+    ]
+  },
+  {
+    "id": 13,
+    "category": "table_data",
+    "citations": 1,
+    "ranks": [
+      1
+    ],
+    "best": 1,
+    "all": 1,
+    "top3_files": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "EN_AC_Compressor_Failure Analysis_Poster.md"
+    ]
+  },
+  {
+    "id": 14,
+    "category": "procedure",
+    "citations": 1,
+    "ranks": [
+      1
+    ],
+    "best": 1,
+    "all": 1,
+    "top3_files": [
+      "Diesel_SCV Kit_DCRS300260_installation guide ",
+      "Diesel_SCV Kit_DCRS300260_installation guide ",
+      "Diesel_SCV Kit_DCRS300260_installation guide "
+    ]
+  },
+  {
+    "id": 15,
+    "category": "procedure",
+    "citations": 2,
+    "ranks": [
+      5,
+      5
+    ],
+    "best": 5,
+    "all": 5,
+    "top3_files": [
+      "Diesel_SCV Kit_DCRS300260_installation guide ",
+      "Diesel_SCV Kit_DCRS300260_installation guide ",
+      "Diesel_SCV Kit_DCRS300260_installation guide "
+    ]
+  },
+  {
+    "id": 16,
+    "category": "procedure",
+    "citations": 1,
+    "ranks": [
+      5
+    ],
+    "best": 5,
+    "all": 5,
+    "top3_files": [
+      "AC Compressor Installation Manual.md",
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC Compressor Installation Manual.md"
+    ]
+  },
+  {
+    "id": 17,
+    "category": "procedure",
+    "citations": 1,
+    "ranks": [
+      1
+    ],
+    "best": 1,
+    "all": 1,
+    "top3_files": [
+      "EN_AC Compressor oil_troubleshooting_bulletin",
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC Compressor Installation Manual.md"
+    ]
+  },
+  {
+    "id": 18,
+    "category": "procedure",
+    "citations": 1,
+    "ranks": [
+      1
+    ],
+    "best": 1,
+    "all": 1,
+    "top3_files": [
+      "AC Compressor Installation Manual.md",
+      "AC Compressor Installation Manual.md",
+      "AC Compressor Installation Manual.md"
+    ]
+  },
+  {
+    "id": 19,
+    "category": "troubleshooting",
+    "citations": 1,
+    "ranks": [
+      2
+    ],
+    "best": 2,
+    "all": 2,
+    "top3_files": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "EN_AC_Compressor_Failure Analysis_Poster.md",
+      "DENSO-AC_brochure_tips-and-tricks_EN.md"
+    ]
+  },
+  {
+    "id": 20,
+    "category": "troubleshooting",
+    "citations": 1,
+    "ranks": [
+      null
+    ],
+    "best": null,
+    "all": null,
+    "top3_files": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC Compressor Installation Manual.md"
+    ]
+  },
+  {
+    "id": 21,
+    "category": "troubleshooting",
+    "citations": 1,
+    "ranks": [
+      1
+    ],
+    "best": 1,
+    "all": 1,
+    "top3_files": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "EN_AC Compressor oil_troubleshooting_bulletin"
+    ]
+  },
+  {
+    "id": 22,
+    "category": "troubleshooting",
+    "citations": 1,
+    "ranks": [
+      1
+    ],
+    "best": 1,
+    "all": 1,
+    "top3_files": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "EN_AC_Compressor_Failure Analysis_Poster.md",
+      "DENSO-AC_brochure_tips-and-tricks_EN.md"
+    ]
+  },
+  {
+    "id": 23,
+    "category": "cross_document",
+    "citations": 2,
+    "ranks": [
+      8,
+      1
+    ],
+    "best": 1,
+    "all": 8,
+    "top3_files": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "DENSO-AC_brochure_tips-and-tricks_EN.md"
+    ]
+  },
+  {
+    "id": 24,
+    "category": "cross_document",
+    "citations": 2,
+    "ranks": [
+      2,
+      5
+    ],
+    "best": 2,
+    "all": 5,
+    "top3_files": [
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC-Compressor-Oils-Leaflet-English.md",
+      "DENSO-AC_brochure_tips-and-tricks_EN.md"
+    ]
+  },
+  {
+    "id": 25,
+    "category": "cross_document",
+    "citations": 2,
+    "ranks": [
+      4,
+      1
+    ],
+    "best": 1,
+    "all": 4,
+    "top3_files": [
+      "EN_AC Compressor oil_troubleshooting_bulletin",
+      "DENSO-AC_brochure_tips-and-tricks_EN.md",
+      "AC Compressor Installation Manual.md"
+    ]
+  },
+  {
+    "id": 26,
+    "category": "cross_document",
+    "citations": 2,
+    "ranks": [
+      3,
+      1
+    ],
+    "best": 1,
+    "all": 3,
+    "top3_files": [
+      "Spark Plug Catalogue 2025.md",
+      "Diesel_SCV Kit_DCRS300260_installation guide ",
+      "Diesel_SCV Kit_DCRS300260_installation guide "
+    ]
+  },
+  {
+    "id": 27,
+    "category": "multilingual",
+    "citations": 2,
+    "ranks": [
+      3,
+      1
+    ],
+    "best": 1,
+    "all": 3,
+    "top3_files": [
+      "Diesel_SCV Kit_DCRS300260_installation guide ",
+      "Diesel_SCV Kit_DCRS300260_installation guide ",
+      "Diesel_SCV Kit_DCRS300260_installation guide "
+    ]
+  },
+  {
+    "id": 28,
+    "category": "multilingual",
+    "citations": 2,
+    "ranks": [
+      1,
+      2
+    ],
+    "best": 1,
+    "all": 2,
+    "top3_files": [
+      "Diesel_SCV Kit_DCRS300260_installation guide ",
+      "Diesel_SCV Kit_DCRS300260_installation guide ",
+      "Diesel_SCV Kit_DCRS300260_installation guide "
+    ]
+  }
+]

@@ -143,6 +143,8 @@ giao diện hỏi bằng `deviceId` khi đã có, nếu chưa thì bằng mã s�
 Với `DENSO_IOT_URL`, các route này lấy từ `iot_service`; `POST /agent/chat` trong `conversationId` của
 một sự cố IoT vẫn trả lời từ tài liệu, nhưng thêm trạng thái sự cố (máy, cảnh báo, số liệu cảm biến, lệnh
 đề xuất) vào `user_prompt`, và câu hỏi tiếng Việt được thêm tên lỗi vào truy vấn tìm kiếm.
+`GET /dashboard/*`, `GET /api/v1/dashboard/*` và `GET /api/v1/stream` (SSE) chuyển tiếp dashboard phòng điều
+khiển của `iot_service` (chỉ đọc), để nó mở được ở :9700 và qua tunnel; không có IoT thì 404.
 Response thật của `/agent/incidents`:
 ```json
 [{ "id": "INC-DEMO-01", "conversationId": "conv-inc-demo-01", "device": "A/C compressor test bench 01",
