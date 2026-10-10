@@ -465,3 +465,51 @@ def test_guests_upload_only_when_the_team_testing_switch_is_on(tmp_path):
         assert r.status_code == expected
         # Still level 1: the switch grants uploads, never a higher access level.
         assert tc.post("/agent/documents", files={"file": ("a.md", b"x")}, data={"level": "2"}).status_code == 403
+
+
+def test_raw_file_finds_the_upload_behind_a_document(tmp_path):
+    from app import raw_file
+    (tmp_path / "raw" / "level_3").mkdir(parents=True)
+    pdf = tmp_path / "raw" / "Phieu.pdf"
+    pdf.write_bytes(b"%PDF-1.4")
+    (tmp_path / "raw" / "level_3" / "Secret.pdf").write_bytes(b"%PDF-1.4")
+    (tmp_path / "parsed" / "Catalogue").mkdir(parents=True)
+    (tmp_path / "parsed" / "Catalogue" / "meta.json").write_text('{"source_file": "Phieu.pdf"}', encoding="utf-8")
+    assert raw_file("Phieu.md", tmp_path) == pdf.resolve()
+    assert raw_file("Phieu - images.[native-P!].md", tmp_path) == pdf.resolve()
+    assert raw_file("Catalogue.md", tmp_path) == pdf.resolve()  # through parsed/<stem>/meta.json
+    assert raw_file("Secret.md", tmp_path, max_level=1) is None  # raw/level_3 is above the caller
+    assert raw_file("Secret.md", tmp_path, max_level=3) is not None
+    assert raw_file("../../etc/passwd", tmp_path) is None
+
+
+def test_raw_file_matches_either_unicode_normal_form(tmp_path):
+    import unicodedata
+    from app import raw_file
+    (tmp_path / "raw").mkdir()
+    name = unicodedata.normalize("NFD", "Bài 5 - Tìm kiếm có đối thủ") + ".pdf"
+    (tmp_path / "raw" / name).write_bytes(b"%PDF-1.4")
+    assert raw_file("Bài 5 - Tìm kiếm có đối thủ.md", tmp_path) is not None
+
+
+def test_document_file_is_served_only_at_the_callers_level(tmp_path):
+    (tmp_path / "raw").mkdir()
+    (tmp_path / "raw" / "Low.pdf").write_bytes(b"%PDF-1.4 low")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        docs = {"l1": [{"id": "doc-low", "file_path": "Low.md"}],
+                "l3": [{"id": "doc-high", "file_path": "High.md"}]}.get(request.url.host, [])
+        return httpx.Response(200, json={"documents": docs, "pagination": {"has_next": False}})
+
+    settings = Settings(level_servers=SERVERS, users={"tok-admin": {"name": "admin", "level": 3}},
+                        actions_log=tmp_path / "a.jsonl", ops_file=tmp_path / "m.json",
+                        upload_pipeline=False, data_dir=tmp_path)
+    tc = TestClient(create_app(settings, transport=httpx.MockTransport(handler)))
+    r = tc.get("/agent/documents/doc-low/file")
+    assert r.status_code == 200
+    assert r.content == b"%PDF-1.4 low"
+    assert r.headers["content-type"] == "application/pdf"
+    assert r.headers["content-disposition"].startswith("inline")
+    assert tc.get("/agent/documents/doc-high/file").status_code == 404  # a guest is level 1
+    # Level 3 sees the document, but its original was never uploaded here.
+    assert tc.get("/agent/documents/doc-high/file", headers={"Authorization": "Bearer tok-admin"}).status_code == 404

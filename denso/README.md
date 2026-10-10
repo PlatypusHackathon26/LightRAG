@@ -311,6 +311,7 @@ không bao giờ gọi LightRAG trực tiếp. Đặc tả đầy đủ: `docs/A
 | `POST /agent/chat` | hỏi đáp: chọn kho theo cấp, câu hỏi tra xe sang tầng tra cứu; trả `content`, `citations` (tài liệu, trang, trích đoạn), `events`, `grounded` |
 | `GET /agent/documents` | danh sách tài liệu, kể cả upload đang xử lý |
 | `POST /agent/documents` | upload qua pipeline (cần `can_upload`); `GET /agent/documents/jobs/{id}` theo dõi |
+| `GET /agent/documents/{id}/file` | file gốc cho cửa sổ xem trước (chỉ tài liệu ở cấp của người gọi) |
 | `DELETE /agent/documents/{id}` | xoá khỏi mọi kho đang chạy; báo cấp nào chưa kiểm tra được |
 | `GET /agent/incidents`, `/agent/telemetry/{id}` | dữ liệu MẪU (`sample_ops.json`) |
 | `POST /agent/actions/{id}/approve\|reject` | chỉ ghi log – **không bao giờ gửi lệnh PLC** |

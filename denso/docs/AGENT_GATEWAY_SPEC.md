@@ -128,6 +128,13 @@ Response thật (2/10 phần tử):
 cấp cao hơn cấp của mình (`403`). Tài liệu cấp N được nạp vào các server N..3 (cộng dồn).
 Response: `{ "status": "accepted", "trackIds": { "level_2": "…", "level_3": "…" } }`.
 
+### 4.3b `GET /agent/documents/{id}/file` (file gốc để xem trước)
+
+Trả file đã upload trong `denso/data/raw/` (PDF, ảnh, DOCX, …) với `Content-Disposition: inline`.
+Tài liệu phải nằm trên server ở cấp của người gọi, và không trả file trong `raw/level_N` cao hơn cấp đó.
+`404` khi tài liệu không thuộc cấp của người gọi hoặc máy chủ không còn giữ file gốc. Giao diện gửi kèm
+`Authorization` nên tải bằng `fetch` rồi mở PDF ở trang được trích dẫn.
+
 ### 4.4 `GET /agent/incidents`, `GET /agent/incidents/{id}`, `GET /agent/telemetry/{id}`
 
 Đọc từ `denso/gateway/sample_ops.json` (dữ liệu mẫu, đúng kiểu `Incident` / `TelemetrySnapshot`).

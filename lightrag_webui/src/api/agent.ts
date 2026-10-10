@@ -141,6 +141,14 @@ export function createAgentClient(config: AgentConfig, fetchImpl: FetchLike = (i
       return res.job
     },
 
+    /** Live only: the document's original upload, for the preview (sent with the auth header). */
+    async fetchDocumentFile(docId: string): Promise<Blob> {
+      const path = `/agent/documents/${encodeURIComponent(docId)}/file`
+      const res = await fetchImpl(`${config.baseUrl}${path}`, { headers: headers() })
+      if (!res.ok) throw new AgentApiError(`GET ${path} failed: ${res.status}`, res.status)
+      return res.blob()
+    },
+
     fetchUploadJob(jobId: string): Promise<UploadJob> {
       return request<UploadJob>(`/agent/documents/jobs/${encodeURIComponent(jobId)}`)
     },

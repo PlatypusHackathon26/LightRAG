@@ -3,133 +3,18 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { ChatMessage as ChatMessageType } from '../types/agentic'
 import { useAgenticStore } from '../stores/agenticStore'
-import { pdfjs, Document, Page } from 'react-pdf'
-import { FileTextIcon, UserIcon, BotIcon, ChevronDownIcon, XIcon, EyeIcon, LoaderIcon } from 'lucide-react'
-
-// Set up PDF.js worker
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`
-
-function CitationPreviewModal({ doc, onClose }: { doc: any; onClose: () => void }) {
-  const [numPages, setNumPages] = useState<number | null>(null)
-  const [pdfError, setPdfError] = useState<string | null>(null)
-
-  if (!doc) return null
-
-  const handleLoadSuccess = ({ numPages: nextNumPages }: { numPages: number }) => {
-    setNumPages(nextNumPages)
-  }
-
-  const handleLoadError = (error: Error) => {
-    setPdfError(error.message)
-  }
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(4px)' }}
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label={`Preview: ${doc.name}`}
-    >
-      <div
-        className="rounded overflow-hidden flex flex-col"
-        style={{
-          maxWidth: 900,
-          width: '95vw',
-          maxHeight: '90vh',
-          background: '#FFFFFF',
-          border: '1px solid #D9E1E8',
-          boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div
-          className="flex items-center justify-between px-4 py-3"
-          style={{ borderBottom: '1px solid #D9E1E8' }}
-        >
-          <div className="flex items-center gap-2">
-            <FileTextIcon size={14} style={{ color: '#00A896' }} />
-            <span className="font-semibold" style={{ fontSize: 15, color: '#172033', fontFamily: 'Inter, sans-serif' }}>
-              {doc.name}
-            </span>
-          </div>
-          <button
-            aria-label="Close preview"
-            onClick={onClose}
-            className="rounded p-1 hover:bg-[#F0F4F8] transition-colors focus-visible:outline-2 focus-visible:outline-[#00A896]"
-          >
-            <XIcon size={14} style={{ color: '#5B6575' }} />
-          </button>
-        </div>
-        <div className="flex-1 overflow-auto p-4" style={{ background: '#F8FAFC' }}>
-          {doc.file ? (
-            <Document
-              file={doc.file}
-              onLoadSuccess={handleLoadSuccess}
-              onLoadError={handleLoadError}
-              loading={
-                <div className="flex items-center justify-center py-8">
-                  <LoaderIcon size={24} className="animate-spin" style={{ color: '#00A896' }} />
-                  <span className="ml-2" style={{ fontSize: 13, color: '#5B6575', fontFamily: 'Inter, sans-serif' }}>
-                    Loading PDF...
-                  </span>
-                </div>
-              }
-            >
-              {pdfError ? (
-                <div className="text-center py-8" style={{ color: '#EF4444', fontSize: 13, fontFamily: 'Inter, sans-serif' }}>
-                  Failed to load PDF: {pdfError}
-                </div>
-              ) : (
-                Array.from(new Array(numPages ?? 0), (_, index) => (
-                  <div key={`page_${index + 1}`} className="mb-4">
-                    <Page
-                      pageNumber={index + 1}
-                      width={800}
-                      renderTextLayer={false}
-                      renderAnnotationLayer={false}
-                    />
-                  </div>
-                ))
-              )}
-            </Document>
-          ) : (
-            <div className="text-center py-8" style={{ color: '#5B6575', fontSize: 13, fontFamily: 'Inter, sans-serif' }}>
-              <FileTextIcon size={32} style={{ color: '#00A896', marginBottom: 8 }} />
-              <p>Document preview requires the original file.</p>
-              <p style={{ fontSize: 11, marginTop: 4 }}>This is mock data with extracted text only.</p>
-              <details className="mt-4 text-left">
-                <summary className="cursor-pointer" style={{ color: '#00A896' }}>
-                  View extracted text
-                </summary>
-                <pre
-                  className="mt-2 p-3 rounded leading-relaxed whitespace-pre-wrap"
-                  style={{ fontSize: 12, color: '#172033', fontFamily: 'Roboto Mono, monospace', background: '#F0F4F8', border: '1px solid #D9E1E8' }}
-                >
-                  {doc.extractedText ?? '(No extracted text available)'}
-                </pre>
-              </details>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
+import SourcePreviewModal from './SourcePreviewModal'
+import { firstPage } from '../format'
+import { FileTextIcon, UserIcon, BotIcon, ChevronDownIcon, XIcon, EyeIcon } from 'lucide-react'
 
 export default function ChatMessage({ message }: { message: ChatMessageType }) {
   const isUser = message.role === 'user'
   const isSystem = message.role === 'system'
   const [showSources, setShowSources] = useState(false)
-  const [previewDocId, setPreviewDocId] = useState<string | null>(null)
+  const [preview, setPreview] = useState<{ docId: string; page?: number } | null>(null)
   const { documents } = useAgenticStore()
 
-  const previewDoc = documents.find((d) => d.id === previewDocId) ?? null
-
-  const handlePreviewCitation = (citationId: string) => {
-    setPreviewDocId(citationId)
-  }
+  const previewDoc = documents.find((d) => d.id === preview?.docId) ?? null
 
   if (isSystem) {
     return (
@@ -379,7 +264,7 @@ export default function ChatMessage({ message }: { message: ChatMessageType }) {
                         </div>
                         {doc && (
                           <button
-                            onClick={() => handlePreviewCitation(doc.id)}
+                            onClick={() => setPreview({ docId: doc.id, page: firstPage(c.pages) })}
                             className="rounded p-1 transition-colors hover:bg-[#EBF5F4] focus-visible:outline-2 focus-visible:outline-[#00A896]"
                             title="Xem file nguồn"
                             style={{ flexShrink: 0 }}
@@ -398,7 +283,7 @@ export default function ChatMessage({ message }: { message: ChatMessageType }) {
       </div>
 
       {/* Citation Preview Modal */}
-      <CitationPreviewModal doc={previewDoc} onClose={() => setPreviewDocId(null)} />
+      <SourcePreviewModal doc={previewDoc} page={preview?.page} onClose={() => setPreview(null)} />
     </div>
   )
 }

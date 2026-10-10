@@ -25,6 +25,22 @@ const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 
 describe('agent client', () => {
+  test('the original file is fetched with the bearer token, and a 404 is an AgentApiError', async () => {
+    const { calls, fetchImpl } = stubFetch((url) =>
+      url.includes('doc-1')
+        ? new Response('%PDF-1.4', { headers: { 'Content-Type': 'application/pdf' } })
+        : new Response('{}', { status: 404 })
+    )
+    const client = createAgentClient({ live: true, baseUrl: 'http://gw', token: 'tok' }, fetchImpl)
+    const blob = await client.fetchDocumentFile('doc-1')
+    expect(blob.type).toBe('application/pdf')
+    expect(await blob.text()).toBe('%PDF-1.4')
+    expect(calls[0].url).toBe('http://gw/agent/documents/doc-1/file')
+    expect((calls[0].init?.headers as Record<string, string>).Authorization).toBe('Bearer tok')
+    const err = await client.fetchDocumentFile('gone').catch((e) => e)
+    expect(err instanceof AgentApiError && err.status === 404).toBe(true)
+  })
+
   test('mock mode answers locally without calling fetch', async () => {
     const { calls, fetchImpl } = stubFetch(() => json({}))
     const client = createAgentClient({ live: false, baseUrl: 'http://gw' }, fetchImpl)

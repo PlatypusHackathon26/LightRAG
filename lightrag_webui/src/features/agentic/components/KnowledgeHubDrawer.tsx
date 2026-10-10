@@ -1,10 +1,11 @@
-import { useCallback, useState } from 'react'
+import { useCallback } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { useAgenticStore } from '../stores/agenticStore'
 import type { KnowledgeDocument } from '../types/agentic'
 import { agentClient } from '../../../api/agent'
 import { deleteLive, uploadLive } from '../uploadLive'
-import { pdfjs, Document, Page } from 'react-pdf'
+import SourcePreviewModal from './SourcePreviewModal'
+import { formatImportedAt } from '../format'
 import {
   XIcon,
   UploadCloudIcon,
@@ -15,9 +16,6 @@ import {
   LoaderIcon,
   AlertCircleIcon,
 } from 'lucide-react'
-
-// Set up PDF.js worker
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`
 
 const STATUS_COLOR: Record<KnowledgeDocument['indexStatus'], string> = {
   uploading: '#F59E0B',
@@ -77,6 +75,7 @@ function DocumentRow({
   onDelete: (id: string) => void
 }) {
   const statusColor = STATUS_COLOR[doc.indexStatus]
+  const imported = formatImportedAt(doc.importedAt)
   const isProcessing = doc.indexStatus !== 'vectorized' && doc.indexStatus !== 'error'
 
   return (
@@ -127,9 +126,12 @@ function DocumentRow({
         </span>
       </td>
       <td className="py-2 pr-3 whitespace-nowrap" style={{ width: '16%' }}>
-        <span style={{ fontSize: 12, color: '#5B6575', fontFamily: 'Roboto Mono, monospace' }}>
-          {doc.importedAt}
-        </span>
+        <div style={{ fontSize: 12, color: '#5B6575', fontFamily: 'Roboto Mono, monospace' }} title={doc.importedAt}>
+          {imported.date}
+        </div>
+        {imported.time && (
+          <div style={{ fontSize: 11, color: '#8A94A6', fontFamily: 'Roboto Mono, monospace' }}>{imported.time}</div>
+        )}
       </td>
       <td className="py-2 pr-3 whitespace-nowrap" style={{ width: '18%' }}>
         <div className="flex items-center gap-1.5">
@@ -183,127 +185,6 @@ function DocumentRow({
         </div>
       </td>
     </tr>
-  )
-}
-
-function PreviewModal({
-  doc,
-  onClose,
-}: {
-  doc: KnowledgeDocument | null
-  onClose: () => void
-}) {
-  const [numPages, setNumPages] = useState<number | null>(null)
-  const [pdfError, setPdfError] = useState<string | null>(null)
-
-  if (!doc) return null
-
-  const handleLoadSuccess = ({ numPages: nextNumPages }: { numPages: number }) => {
-    setNumPages(nextNumPages)
-  }
-
-  const handleLoadError = (error: Error) => {
-    setPdfError(error.message)
-  }
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(4px)' }}
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label={`Preview: ${doc.name}`}
-    >
-      <div
-        className="rounded overflow-hidden flex flex-col"
-        style={{
-          maxWidth: 900,
-          width: '95vw',
-          maxHeight: '90vh',
-          background: '#FFFFFF',
-          border: '1px solid #D9E1E8',
-          boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div
-          className="flex items-center justify-between px-4 py-3"
-          style={{ borderBottom: '1px solid #D9E1E8' }}
-        >
-          <div className="flex items-center gap-2">
-            <FileTextIcon size={14} style={{ color: '#00A896' }} />
-            <span className="font-semibold" style={{ fontSize: 15, color: '#172033', fontFamily: 'Inter, sans-serif' }}>
-              {doc.name}
-            </span>
-          </div>
-          <button
-            aria-label="Close preview"
-            onClick={onClose}
-            className="rounded p-1 hover:bg-[#F0F4F8] transition-colors focus-visible:outline-2 focus-visible:outline-[#00A896]"
-          >
-            <XIcon size={14} style={{ color: '#5B6575' }} />
-          </button>
-        </div>
-        <div className="flex-1 overflow-auto p-4" style={{ background: '#F8FAFC' }}>
-          {doc.file ? (
-            <Document
-              file={doc.file}
-              onLoadSuccess={handleLoadSuccess}
-              onLoadError={handleLoadError}
-              loading={
-                <div className="flex items-center justify-center py-8">
-                  <LoaderIcon size={24} className="animate-spin" style={{ color: '#00A896' }} />
-                  <span className="ml-2" style={{ fontSize: 13, color: '#5B6575', fontFamily: 'Inter, sans-serif' }}>
-                    Loading PDF...
-                  </span>
-                </div>
-              }
-            >
-              {pdfError ? (
-                <div className="text-center py-8" style={{ color: '#EF4444', fontSize: 13, fontFamily: 'Inter, sans-serif' }}>
-                  Failed to load PDF: {pdfError}
-                </div>
-              ) : (
-                Array.from(new Array(numPages ?? 0), (_, index) => (
-                  <div key={`page_${index + 1}`} className="mb-4">
-                    <Page
-                      pageNumber={index + 1}
-                      width={800}
-                      renderTextLayer={false}
-                      renderAnnotationLayer={false}
-                    />
-                  </div>
-                ))
-              )}
-            </Document>
-          ) : doc.fileUrl ? (
-            <iframe
-              src={doc.fileUrl}
-              style={{ width: '100%', height: '100%', border: 'none' }}
-              title={doc.name}
-            />
-          ) : (
-            <div className="text-center py-8" style={{ color: '#5B6575', fontSize: 13, fontFamily: 'Inter, sans-serif' }}>
-              <FileTextIcon size={32} style={{ color: '#00A896', marginBottom: 8 }} />
-              <p>Document preview requires the original file.</p>
-              <p style={{ fontSize: 11, marginTop: 4 }}>This is mock data with extracted text only.</p>
-              <details className="mt-4 text-left">
-                <summary className="cursor-pointer" style={{ color: '#00A896' }}>
-                  View extracted text
-                </summary>
-                <pre
-                  className="mt-2 p-3 rounded leading-relaxed whitespace-pre-wrap"
-                  style={{ fontSize: 12, color: '#172033', fontFamily: 'Roboto Mono, monospace', background: '#F0F4F8', border: '1px solid #D9E1E8' }}
-                >
-                  {doc.extractedText ?? '(No extracted text available)'}
-                </pre>
-              </details>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
   )
 }
 
@@ -488,7 +369,7 @@ export default function KnowledgeHubDrawer() {
       </div>
 
       {/* Preview Modal */}
-      <PreviewModal doc={previewDoc} onClose={() => setPreviewDocumentId(null)} />
+      <SourcePreviewModal doc={previewDoc} onClose={() => setPreviewDocumentId(null)} />
     </>
   )
 }

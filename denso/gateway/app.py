@@ -13,7 +13,9 @@ import asyncio
 import json
 import os
 import re
+import mimetypes
 import shutil
+import unicodedata
 import uuid
 from collections import defaultdict, deque
 from contextlib import asynccontextmanager
@@ -24,6 +26,7 @@ from pathlib import Path
 import httpx
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 import lookup as catalogue  # noqa: E402  (sibling module; app.py runs as a script)
@@ -492,6 +495,41 @@ def supporting_chunks(ref: dict, answer: str) -> list[str]:
             if s >= best * 0.5 or (named & set(PAGE_MARK.findall(t)))]
 
 
+def _nfc(text: str) -> str:
+    return unicodedata.normalize("NFC", text).casefold()
+
+
+def raw_file(file_path: str, data_dir: Path, max_level: int = MAX_LEVEL) -> Path | None:
+    """The uploaded original behind a LightRAG document ('X - images.[native-P!].md' -> raw/X.pdf).
+    Never a path outside data/raw, nor one under raw/level_N above `max_level`."""
+    stem = display_name(file_path)
+    stem = re.sub(r"\s*-\s*images$", "", stem)
+    raw_dir = (data_dir / "raw").resolve()
+    if not stem or not raw_dir.is_dir():
+        return None
+    candidates: list[Path] = []
+    meta = data_dir / "parsed" / stem / "meta.json"
+    if meta.is_file():
+        try:
+            source = json.loads(meta.read_text(encoding="utf-8")).get("source_file") or ""
+        except (OSError, ValueError):
+            source = ""
+        if source:
+            candidates += [raw_dir / Path(source).name, *raw_dir.glob(f"level_*/{Path(source).name}")]
+    # No meta.json (or a stale one): match the stem, in either Unicode normal form.
+    want = _nfc(stem)
+    candidates += [p for p in raw_dir.rglob("*") if p.is_file() and _nfc(p.stem) == want]
+    for p in candidates:
+        p = p.resolve()
+        if not (p.is_file() and raw_dir in p.parents):
+            continue
+        folder = p.parent.name
+        if folder.startswith("level_") and folder[6:].isdigit() and int(folder[6:]) > max_level:
+            continue
+        return p
+    return None
+
+
 def classify_target(message: str) -> str:
     return "lookup" if LOOKUP_QUESTION.search(message) else "knowledge"
 
@@ -872,6 +910,22 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
                 page += 1
         except (httpx.HTTPError, ValueError):
             return None
+
+    @app.get("/agent/documents/{doc_id}/file")
+    async def document_file(doc_id: str, user: User = Depends(current_user)) -> FileResponse:
+        """The original upload, for the UI's preview; only from a server at the caller's level."""
+        doc = None
+        for url in settings.level_servers[: user.level]:
+            doc = await find_document(url, doc_id)
+            if doc:
+                break
+        if doc is None:
+            raise HTTPException(status_code=404, detail="document not found at your access level")
+        path = raw_file(doc.get("file_path") or "", settings.data_dir, user.level)
+        if path is None:
+            raise HTTPException(status_code=404, detail="the original file is not on this server")
+        media = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+        return FileResponse(path, media_type=media, filename=path.name, content_disposition_type="inline")
 
     def remove_local_files(file_path: str) -> list[str]:
         """Pipeline outputs of a deleted document; the raw upload stays (undo by uploading it again)."""
