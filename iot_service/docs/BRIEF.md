@@ -2,7 +2,7 @@
 
 Dashboard là giao diện phòng điều khiển quan sát chỉ đọc (read-only):
 - Phục vụ tĩnh: `/dashboard/` (HTML/CSS/JS thuần, vendor Chart.js offline, không cần build).
-- Hỗ trợ chế độ kiosk: `http://localhost:9700/dashboard/?kiosk=1` (toàn màn hình, font số lớn, ẩn thanh điều khiển và chuột khi nhàn rỗi).
+- Hỗ trợ chế độ kiosk: `http://localhost:9710/dashboard/?kiosk=1` (toàn màn hình, font số lớn, ẩn thanh điều khiển và chuột khi nhàn rỗi).
 - Mọi route chỉ nhận method `GET`, từ chối `POST/PUT/DELETE` với HTTP 405 Method Not Allowed.
 - Trạng thái tổng máy: `critical` > `warn` > `normal`. Tự động chuyển `offline` khi không có mẫu dữ liệu trong `3 * PUBLISH_INTERVAL_S` (15 giây).
 - Trạng thái can thiệp Agent: Hiển thị cờ `is_mitigated` (Đã giảm nhẹ) khi lệnh giảm tải (SET_RPM) đã được thực thi và không còn metric nào ở mức nguy hiểm (`critical`), phân biệt rõ với trạng thái `Bình thường` (vì nguyên nhân gốc còn tồn tại, phiếu sửa chữa vẫn mở).

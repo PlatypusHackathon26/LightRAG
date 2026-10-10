@@ -523,3 +523,106 @@ def test_telemetry_is_found_by_incident_id_or_device_id(tmp_path):
     assert tc.get("/agent/telemetry/INC-1").json()["deviceId"] == "bench-01"
     assert tc.get("/agent/telemetry/bench-01").json()["deviceId"] == "bench-01"
     assert tc.get("/agent/telemetry/other").status_code == 404
+
+
+# ---------------------------------------------------------------- iot_service forwarding
+
+
+def _iot_client(tmp_path, iot_handler, **kw):
+    """Gateway with DENSO_IOT_URL=http://iot; LightRAG answers every chat with a fixed reply."""
+    seen = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        if request.url.host == "iot":
+            return iot_handler(request)
+        if request.url.path == "/query":
+            return httpx.Response(200, json={"response": "From the documents.", "references": [], "llm_generated": True})
+        return httpx.Response(404)
+
+    settings = Settings(level_servers=SERVERS, actions_log=tmp_path / "actions.jsonl", ops_file=tmp_path / "m.json",
+                        upload_pipeline=False, iot_url="http://iot",
+                        users={"tok-eng": {"name": "eng", "level": 1, "can_approve": True},
+                               "tok-op": {"name": "op", "level": 1}}, **kw)
+    return seen, TestClient(create_app(settings, transport=httpx.MockTransport(handler)))
+
+
+IOT_INCIDENT = {"id": "INC-0001", "conversationId": "CONV-0001", "device": "COMP-TB-01", "alarm": "High discharge",
+                "severity": "high", "status": "awaiting_approval", "timestamp": "2026-10-11T00:00:00Z"}
+
+
+def _iot_ok(request: httpx.Request) -> httpx.Response:
+    path = request.url.path
+    if path == "/agent/incidents":
+        return httpx.Response(200, json=[IOT_INCIDENT])
+    if path == "/agent/telemetry/COMP-TB-01":
+        return httpx.Response(200, json={"deviceId": "COMP-TB-01", "points": []})
+    if path == "/agent/actions/ACT-0001/approve":
+        return httpx.Response(200, json={"ack": "ACK 200"})
+    if path == "/agent/actions/ACT-0001/reject":
+        return httpx.Response(200, json={"status": "rejected"})
+    if path == "/agent/chat":
+        return httpx.Response(200, json={"content": "IoT agent: lower the RPM.", "citations": []})
+    return httpx.Response(404, json={"detail": "Incident not found"})
+
+
+def test_incidents_and_telemetry_come_from_the_iot_service(tmp_path):
+    _, tc = _iot_client(tmp_path, _iot_ok)
+    assert tc.get("/agent/incidents").json() == [IOT_INCIDENT]
+    assert tc.get("/agent/telemetry/COMP-TB-01").json()["deviceId"] == "COMP-TB-01"
+    r = tc.get("/agent/incidents/INC-9999")
+    assert r.status_code == 404 and "IoT service" in r.json()["detail"]
+
+
+def test_an_unreachable_iot_service_is_a_503_not_sample_data(tmp_path):
+    def down(request):
+        raise httpx.ConnectError("refused")
+    _, tc = _iot_client(tmp_path, down)
+    r = tc.get("/agent/incidents")
+    assert r.status_code == 503
+    assert "not reachable" in r.json()["detail"]
+
+
+def test_approving_an_iot_action_needs_the_right_and_is_logged(tmp_path):
+    seen, tc = _iot_client(tmp_path, _iot_ok)
+    assert tc.post("/agent/actions/ACT-0001/approve").status_code == 403  # guest
+    assert tc.post("/agent/actions/ACT-0001/approve", headers={"Authorization": "Bearer tok-op"}).status_code == 403
+    assert not [r for r in seen if r.url.path.endswith("/approve")]  # refused before reaching the simulator
+    r = tc.post("/agent/actions/ACT-0001/approve", headers={"Authorization": "Bearer tok-eng"})
+    assert r.json() == {"ack": "ACK 200"}
+    assert tc.post("/agent/actions/ACT-0001/reject", headers={"Authorization": "Bearer tok-eng"}).status_code == 200
+    rows = [json.loads(line) for line in (tmp_path / "actions.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert [(x["decision"], x["user"]) for x in rows] == [("approve", "eng"), ("reject", "eng")]
+
+
+def test_team_testing_mode_lets_guests_approve(tmp_path):
+    _, tc = _iot_client(tmp_path, _iot_ok, guest_can_upload=True)
+    assert tc.post("/agent/actions/ACT-0001/approve").json() == {"ack": "ACK 200"}
+
+
+def test_without_the_iot_service_an_approval_is_only_recorded(tmp_path):
+    settings = Settings(level_servers=SERVERS, actions_log=tmp_path / "a.jsonl", ops_file=tmp_path / "m.json",
+                        upload_pipeline=False)
+    tc = TestClient(create_app(settings, transport=httpx.MockTransport(lambda r: httpx.Response(500))))
+    assert tc.post("/agent/actions/ACT-1/approve").json()["ack"].startswith("ACK-")
+
+
+def test_a_chat_in_an_incident_conversation_goes_to_the_iot_agent(tmp_path):
+    seen, tc = _iot_client(tmp_path, _iot_ok)
+    r = tc.post("/agent/chat", json={"conversationId": "CONV-0001", "message": "What should I do?"})
+    assert r.json()["content"] == "IoT agent: lower the RPM."
+    assert not [x for x in seen if x.url.path == "/query"]
+    # The Q&A session and the IoT agent's own lookups are answered from the documents.
+    for conv in ("CONV-LIVE", "iot-rag-abc123"):
+        r = tc.post("/agent/chat", json={"conversationId": conv, "message": "SCV bolt torque?"})
+        assert r.json()["content"].startswith("From the documents")
+    assert not [x for x in seen if x.url.host == "iot" and "iot-rag" in x.content.decode()]
+
+
+def test_documents_still_answer_when_the_iot_service_is_down(tmp_path):
+    def down(request):
+        raise httpx.ConnectError("refused")
+    _, tc = _iot_client(tmp_path, down)
+    r = tc.post("/agent/chat", json={"conversationId": "CONV-LIVE", "message": "SCV bolt torque?"})
+    assert r.status_code == 200
+    assert r.json()["content"].startswith("From the documents")

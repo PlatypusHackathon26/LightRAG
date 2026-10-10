@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
 import httpx
@@ -12,9 +13,10 @@ logger = logging.getLogger("app.agent.rag")
 
 class RAGClient:
     """
-    RAG Client interfacing with LightRAG /query or static mock knowledge stub.
+    RAG Client interfacing with the DENSO Agent Gateway (or LightRAG /query) or a static mock stub.
     Supported modes:
-    - live: calls LightRAG /query (defaults to mode='mix')
+    - live: asks the DENSO Agent Gateway (POST /agent/chat) when RAG_GATEWAY_URL is set: the UI's
+      access level, answer language and page citations. Without it, LightRAG /query (mode='mix').
     - mock: uses static entries from config/knowledge_stub.yaml
     - auto: tries live with timeout; on failure/timeout falls back to mock and sets source='mock'
     """
@@ -25,13 +27,20 @@ class RAGClient:
         api_key: Optional[str] = None,
         mode: Optional[Literal["live", "mock", "auto"]] = None,
         stub_path: str = "config/knowledge_stub.yaml",
-        timeout: float = 8.0,
+        timeout: Optional[float] = None,
+        gateway_url: Optional[str] = None,
+        gateway_token: Optional[str] = None,
     ):
         self.base_url = (base_url or settings.RAG_BASE_URL).rstrip("/")
+        # An explicit base_url means "this LightRAG server" (tests, custom setups), not the gateway.
+        self.gateway_url = (
+            gateway_url if gateway_url is not None else ("" if base_url else settings.RAG_GATEWAY_URL)
+        ).rstrip("/")
+        self.gateway_token = gateway_token if gateway_token is not None else settings.RAG_GATEWAY_TOKEN
         self.api_key = api_key or settings.RAG_API_KEY
         self.mode = mode or settings.RAG_MODE
         self.stub_path = stub_path
-        self.timeout = timeout
+        self.timeout = timeout if timeout is not None else settings.RAG_TIMEOUT_S
         self._stub_entries: List[Dict[str, Any]] = []
         self._load_stub()
 
@@ -77,6 +86,8 @@ class RAGClient:
             return mock_res
 
     async def _search_live(self, query: str) -> Dict[str, Any]:
+        if self.gateway_url:
+            return await self._search_gateway(query)
         endpoint = f"{self.base_url}/query"
         headers = {"Content-Type": "application/json"}
         if self.api_key and self.api_key.strip():
@@ -124,6 +135,34 @@ class RAGClient:
             "answer": answer,
             "citations": citations,
             "source": "live",
+            "raw_response": data,
+        }
+
+    async def _search_gateway(self, query: str) -> Dict[str, Any]:
+        headers = {"Authorization": f"Bearer {self.gateway_token}"} if self.gateway_token.strip() else {}
+        # A fresh conversation per lookup: the gateway keeps history per conversation, and an
+        # earlier answer must not leak into an unrelated diagnosis.
+        payload = {"conversationId": f"iot-rag-{uuid.uuid4().hex[:12]}", "message": query}
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            resp = await client.post(f"{self.gateway_url}/agent/chat", headers=headers, json=payload)
+            resp.raise_for_status()
+            data = resp.json()
+        citations = [
+            {
+                "id": c.get("id") or f"CIT-LIVE-{idx + 1}",
+                "documentId": c.get("documentId") or f"ref-{idx + 1}",
+                "documentName": c.get("documentName") or c.get("documentId") or f"Doc-{idx + 1}",
+                "pages": c.get("pages"),
+                "excerpt": (c.get("excerpt") or "")[:200],
+            }
+            for idx, c in enumerate(data.get("citations") or [])
+        ]
+        return {
+            "answer": data.get("content", ""),
+            "citations": citations,
+            "source": "live",
+            # False when the documents do not answer the question (the gateway declined).
+            "grounded": data.get("grounded", True),
             "raw_response": data,
         }
 

@@ -58,7 +58,7 @@ async def test_rag_live_mode_mapping():
         "llm_generated": True,
     }
 
-    client = RAGClient(mode="live", timeout=2.0)
+    client = RAGClient(mode="live", timeout=2.0, gateway_url="")  # LightRAG /query directly
     mock_resp = MagicMock()
     mock_resp.raise_for_status = MagicMock()
     mock_resp.json.return_value = mock_response_data
@@ -71,3 +71,43 @@ async def test_rag_live_mode_mapping():
         cit = res["citations"][0]
         assert cit["documentName"] == "AC-Condenser-Installation-Manual-Multilingual_web.pdf"
         assert cit["pages"] is None  # LightRAG does not fabricate page numbers
+
+
+@pytest.mark.asyncio
+async def test_rag_live_mode_asks_the_denso_gateway():
+    gateway_reply = {
+        "content": "Siết bu-lông SCV 6,9-10,8 Nm.",
+        "citations": [{"id": "cit-1", "documentId": "Diesel_SCV", "documentName": "Diesel_SCV",
+                       "pages": "4", "excerpt": "Fit the bolts and tighten them with 6.9 to 10.8 [Nm]."}],
+        "grounded": True,
+    }
+    client = RAGClient(mode="live", timeout=2.0, gateway_url="http://gw:9700", gateway_token="tok")
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status = MagicMock()
+    mock_resp.json.return_value = gateway_reply
+
+    with patch("httpx.AsyncClient.post", return_value=mock_resp) as post:
+        res = await client.search_manual("mô-men siết SCV")
+    url = post.call_args.args[0]
+    kwargs = post.call_args.kwargs
+    assert url == "http://gw:9700/agent/chat"
+    assert kwargs["headers"] == {"Authorization": "Bearer tok"}
+    assert kwargs["json"]["message"] == "mô-men siết SCV"
+    assert kwargs["json"]["conversationId"].startswith("iot-rag-")
+    assert res["source"] == "live" and res["grounded"] is True
+    assert res["answer"] == gateway_reply["content"]
+    assert res["citations"][0]["pages"] == "4"  # the gateway cites pages
+
+
+@pytest.mark.asyncio
+async def test_each_gateway_lookup_is_its_own_conversation():
+    client = RAGClient(mode="live", timeout=2.0, gateway_url="http://gw:9700", gateway_token="")
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status = MagicMock()
+    mock_resp.json.return_value = {"content": "x", "citations": []}
+    with patch("httpx.AsyncClient.post", return_value=mock_resp) as post:
+        await client.search_manual("a")
+        await client.search_manual("b")
+    ids = [c.kwargs["json"]["conversationId"] for c in post.call_args_list]
+    assert ids[0] != ids[1]
+    assert post.call_args.kwargs["headers"] == {}  # no token: the gateway's guest level

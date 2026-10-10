@@ -125,6 +125,7 @@ denso/
 
 ../rag_storage/      (gitignored) kho LightRAG: level_1/, level_1_lookup/
 ../.env              (gitignored) cấu hình + API key
+../iot_service/      dịch vụ IoT: mô phỏng bệ thử, theo dõi ngưỡng, agent IoT, dashboard (mục 4.4)
 ```
 
 ---
@@ -212,7 +213,8 @@ trích hướng dẫn SCV trang 4.
 | Bật backend + giao diện | `serve_chat.ps1 -WithUI` |
 | Khởi động lại sau khi sửa `.env`, prompt hay code gateway | `serve_chat.ps1 -Restart` |
 | Cho người ngoài vào (link công khai) | `serve_chat.ps1 -Tunnel` – dòng `demo link` dùng được ngay |
-| Cho khách upload / xoá (cả nhóm test) | thêm `-GuestUpload` – **ai có link cũng xoá được tài liệu** |
+| Cho khách upload / xoá (cả nhóm test) | thêm `-GuestUpload` – **ai có link cũng xoá được tài liệu và duyệt lệnh** |
+| Bật dịch vụ IoT (mô phỏng bệ thử, sự cố thật, duyệt lệnh) | thêm `-WithIoT` (lần đầu thêm cả `-Restart`) – xem mục 4.4 |
 | Cho phép tên miền giao diện khác | thêm `-CorsRegex '<regex>'` |
 | Bật Docling (cần khi upload) | `denso\start.ps1 -DoclingOnly` |
 | Tắt Docling (trả lại ~2 GB RAM) | `docker stop docling-serve` |
@@ -229,6 +231,8 @@ Dịch vụ đang chạy thì `serve_chat.ps1` giữ nguyên, chỉ bật nhữn
 | 7998 | reranker ngôn ngữ |
 | 5001 | Docling |
 | 11434 | Ollama |
+| 9710 | dịch vụ IoT (`-WithIoT`), dashboard ở `/dashboard/` |
+| 1883 | MQTT (container `denso-mosquitto`) |
 
 ### 4.2. Upload và xoá tài liệu
 
@@ -242,6 +246,32 @@ Vercel chỉ chứa giao diện; backend vẫn chạy trên máy có `serve_chat
 Root Directory `lightrag_webui` và hai biến `VITE_DEMO_MODE=true`, `VITE_AGENT_LIVE=true`
 (thêm biến xong phải **Redeploy**). Mở link kèm `?gateway=<link tunnel>`; tên miền Vercel ngoài
 project gốc phải được cho phép bằng `-CorsRegex`.
+
+### 4.4. Dịch vụ IoT (`iot_service/`)
+
+Mô phỏng bệ thử máy nén, theo dõi ngưỡng và agent IoT đề xuất lệnh (`SET_RPM`, `STOP_TEST`) chờ
+người duyệt. Giao diện vẫn chỉ nói chuyện với gateway :9700; gateway chuyển tiếp sự cố, telemetry và
+quyết định duyệt / từ chối sang IoT :9710, còn agent IoT tra tài liệu qua `POST /agent/chat` nên có
+phân quyền và trích dẫn theo trang như giao diện. Lệnh chỉ đi tới **máy mô phỏng**, không tới PLC.
+
+Cài một lần (venv riêng: IoT ghim fastapi/pydantic cũ hơn LightRAG):
+
+```powershell
+uv venv iot_service\.venv --python 3.11
+uv pip install --python iot_service\.venv\Scripts\python.exe -r iot_service\requirements.txt
+```
+
+Chạy: `serve_chat.ps1 -WithIoT -Restart` (thêm `-WithUI` nếu cần). Kịch bản tự bật container
+Mosquitto `denso-mosquitto` khi Docker đang chạy (lần đầu tải image `eclipse-mosquitto:2`, ~10 MB) rồi
+bật máy mô phỏng; không có TimescaleDB (cổng 5433) thì IoT lưu trong RAM, mất khi tắt. Bơm sự cố thử:
+
+```powershell
+cd iot_service
+.venv\Scripts\python -m simulator.cli set COMP-TB-01 condenser_fan_failure
+```
+
+Duyệt lệnh cần `"can_approve": true` trong `users.json` (hoặc `-GuestUpload`). LLM của agent IoT
+(`AGENT_MODE=llm`) được trỏ sang proxy NVIDIA; mặc định `rules` không gọi LLM.
 
 ---
 
@@ -313,9 +343,10 @@ không bao giờ gọi LightRAG trực tiếp. Đặc tả đầy đủ: `docs/A
 | `POST /agent/documents` | upload qua pipeline (cần `can_upload`); `GET /agent/documents/jobs/{id}` theo dõi |
 | `GET /agent/documents/{id}/file` | file gốc cho cửa sổ xem trước (chỉ tài liệu ở cấp của người gọi) |
 | `DELETE /agent/documents/{id}` | xoá khỏi mọi kho đang chạy; báo cấp nào chưa kiểm tra được |
-| `GET /agent/incidents`, `/agent/telemetry/{id}` | dữ liệu MẪU (`sample_ops.json`) |
-| `POST /agent/actions/{id}/approve\|reject` | chỉ ghi log – **không bao giờ gửi lệnh PLC** |
-| `GET /agent/health` | trạng thái các kho LightRAG |
+| `GET /agent/incidents`, `/agent/telemetry/{id}` | từ dịch vụ IoT khi bật `-WithIoT`, nếu không là dữ liệu MẪU (`sample_ops.json`) |
+| `POST /agent/actions/{id}/approve\|reject` | có IoT: chuyển sang IoT (cần `can_approve`), lệnh chạy trên máy mô phỏng; không có IoT: chỉ ghi log. **Không bao giờ gửi lệnh PLC** |
+| `POST /agent/chat` trong hội thoại của một sự cố IoT | agent IoT trả lời (biết telemetry và chẩn đoán của sự cố) |
+| `GET /agent/health` | trạng thái các kho LightRAG (và IoT) |
 
 ---
 
@@ -324,6 +355,8 @@ không bao giờ gọi LightRAG trực tiếp. Đặc tả đầy đủ: `docs/A
 - **Phân quyền ở gateway:** cấp lấy từ `Authorization: Bearer <token>` tra trong
   `gateway/users.json`; không có token là khách (`DENSO_GUEST_LEVEL`, mặc định 1). Trình duyệt
   không tự chọn được cấp. Mỗi cấp là một kho LightRAG riêng.
+- **Duyệt lệnh IoT** cần `can_approve` (hoặc `-GuestUpload`). Dịch vụ IoT chỉ nghe trên `127.0.0.1`
+  vì các route `/agent/*` của nó không có xác thực: mọi thao tác phải đi qua gateway.
 - **Lịch sử hội thoại** tách theo người dùng; xoá tài liệu xoá luôn lịch sử có thể trích nó.
 - **API miễn phí chỉ cho cấp 1:** trả lời, đọc ảnh và trang scan; cấp 2/3 không gửi ra ngoài.
 - **Không commit bí mật:** `.env`, `users.json`, `data/`, `rag_storage/` đều gitignored;
@@ -354,6 +387,9 @@ không bao giờ gọi LightRAG trực tiếp. Đặc tả đầy đủ: `docs/A
 | "Tài khoản này không có quyền upload tài liệu" | token có `can_upload` trong `.env.development.local`, hoặc gateway chạy `-GuestUpload` |
 | Trình duyệt báo lỗi CORS | tên miền giao diện chưa được cho phép: `-CorsRegex` |
 | Máy chậm / treo | đóng bớt ứng dụng, tắt Docling khi không upload |
+| `-WithIoT` báo `mqtt=MISSING` | bật Docker Desktop rồi chạy lại; không có MQTT thì không có telemetry và sự cố |
+| Sự cố IoT không hiện trên giao diện | gateway chạy trước khi có `-WithIoT`: chạy lại với `-WithIoT -Restart` |
+| Duyệt lệnh báo "may not approve" | token cần `"can_approve": true` trong `users.json` |
 
 Nên thoát Docker bằng **Quit** ở khay hệ thống, không tắt ngang.
 

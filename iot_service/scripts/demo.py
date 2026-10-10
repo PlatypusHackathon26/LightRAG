@@ -66,7 +66,7 @@ def api_post(endpoint: str, base_url: str, data: dict = None):
         return json.loads(resp.read().decode("utf-8"))
 
 
-def run_demo(machine_id: str, scenario: str, auto_approve: bool = False, gateway_url: str = "http://localhost:9700"):
+def run_demo(machine_id: str, scenario: str, auto_approve: bool = False, gateway_url: str = "http://localhost:9710"):
     print("=" * 70)
     print(f" DENSO COMPRESSOR TEST BENCH - KICH BAN DEMO: {scenario.upper()}")
     print(f" Thiet bi muc tieu: {machine_id}")
@@ -172,7 +172,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--machine", default="COMP-TB-01", help="ID may (mac dinh: COMP-TB-01)")
     parser.add_argument("--approve", action="store_true", help="Tu dong bam phe duyet hanh dong HITL")
-    parser.add_argument("--gateway", default="http://localhost:9700", help="URL Agent Gateway")
+    parser.add_argument("--gateway", default="http://localhost:9710", help="URL IoT service (direct, localhost)")
 
     args = parser.parse_args()
     success = run_demo(args.machine, args.scenario, auto_approve=args.approve, gateway_url=args.gateway)

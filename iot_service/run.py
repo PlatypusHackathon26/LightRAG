@@ -21,7 +21,7 @@ def main():
     setup_event_loop()
     uvicorn.run(
         "app.main:app",
-        host="0.0.0.0",
+        host=settings.GATEWAY_HOST,
         port=settings.GATEWAY_PORT,
         loop="none",
         reload=False,

@@ -129,7 +129,10 @@ class Settings(BaseSettings):
     DB_DSN: str = "postgresql://postgres:postgres@localhost:5433/denso_iot"
     DB_REQUIRED: bool = True
     DB_MODE: str = "timescale"  # "timescale" or "memory"
-    GATEWAY_PORT: int = 9700
+    # 9700 is the DENSO Agent Gateway (denso/gateway), the UI's single entry point; it forwards
+    # incidents, telemetry and actions here. Localhost only: the /agent/* routes have no auth.
+    GATEWAY_HOST: str = "127.0.0.1"
+    GATEWAY_PORT: int = 9710
 
     PUBLISH_INTERVAL_S: float = 5.0
     SIM_SPEEDUP: float = 1.0
@@ -151,6 +154,12 @@ class Settings(BaseSettings):
     RAG_BASE_URL: str = "http://localhost:9621"
     RAG_API_KEY: str = "dummy-rag-key"
     RAG_MODE: str = "auto"
+    # Ask through the DENSO Agent Gateway (POST /agent/chat): access level, answer language and page
+    # citations as in the UI. Empty = query LightRAG at RAG_BASE_URL directly (no citations by page).
+    RAG_GATEWAY_URL: str = "http://127.0.0.1:9700"
+    RAG_GATEWAY_TOKEN: str = ""  # a token from denso/gateway/users.json; empty = guest (level 1)
+    # A gateway answer takes ~20-25 s on the free API; under this the "auto" mode fell back to the stub.
+    RAG_TIMEOUT_S: float = 90.0
 
     MACHINES_CONFIG_PATH: str = "config/machines.yaml"
 

@@ -1,6 +1,6 @@
 {
   "_comment": "Copy to users.json (gitignored) and replace the tokens with long random strings. The gateway maps Authorization: Bearer <token> to an access level; requests without a token get DENSO_GUEST_LEVEL. Clients can never choose their own level.",
   "replace-with-a-long-random-token-operator": {"name": "operator-demo", "level": 1},
-  "replace-with-a-long-random-token-engineer": {"name": "engineer-demo", "level": 2},
-  "replace-with-a-long-random-token-admin": {"name": "admin-demo", "level": 3, "can_upload": true}
+  "replace-with-a-long-random-token-engineer": {"name": "engineer-demo", "level": 2, "can_approve": true},
+  "replace-with-a-long-random-token-admin": {"name": "admin-demo", "level": 3, "can_upload": true, "can_approve": true}
 }

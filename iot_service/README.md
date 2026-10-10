@@ -24,8 +24,8 @@ Dashboard là giao diện quan sát trực quan thời gian thực dành cho k�
 - **Không hard-code cấu hình**: Mọi tên máy, nhãn hiển thị, đơn vị đo, ngưỡng cảnh báo/nguy hiểm và thang đo đều được lấy động từ `config/machines.yaml` thông qua API. Thêm máy hoặc metric mới chỉ cần chỉnh sửa file YAML.
 
 ### 2.1. Cách truy cập Dashboard & Tích hợp WebUI
-- **Chế độ thông thường**: Mở trình duyệt tại địa chỉ `http://localhost:9700/dashboard/`.
-- **Chế độ màn hình lớn / Kiosk (`?kiosk=1`)**: Mở `http://localhost:9700/dashboard/?kiosk=1`. Chế độ này sẽ ẩn thanh điều khiển trên cùng, phóng to kích thước chữ và số liệu viễn trắc, tự động ẩn con trỏ chuột sau vài giây không tương tác, rất phù hợp để trình chiếu trên màn hình TV lớn của phòng điều hành.
+- **Chế độ thông thường**: Mở trình duyệt tại địa chỉ `http://localhost:9710/dashboard/`.
+- **Chế độ màn hình lớn / Kiosk (`?kiosk=1`)**: Mở `http://localhost:9710/dashboard/?kiosk=1`. Chế độ này sẽ ẩn thanh điều khiển trên cùng, phóng to kích thước chữ và số liệu viễn trắc, tự động ẩn con trỏ chuột sau vài giây không tương tác, rất phù hợp để trình chiếu trên màn hình TV lớn của phòng điều hành.
 - **Tích hợp WebUI Agent Copilot**: Cấu hình biến môi trường `WEBUI_URL=http://localhost:5173`. Trên tab "HOẠT ĐỘNG AGENT" của Dashboard sẽ xuất hiện liên kết `Mở trong Agent Copilot ↗` giúp kỹ sư chuyển ngay sang WebUI để bấm duyệt/từ chối hoặc chat với Agent. Nếu để trống biến `WEBUI_URL`, liên kết sẽ tự động ẩn đi.
 
 ### 2.2. Cách đọc giao diện & Chỉ số viễn trắc
@@ -77,14 +77,14 @@ Dashboard là giao diện quan sát trực quan thời gian thực dành cho k�
 docker-compose up -d
 ```
 
-### Bước 2: Khởi động IoT Service, Dashboard & Gateway (:9700)
+### Bước 2: Khởi động IoT Service, Dashboard & Gateway (:9710)
 ```powershell
 cd iot_service
 .\.venv\Scripts\Activate.ps1
 $env:PYTHONPATH="."
-python -m uvicorn app.main:app --host 0.0.0.0 --port 9700
+python -m uvicorn app.main:app --host 127.0.0.1 --port 9710
 ```
-Truy cập Dashboard tại: `http://localhost:9700/dashboard/` (hoặc `http://localhost:9700/dashboard/?kiosk=1`).
+Truy cập Dashboard tại: `http://localhost:9710/dashboard/` (hoặc `http://localhost:9710/dashboard/?kiosk=1`).
 
 ### Bước 3: Khởi động Simulator Bệ thử Máy nén
 ```powershell
@@ -95,12 +95,11 @@ python -m simulator.cli run
 ```
 
 ### Bước 4: Khởi động WebUI Agentic (Duyệt lệnh HITL & Chat)
-```powershell
-cd lightrag_webui
-$env:VITE_DEMO_MODE="false"
-bun run dev
-# Truy cập giao diện tại: http://localhost:5173
-```
+WebUI nói chuyện với **DENSO Agent Gateway :9700**; gateway chuyển tiếp sự cố, telemetry và duyệt lệnh
+sang service này (:9710) khi chạy với `DENSO_IOT_URL=http://127.0.0.1:9710`. Cách gọn nhất là để
+`denso/scripts/serve_chat.ps1 -WithIoT -WithUI` bật cả gateway, service này, Mosquitto và simulator
+(xem `denso/README.md` mục 4.4). WebUI cần `VITE_AGENT_LIVE=true` trong
+`lightrag_webui/.env.development.local`.
 
 ---
 
@@ -121,7 +120,7 @@ python -m simulator.cli set COMP-TB-01 condenser_fan_failure
 Phê duyệt qua API Gateway:
 ```powershell
 # Lấy danh sách actions và bấm approve action_id tương ứng
-curl -X POST http://localhost:9700/agent/actions/ACT-0001/approve -H "Content-Type: application/json" -d "{\"actor\": \"user:engineer\"}"
+curl -X POST http://localhost:9710/agent/actions/ACT-0001/approve -H "Content-Type: application/json" -d "{\"actor\": \"user:engineer\"}"
 ```
 **Quan sát trên Dashboard (Cập nhật thời gian thực không tải lại trang)**:
 - Biểu ngữ hành động chuyển thành `🛡 Đã thực thi can thiệp: Người duyệt (user:engineer) hạ tốc độ xuống 1000 rpm lúc ...`.
@@ -154,7 +153,7 @@ cd iot_service
 ## 7. Khắc phục sự cố thường gặp (Troubleshooting)
 
 1. **Dashboard không hiển thị số liệu / Báo "Mất kết nối, đang thử lại..."**:
-   - Kiểm tra service IoT FastAPI đã chạy tại cổng 9700 chưa (`http://localhost:9700/health`).
+   - Kiểm tra service IoT FastAPI đã chạy tại cổng 9710 chưa (`http://localhost:9710/health`).
    - Kiểm tra Simulator đã được bật để phát dữ liệu lên MQTT chưa.
 2. **Không thấy liên kết "Mở trong Agent Copilot"**:
    - Kiểm tra biến `WEBUI_URL` trong file `.env` (mặc định: `http://localhost:5173`).

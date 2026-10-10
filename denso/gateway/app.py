@@ -2,7 +2,8 @@
 
 Resolves the caller's access level from users.json, sends questions to that level's LightRAG
 server, picks the citations the answer really uses, and runs document upload / delete jobs.
-It never sends a command to a PLC.
+It never sends a command to a PLC. With DENSO_IOT_URL set, incidents, telemetry and HITL decisions
+are forwarded to iot_service, whose commands go to the test-bench simulator only.
 
 Run:  python denso/gateway/app.py            (http://127.0.0.1:9700; settings: see Settings.from_env)
 """
@@ -22,6 +23,7 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import quote
 
 import httpx
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
@@ -584,6 +586,9 @@ class Settings:
     docling_url: str = "http://127.0.0.1:5001"
     # Extra request fields, e.g. {"chat_template_kwargs": {"enable_thinking": false}} for Nemotron.
     lookup_llm_extra_body: dict = field(default_factory=dict)
+    # iot_service (e.g. http://127.0.0.1:9710): incidents, telemetry and actions come from it instead
+    # of sample_ops.json, and chats in an incident's conversation go to its agent. None = samples.
+    iot_url: str | None = None
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -610,6 +615,7 @@ class Settings:
             lookup_llm_extra_body=json.loads(os.environ.get("DENSO_LOOKUP_LLM_EXTRA_BODY") or "{}"),
             upload_pipeline=os.environ.get("DENSO_UPLOAD_PIPELINE", "1") != "0",
             docling_url=os.environ.get("DENSO_DOCLING_URL", "http://127.0.0.1:5001"),
+            iot_url=(os.environ.get("DENSO_IOT_URL") or "").rstrip("/") or None,
         )
 
 
@@ -618,6 +624,8 @@ class User:
     name: str
     level: int
     can_upload: bool = False
+    # Approve / reject an agent action that iot_service then executes (on the simulator).
+    can_approve: bool = False
 
 
 class ChatRequest(BaseModel):
@@ -694,19 +702,45 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
     def current_user(authorization: str | None = Header(default=None)) -> User:
         token = (authorization or "").removeprefix("Bearer ").strip()
         if not token:
-            return User(name="guest", level=settings.guest_level, can_upload=settings.guest_can_upload)
+            # -GuestUpload is the team-testing mode: guests get every right, approvals included.
+            return User(name="guest", level=settings.guest_level, can_upload=settings.guest_can_upload,
+                        can_approve=settings.guest_can_upload)
         info = settings.users.get(token)
         if info is None:
             raise HTTPException(status_code=401, detail="unknown token")
         level = int(info.get("level", 1))
         if not 1 <= level <= MAX_LEVEL:
             raise HTTPException(status_code=500, detail="misconfigured user level")
-        return User(name=info.get("name", "user"), level=level, can_upload=bool(info.get("can_upload")))
+        return User(name=info.get("name", "user"), level=level, can_upload=bool(info.get("can_upload")),
+                    can_approve=bool(info.get("can_approve")))
 
     def ops() -> dict:
         if settings.ops_file.exists():
             return json.loads(settings.ops_file.read_text(encoding="utf-8"))
         return {"incidents": [], "telemetry": {}}
+
+    async def iot(method: str, path: str, **kw) -> dict | list:
+        """Call iot_service; its HTTP errors pass through, an unreachable service is a 503."""
+        try:
+            r = await client.request(method, f"{settings.iot_url}{path}", timeout=15, **kw)
+        except httpx.HTTPError:
+            raise HTTPException(status_code=503, detail="the IoT service is not reachable") from None
+        if r.status_code >= 400:
+            try:
+                detail = r.json().get("detail") or r.text
+            except ValueError:
+                detail = r.text
+            raise HTTPException(status_code=r.status_code, detail=f"IoT service: {detail}")
+        return r.json()
+
+    async def incident_conversation(conversation_id: str) -> bool:
+        """True when the conversation is an iot_service incident's (its agent answers there)."""
+        if not settings.iot_url or conversation_id.startswith("iot-rag-"):  # the IoT agent's own lookups
+            return False
+        try:
+            return any(i.get("conversationId") == conversation_id for i in await iot("GET", "/agent/incidents"))
+        except HTTPException:
+            return False  # IoT down: the documents can still answer
 
     def log_action(row: dict) -> None:
         settings.actions_log.parent.mkdir(parents=True, exist_ok=True)
@@ -725,10 +759,16 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
         backends = {f"level_{i + 1}": await probe(u) for i, u in enumerate(settings.level_servers)}
         if settings.lookup_server:
             backends["lookup"] = await probe(settings.lookup_server)
+        if settings.iot_url:
+            backends["iot"] = await probe(settings.iot_url)
         return {"status": "ok", "backends": backends}
 
     @app.post("/agent/chat")
     async def chat(req: ChatRequest, user: User = Depends(current_user)) -> dict:
+        if await incident_conversation(req.conversationId):
+            # The IoT agent knows the incident (telemetry, diagnosis, pending action); it looks
+            # documents up through this gateway in its own conversations.
+            return await iot("POST", "/agent/chat", json={"conversationId": req.conversationId, "message": req.message})
         reply = small_talk_reply(req.message)
         if reply:
             # A greeting is not a question about the documents: no retrieval, no sources.
@@ -996,10 +1036,14 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
 
     @app.get("/agent/incidents")
     async def incidents(user: User = Depends(current_user)) -> list[dict]:
+        if settings.iot_url:
+            return await iot("GET", "/agent/incidents")
         return ops().get("incidents", [])
 
     @app.get("/agent/incidents/{incident_id}")
     async def incident(incident_id: str, user: User = Depends(current_user)) -> dict:
+        if settings.iot_url:
+            return await iot("GET", f"/agent/incidents/{quote(incident_id, safe='')}")
         for inc in ops().get("incidents", []):
             if inc.get("id") == incident_id:
                 return inc
@@ -1007,6 +1051,8 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
 
     @app.get("/agent/telemetry/{device_id}")
     async def telemetry(device_id: str, user: User = Depends(current_user)) -> dict:
+        if settings.iot_url:
+            return await iot("GET", f"/agent/telemetry/{quote(device_id, safe='')}")
         # By incident id (sample_ops.json keys) or by the snapshot's own deviceId, the key
         # iot_service uses: the UI polls with whichever it has.
         snaps = ops().get("telemetry", {})
@@ -1017,6 +1063,13 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
 
     @app.post("/agent/actions/{action_id}/approve")
     async def approve(action_id: str, user: User = Depends(current_user)) -> dict:
+        if settings.iot_url:
+            if not user.can_approve:
+                raise HTTPException(status_code=403, detail="this user may not approve agent actions")
+            res = await iot("POST", f"/agent/actions/{quote(action_id, safe='')}/approve")
+            log_action({"ts": datetime.now(timezone.utc).isoformat(), "action": action_id, "decision": "approve",
+                        "user": user.name, "ack": res.get("ack"), "executed": "by iot_service (simulator)"})
+            return res
         ack = f"ACK-{uuid.uuid4().hex[:6].upper()}"
         log_action({"ts": datetime.now(timezone.utc).isoformat(), "action": action_id, "decision": "approve",
                     "user": user.name, "ack": ack, "executed": False,
@@ -1025,6 +1078,13 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
 
     @app.post("/agent/actions/{action_id}/reject")
     async def reject(action_id: str, user: User = Depends(current_user)) -> dict:
+        if settings.iot_url:
+            if not user.can_approve:
+                raise HTTPException(status_code=403, detail="this user may not reject agent actions")
+            res = await iot("POST", f"/agent/actions/{quote(action_id, safe='')}/reject")
+            log_action({"ts": datetime.now(timezone.utc).isoformat(), "action": action_id, "decision": "reject",
+                        "user": user.name, "executed": False})
+            return res
         log_action({"ts": datetime.now(timezone.utc).isoformat(), "action": action_id, "decision": "reject",
                     "user": user.name, "executed": False})
         return {"status": "rejected"}
