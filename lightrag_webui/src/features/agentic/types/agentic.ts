@@ -1,4 +1,4 @@
-// ─── Agent State Machine ──────────────────────────────────────────────────────
+// ─── Agent State Machine ──────────────────────────────────────────────
 
 export type AgentState =
   | 'idle'
@@ -11,7 +11,7 @@ export type AgentState =
   | 'rejected'
   | 'expired'
 
-// ─── Severity ─────────────────────────────────────────────────────────────────
+// ─── Severity ─────────────────────────────────────────────────────────
 
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info'
 
@@ -22,7 +22,7 @@ export type IncidentStatus =
   | 'acknowledged'
   | 'closed'
 
-// ─── Telemetry ─────────────────────────────────────────────────────────────────
+// ─── Telemetry ────────────────────────────────────────────────────────
 
 export interface TelemetryPoint {
   key: string
@@ -32,6 +32,7 @@ export interface TelemetryPoint {
   threshold?: number
   isAnomalous: boolean
   trend: 'up' | 'down' | 'stable'
+  direction?: 'above' | 'below' | 'info'
 }
 
 export interface TelemetrySnapshot {
@@ -42,7 +43,7 @@ export interface TelemetrySnapshot {
   predictionHorizonMin?: number
 }
 
-// ─── Citations ─────────────────────────────────────────────────────────────────
+// ─── Citations ────────────────────────────────────────────────────────
 
 export interface Citation {
   id: string
@@ -52,7 +53,7 @@ export interface Citation {
   excerpt?: string
 }
 
-// ─── Agent Events (timeline trace) ────────────────────────────────────────────
+// ─── Agent Events (timeline trace) ────────────────────────────────────
 
 export type AgentEventType =
   | 'anomaly_detected'
@@ -77,7 +78,7 @@ export interface AgentEvent {
   citations?: Citation[]
 }
 
-// ─── Proposed Action ──────────────────────────────────────────────────────────
+// ─── Proposed Action ──────────────────────────────────────────────────
 
 export type ActionType = 'plc_command' | 'inventory' | 'notify' | 'escalate'
 
@@ -99,7 +100,7 @@ export interface ProposedAction {
   createdAt: string
 }
 
-// ─── Action Execution ─────────────────────────────────────────────────────────
+// ─── Action Execution ─────────────────────────────────────────────────
 
 export type ActionExecutionStatus =
   | 'waiting'
@@ -118,7 +119,7 @@ export interface ActionExecution {
   expiredAt?: string
 }
 
-// ─── Chat / Conversation ──────────────────────────────────────────────────────
+// ─── Chat / Conversation ──────────────────────────────────────────────
 
 export type MessageRole = 'user' | 'assistant' | 'system'
 
@@ -144,7 +145,7 @@ export interface Conversation {
   agentEvents: AgentEvent[]
 }
 
-// ─── Incident ─────────────────────────────────────────────────────────────────
+// ─── Incident ─────────────────────────────────────────────────────────
 
 export interface Incident {
   id: string
@@ -159,9 +160,10 @@ export interface Incident {
   proposedAction?: ProposedAction
   actionExecution?: ActionExecution
   tags?: string[]
+  timeline?: AgentEvent[]
 }
 
-// ─── Knowledge Document ───────────────────────────────────────────────────────
+// ─── Knowledge Document ───────────────────────────────────────────────
 
 export type DocumentIndexStatus =
   | 'uploading'
@@ -186,6 +188,6 @@ export interface KnowledgeDocument {
   statusNote?: string
 }
 
-// ─── Sidebar Filter ───────────────────────────────────────────────────────────
+// ─── Sidebar Filter ───────────────────────────────────────────────────
 
 export type SidebarFilter = 'all' | 'alerts' | 'qa'

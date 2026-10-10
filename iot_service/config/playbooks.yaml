@@ -1,0 +1,217 @@
+# Diagnostic Playbooks for DENSO Compressor Test Bench (Giai doan 2 - Rule-based Analyzer)
+# Source of truth: iot_service/docs/BRIEF.md (Sections 4 & 8)
+# Lưu ý: Ngưỡng số và tên mã lỗi là giả lập cho kịch bản hackathon, nguyên nhân và quy tắc neo theo tài liệu kỹ thuật DENSO.
+
+playbooks:
+  - id: "refrigerant_leak"
+    name: "Thiếu môi chất lạnh (rò rỉ)"
+    target_error_codes:
+      - "ERR_COMP_LOWPRESS_310"
+      - "WARN_SUCTION_PRESSURE_LOW"
+      - "ERR_COMP_OVERHEAT_402"
+      - "WARN_DISCHARGE_TEMP_HIGH"
+    conditions:
+      discharge_temp: ["warn", "critical"]
+      suction_pressure: ["warn", "critical"]
+      condenser_fan_rpm: ["normal"]
+    root_cause: "Thiếu môi chất lạnh (rò rỉ hệ thống)"
+    confidence: 0.92
+    title_vi: "CẢNH BÁO: Thiếu môi chất lạnh (rò rỉ gas)"
+    subtitle_vi: "Quá nhiệt đầu xả kết hợp áp suất hút tụt thấp trên bệ thử"
+    diagnosis_vi: "Nhiệt độ đầu xả tăng cao ({discharge_temp}°C) vượt ngưỡng an toàn trong khi áp suất hút tụt xuống {suction_pressure} bar (thấp hơn ngưỡng cảnh báo 1.5 bar). Tốc độ quạt dàn ngưng vẫn đạt {condenser_fan_rpm} rpm bình thường. Đây là dấu hiệu điển hình của việc thiếu hụt môi chất lạnh do rò rỉ trên đường ống hoặc van tiết lưu."
+    diagnosis_en: "Discharge temperature elevated ({discharge_temp}°C) correlated with low suction pressure ({suction_pressure} bar) while condenser fan is operating normally ({condenser_fan_rpm} rpm). Characteristic pattern of refrigerant leakage."
+    tags:
+      - "#refrigerant-leak"
+      - "#low-suction"
+      - "#overheat"
+    proposed_action:
+      command: "SET_RPM"
+      params:
+        rpm: 1000
+      title_vi: "Hạ tốc độ máy nén xuống 1000 RPM"
+      subtitle_vi: "Giảm tải nhiệt tạm thời đưa thông số về mức an toàn"
+      rationale: "Hạ tốc độ máy nén từ {current_rpm} RPM xuống 1000 RPM giúp giảm sinh nhiệt ma sát và áp lực nén, ngăn ngừa cháy cuộn dây và bó kẹt cơ học trong khi chờ kiểm tra rò rỉ."
+      items:
+        - type: "plc_command"
+          title: "Lệnh điều khiển PLC"
+          description: "Hạ tốc độ máy nén (Compressor Speed Derate)"
+          params:
+            Lệnh: "SET_RPM"
+            "Tốc độ hiện tại": "{current_rpm} rpm"
+            "Tốc độ đích": "1000 rpm"
+            "Thiết bị": "{machine_id}"
+        - type: "inventory"
+          title: "Phiếu kiểm tra bảo trì"
+          description: "Kiểm tra rò rỉ và bổ sung môi chất lạnh"
+          params:
+            "Hạng mục": "Kiểm tra rò rỉ đường ống, van sạc gas và dàn bay hơi"
+            "Vật tư dự phòng": "Môi chất R134a / R1234yf chuẩn DENSO"
+            "Trạng thái": "Mở phiếu bảo trì"
+    citations:
+      - id: "CIT-LEAK-01"
+        document_id: "doc-poster-01"
+        document_name: "DENSO-Compressor-Fault-Finding-Poster-A1_English.pdf"
+        pages: "1"
+        excerpt: "Compressor overheating due to lack of refrigerant (leakage). Low suction pressure and elevated discharge temperature."
+
+  - id: "condenser_fan_failure"
+    name: "Quạt dàn ngưng hỏng"
+    target_error_codes:
+      - "ERR_COND_FAN_217"
+      - "WARN_CONDENSER_FAN_RPM_LOW"
+      - "ERR_COMP_HIGHPRESS_325"
+      - "WARN_DISCHARGE_PRESSURE_HIGH"
+      - "ERR_COMP_OVERHEAT_402"
+    conditions:
+      discharge_temp: ["warn", "critical"]
+      discharge_pressure: ["warn", "critical"]
+      condenser_fan_rpm: ["warn", "critical"]
+    root_cause: "Quạt giải nhiệt dàn ngưng hỏng hoặc kẹt"
+    confidence: 0.95
+    title_vi: "CẢNH BÁO NGUY HIỂM: Quạt dàn ngưng hỏng"
+    subtitle_vi: "Áp suất xả và nhiệt độ tăng vọt do mất gió giải nhiệt cưỡng bức"
+    diagnosis_vi: "Tốc độ quạt dàn ngưng giảm xuống {condenser_fan_rpm} rpm (thấp hơn ngưỡng nguy hiểm 500 rpm khi máy đang chạy), dẫn đến áp suất xả tăng vọt lên {discharge_pressure} bar (vượt ngưỡng 23 bar) và nhiệt độ xả đạt {discharge_temp}°C. Mất hoàn toàn luồng khí giải nhiệt qua dàn ngưng."
+    diagnosis_en: "Critical discharge temperature ({discharge_temp}°C) and discharge pressure spike ({discharge_pressure} bar) caused by condenser fan failure ({condenser_fan_rpm} rpm). Complete loss of forced air cooling."
+    tags:
+      - "#fan-failure"
+      - "#high-pressure"
+      - "#critical-cooling"
+    proposed_action:
+      command: "SET_RPM"
+      params:
+        rpm: 1000
+      title_vi: "Hạ tốc độ máy nén xuống 1000 RPM"
+      subtitle_vi: "Giảm áp suất khối nén tức thì, tránh nổ đường ống"
+      rationale: "Hạ tốc độ máy nén xuống 1000 RPM làm giảm lưu lượng gas nén, đưa áp suất xả tụt khỏi ngưỡng tới hạn 23 bar để bảo vệ bệ thử trong khi chờ sửa quạt."
+      items:
+        - type: "plc_command"
+          title: "Lệnh điều khiển PLC"
+          description: "Hạ tốc độ máy nén (Compressor Speed Derate)"
+          params:
+            Lệnh: "SET_RPM"
+            "Tốc độ hiện tại": "{current_rpm} rpm"
+            "Tốc độ đích": "1000 rpm"
+            "Thiết bị": "{machine_id}"
+        - type: "inventory"
+          title: "Phiếu kiểm tra bảo trì"
+          description: "Kiểm tra mô-tơ quạt và mạch cấp nguồn dàn ngưng"
+          params:
+            "Hạng mục": "Mô-tơ quạt dàn ngưng, rơ-le điều khiển, cầu chì"
+            "Vật tư dự phòng": "Cụm quạt dàn ngưng OEM DENSO"
+            "Trạng thái": "Mở phiếu bảo trì"
+    citations:
+      - id: "CIT-FAN-01"
+        document_id: "doc-manual-condenser"
+        document_name: "AC-Condenser-Installation-Manual-Multilingual_web.pdf"
+        pages: "4-6"
+        excerpt: "Inspect condenser fan motor operation and electrical connections. Ensure unobstructed air flow."
+      - id: "CIT-FAN-02"
+        document_id: "doc-poster-01"
+        document_name: "DENSO-Compressor-Fault-Finding-Poster-A1_English.pdf"
+        pages: "1"
+        excerpt: "Insufficient cooling due to inoperative condenser fan leading to excessive discharge pressure and poor lubrication."
+
+  - id: "condenser_fouled"
+    name: "Dàn ngưng bẩn, tắc nghẽn"
+    target_error_codes:
+      - "WARN_DISCHARGE_PRESSURE_HIGH"
+      - "WARN_DISCHARGE_TEMP_HIGH"
+      - "ERR_COMP_HIGHPRESS_325"
+    conditions:
+      discharge_temp: ["warn", "critical"]
+      discharge_pressure: ["warn", "critical"]
+      condenser_fan_rpm: ["normal"]
+    root_cause: "Dàn ngưng bám bụi bẩn, tắc luồng khí giải nhiệt"
+    confidence: 0.88
+    title_vi: "CẢNH BÁO: Dàn ngưng bẩn, hiệu suất tản nhiệt kém"
+    subtitle_vi: "Áp suất xả cao dù quạt dàn ngưng vẫn quay ở tốc độ bình thường"
+    diagnosis_vi: "Áp suất xả tăng lên {discharge_pressure} bar (vượt ngưỡng cảnh báo 19 bar) và nhiệt độ xả đạt {discharge_temp}°C trong khi quạt giải nhiệt vẫn quay bình thường ở mức {condenser_fan_rpm} rpm. Hiện tượng này đặc trưng cho việc bề mặt cánh tản nhiệt dàn ngưng bị bám bụi bẩn hoặc tắc nghẽn lưu thông khí."
+    diagnosis_en: "Elevated discharge pressure ({discharge_pressure} bar) and temperature ({discharge_temp}°C) despite normal fan speed ({condenser_fan_rpm} rpm). Characteristic pattern of fouled condenser fins restricting heat rejection."
+    tags:
+      - "#condenser-fouled"
+      - "#high-pressure"
+      - "#efficiency-loss"
+    proposed_action:
+      command: "SET_RPM"
+      params:
+        rpm: 1000
+      title_vi: "Hạ tốc độ máy nén xuống 1000 RPM"
+      subtitle_vi: "Đưa áp suất và nhiệt độ về vùng an toàn"
+      rationale: "Hạ tốc độ về 1000 RPM giúp giảm tải nhiệt của chu trình lạnh, đưa các thông số về hoàn toàn dải bình thường (normal) để có thể vệ sinh dàn ngưng mà không phải dừng bệ thử."
+      items:
+        - type: "plc_command"
+          title: "Lệnh điều khiển PLC"
+          description: "Hạ tốc độ máy nén (Compressor Speed Derate)"
+          params:
+            Lệnh: "SET_RPM"
+            "Tốc độ hiện tại": "{current_rpm} rpm"
+            "Tốc độ đích": "1000 rpm"
+            "Thiết bị": "{machine_id}"
+        - type: "inventory"
+          title: "Phiếu kiểm tra bảo trì"
+          description: "Vệ sinh bề mặt cánh tản nhiệt dàn ngưng"
+          params:
+            "Hạng mục": "Làm sạch cánh tản nhiệt dàn ngưng bằng khí nén / dung dịch chuyên dụng"
+            "Khuyến cáo": "Kiểm tra khe hở thông gió theo khuyến cáo catalogue DENSO"
+            "Trạng thái": "Mở phiếu bảo trì"
+    citations:
+      - id: "CIT-FOUL-01"
+        document_id: "doc-manual-condenser"
+        document_name: "AC-Condenser-Installation-Manual-Multilingual_web.pdf"
+        pages: "4-6"
+        excerpt: "Clean condenser fins regularly to avoid dust accumulation and heat dissipation degradation."
+
+  - id: "low_oil"
+    name: "Thiếu dầu bôi trơn máy nén"
+    target_error_codes:
+      - "ERR_COMP_LOWOIL_118"
+      - "WARN_OIL_LEVEL_LOW"
+      - "ERR_COMP_VIB_505"
+      - "WARN_VIBRATION_HIGH"
+      - "ERR_COMP_OVERHEAT_402"
+    conditions:
+      oil_level: ["warn", "critical"]
+      vibration: ["warn", "critical"]
+      discharge_temp: ["warn", "critical"]
+    root_cause: "Thiếu dầu bôi trơn máy nén (nguy cơ bó kẹt cơ học)"
+    confidence: 0.94
+    title_vi: "CẢNH BÁO KHẨN CẤP: Thiếu dầu bôi trơn máy nén"
+    subtitle_vi: "Mức dầu tụt thấp kết hợp độ rung tăng vọt, nguy cơ phá hủy cơ khí tức thì"
+    diagnosis_vi: "Mức dầu bôi trơn tụt xuống {oil_level}% (dưới ngưỡng nguy hiểm 40%), kèm theo độ rung máy nén tăng vọt lên {vibration} mm/s (vượt ngưỡng nguy hiểm 7.0 mm/s) và nhiệt độ xả đạt {discharge_temp}°C. Màng dầu bôi trơn pít-tông và đĩa lắc đã bị phá vỡ, nguy cơ xước xi-lanh và bó cứng cơ khí cực cao."
+    diagnosis_en: "Critically low lubricant level ({oil_level}%) coupled with severe vibration spike ({vibration} mm/s) and overheating ({discharge_temp}°C). Loss of hydrodynamic lubrication film; imminent mechanical seizure."
+    tags:
+      - "#low-oil"
+      - "#high-vibration"
+      - "#mechanical-seizure"
+    proposed_action:
+      command: "STOP_TEST"
+      params: {}
+      title_vi: "Dừng thử nghiệm khẩn cấp (STOP_TEST)"
+      subtitle_vi: "Yêu cầu kỹ sư xác nhận dừng máy ngay lập tức"
+      rationale: "Thiếu dầu và rung lắc mạnh không thể chỉ hạ tốc độ mà phải dừng máy khẩn cấp để ngăn chặn biến dạng cơ học vĩnh viễn và gãy trục máy nén."
+      items:
+        - type: "plc_command"
+          title: "Lệnh dừng khẩn cấp PLC"
+          description: "Dừng chu trình thử nghiệm (Emergency Stop Test)"
+          params:
+            Lệnh: "STOP_TEST"
+            "Lý do": "Mức dầu bôi trơn dưới ngưỡng nguy hiểm"
+            "Thiết bị": "{machine_id}"
+        - type: "inventory"
+          title: "Phiếu bảo trì bôi trơn"
+          description: "Kiểm tra mức dầu, chủng loại dầu và nạp đúng quy trình"
+          params:
+            "Hạng mục": "Chỉ dùng đúng loại dầu (ND-Oil 8/12 cho PAG, ND-Oil 11 cho POE; không trộn lẫn)"
+            "Cảnh báo": "Không đổ dầu trực tiếp vào họng nạp máy nén; tuân thủ hướng dẫn lắp đặt DENSO"
+            "Trạng thái": "Mở phiếu bảo trì khẩn"
+    citations:
+      - id: "CIT-OIL-01"
+        document_id: "doc-manual-comp"
+        document_name: "AC-Compressor-Installation-Manual-multilingual.pdf"
+        pages: "3-4"
+        excerpt: "Only use oil specified on compressor label. Never mix PAG and POE oils. Do not pour oil directly into compressor."
+      - id: "CIT-OIL-02"
+        document_id: "doc-poster-01"
+        document_name: "DENSO-Compressor-Fault-Finding-Poster-A1_English.pdf"
+        pages: "1"
+        excerpt: "Lack of oil leads to lack of lubrication, seizure of compressor parts and high vibration."

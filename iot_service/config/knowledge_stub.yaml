@@ -1,0 +1,95 @@
+# Knowledge Stub for RAG Mock Mode (DENSO Technical Documentation Anchors)
+# Source of truth: iot_service/docs/BRIEF.md (Section 4)
+# Notes: Exact citations from actual DENSO manuals and posters. No fabricated metrics or page numbers.
+
+entries:
+  - id: "refrigerant_leak_manual"
+    keywords:
+      - "refrigerant"
+      - "môi chất lạnh"
+      - "rò rỉ"
+      - "quá nhiệt"
+      - "suction pressure"
+      - "áp suất hút"
+      - "discharge temp"
+      - "nhiệt độ xả"
+      - "gas"
+      - "leak"
+    file: "DENSO-Compressor-Fault-Finding-Poster-A1_English.pdf"
+    pages: "1"
+    content: >-
+      Compressor overheating is commonly caused by a lack of refrigerant (refrigerant leakage in the system),
+      insufficient lubrication oil, or poor heat dissipation. Operating with low refrigerant leads to elevated
+      discharge temperature and low suction pressure. The system must be checked for line leaks, service valve integrity,
+      and evaporator fittings before recharging refrigerant.
+    excerpt: "Compressor overheating due to lack of refrigerant (leakage). Low suction pressure and elevated discharge temperature."
+
+  - id: "condenser_fan_manual"
+    keywords:
+      - "condenser fan"
+      - "quạt dàn ngưng"
+      - "fan failure"
+      - "áp suất xả"
+      - "discharge pressure"
+      - "quạt hỏng"
+      - "quạt không quay"
+      - "cooling"
+    file: "AC-Condenser-Installation-Manual-Multilingual_web.pdf"
+    pages: "4-6"
+    content: >-
+      Check condenser fan operation and clean the condenser fins. Failure of the condenser cooling fan causes inadequate
+      heat rejection, leading to rapid accumulation of discharge pressure (high head pressure) and discharge temperature overheat.
+      Inspect fan electrical connectors, motor winding, and relay. Clean fouled fins using approved non-corrosive coil cleaner.
+    excerpt: "Vệ sinh dàn ngưng, kiểm tra quạt làm mát. Quạt hỏng gây tăng vọt áp suất xả và nhiệt độ máy nén."
+
+  - id: "condenser_fouled_manual"
+    keywords:
+      - "condenser fouled"
+      - "dàn ngưng bẩn"
+      - "tắc dàn ngưng"
+      - "vệ sinh dàn ngưng"
+      - "heat exchange"
+      - "trao đổi nhiệt"
+      - "bụi bẩn"
+    file: "AC-Condenser-Installation-Manual-Multilingual_web.pdf"
+    pages: "4-6"
+    content: >-
+      Inspect condenser matrix for external blockages, debris, bent fins, and dirt coating. A blocked or fouled condenser
+      impairs heat exchange, leading to moderately high discharge pressure and high discharge temperature while fan runs at normal speed.
+      Straighten damaged fins with a fin comb and wash external deposits gently without bending aluminum fins.
+    excerpt: "Kiểm tra tắc bẩn bề mặt dàn ngưng; dàn ngưng bẩn làm giảm giải nhiệt gây tăng áp suất xả và nhiệt độ."
+
+  - id: "low_oil_manual"
+    keywords:
+      - "oil"
+      - "dầu bôi trơn"
+      - "thiếu dầu"
+      - "vibration"
+      - "rung cao"
+      - "pag"
+      - "poe"
+      - "nd-oil"
+      - "mức dầu"
+      - "bó kẹt"
+    file: "AC-Compressor-Installation-Manual-multilingual.pdf"
+    pages: "3-4"
+    content: >-
+      Use only the exact oil specification indicated on the compressor label (e.g., ND-Oil 8 or 12 for PAG; ND-Oil 11 for POE).
+      Never mix PAG and POE oils; never use universal oil. Insufficient lubrication causes high mechanical friction, severe vibration,
+      and catastrophic internal mechanical seizure. Break-in procedure: run at idle with A/C ON for at least 5 minutes without revving up engine/drive.
+    excerpt: "Chỉ dùng đúng loại dầu ghi trên nhãn; ND-Oil 8/12 là PAG, ND-Oil 11 là POE; không trộn dầu; thiếu dầu gây rung cao và bó kẹt."
+
+  - id: "oil_types_poster"
+    keywords:
+      - "nd-oil 8"
+      - "nd-oil 12"
+      - "nd-oil 11"
+      - "pag oil"
+      - "poe oil"
+      - "nhãn dầu"
+    file: "DENSO-Compressor-Fault-Finding-Poster-A1_English.pdf"
+    pages: "1"
+    content: >-
+      ND-Oil 8 and ND-Oil 12 are PAG oils specifically formulated for R134a/R1234yf belt-driven compressors. ND-Oil 11 is a POE oil
+      formulated for electric compressors with high dielectric resistance. PAG and POE are chemically incompatible and must never be mixed.
+    excerpt: "ND-Oil 8 và 12 là PAG, ND-Oil 11 là POE. PAG và POE không hòa trộn."
