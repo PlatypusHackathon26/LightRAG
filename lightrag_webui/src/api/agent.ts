@@ -141,6 +141,17 @@ export function createAgentClient(config: AgentConfig, fetchImpl: FetchLike = (i
       return res.job
     },
 
+    /** Live only: which backends the gateway reaches (LightRAG levels, lookup, iot). */
+    async fetchHealth(): Promise<{ backends?: Record<string, { ok: boolean }> }> {
+      if (!config.live) return {}
+      return request('/agent/health')
+    },
+
+    /** Address of the IoT control-room dashboard the gateway relays (opened in a new tab). */
+    dashboardUrl(): string {
+      return `${config.baseUrl}/dashboard/`
+    },
+
     /** Live only: the document's original upload, for the preview (sent with the auth header). */
     async fetchDocumentFile(docId: string): Promise<Blob> {
       const path = `/agent/documents/${encodeURIComponent(docId)}/file`
