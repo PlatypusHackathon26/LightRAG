@@ -1007,7 +1007,10 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
 
     @app.get("/agent/telemetry/{device_id}")
     async def telemetry(device_id: str, user: User = Depends(current_user)) -> dict:
-        snap = ops().get("telemetry", {}).get(device_id)
+        # By incident id (sample_ops.json keys) or by the snapshot's own deviceId, the key
+        # iot_service uses: the UI polls with whichever it has.
+        snaps = ops().get("telemetry", {})
+        snap = snaps.get(device_id) or next((s for s in snaps.values() if s.get("deviceId") == device_id), None)
         if snap is None:
             raise HTTPException(status_code=404, detail="no telemetry for this device")
         return snap

@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useAgenticStore } from '../stores/agenticStore'
-import type { TelemetryPoint } from '../types/agentic'
+import { agentClient } from '../../../api/agent'
+import type { Incident, TelemetryPoint } from '../types/agentic'
 
 // Jitter a value by ±maxPct percent of its base
 function jitter(base: number, maxPct: number, min?: number, max?: number): number {
@@ -76,49 +77,36 @@ export function useLiveTelemetry() {
 
       return () => clearInterval(id)
     } else {
-      // Real mode: poll /agent/telemetry/{deviceId} every 3 seconds
+      // Live: poll the gateway every 3 seconds through agentClient (its base URL and token; a
+      // relative fetch only worked behind the Vite dev proxy). The key is the snapshot's deviceId
+      // when the gateway gave one (iot_service: the machine id), else the incident id
+      // (denso/gateway sample_ops.json) - never the display name, which may contain "/".
       const poll = async () => {
         const state = useAgenticStore.getState()
-        const incidents = state.incidents
-        const targetDevices = new Set<string>()
-
-        if (state.activeIncident?.device) {
-          targetDevices.add(state.activeIncident.device)
+        const targets = new Map<string, string[]>() // telemetry key -> incident ids
+        const watch = (inc: Incident) => {
+          const key = inc.telemetry?.deviceId ?? inc.id
+          targets.set(key, [...(targets.get(key) ?? []), inc.id])
         }
-        incidents.forEach((inc) => {
-          if (inc.status === 'active' || inc.status === 'awaiting_approval') {
-            targetDevices.add(inc.device)
-          }
+        if (state.activeIncident) watch(state.activeIncident)
+        state.incidents.forEach((inc) => {
+          if (inc.status === 'active' || inc.status === 'awaiting_approval') watch(inc)
         })
-        if (targetDevices.size === 0) {
-          targetDevices.add('COMP-TB-01')
-        }
+        if (targets.size === 0) targets.set('COMP-TB-01', [])
 
-        for (const device of targetDevices) {
+        for (const [key, incidentIds] of targets) {
           try {
-            const res = await fetch(`/agent/telemetry/${device}`)
-            if (!res.ok) continue
-            const snapshot = await res.json()
-            if (snapshot?.points) {
-              updateLiveTelemetry(device, snapshot.points)
-              useAgenticStore.setState((s) => ({
-                incidents: s.incidents.map((i) =>
-                  i.device === device
-                    ? { ...i, telemetry: { ...snapshot, timestamp: snapshot.timestamp || new Date().toISOString() } }
-                    : i
-                ),
-                activeIncident:
-                  s.activeIncident?.device === device
-                    ? {
-                      ...s.activeIncident,
-                      telemetry: {
-                        ...snapshot,
-                        timestamp: snapshot.timestamp || new Date().toISOString(),
-                      },
-                    }
-                    : s.activeIncident,
-              }))
-            }
+            const snapshot = await agentClient.fetchTelemetry(key)
+            if (!snapshot?.points) continue
+            const telemetry = { ...snapshot, timestamp: snapshot.timestamp || new Date().toISOString() }
+            updateLiveTelemetry(snapshot.deviceId ?? key, snapshot.points)
+            useAgenticStore.setState((s) => ({
+              incidents: s.incidents.map((i) => (incidentIds.includes(i.id) ? { ...i, telemetry } : i)),
+              activeIncident:
+                s.activeIncident && incidentIds.includes(s.activeIncident.id)
+                  ? { ...s.activeIncident, telemetry }
+                  : s.activeIncident,
+            }))
           } catch {
             // Ignore polling errors in background
           }

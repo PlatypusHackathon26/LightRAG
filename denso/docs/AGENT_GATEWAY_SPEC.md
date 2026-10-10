@@ -138,6 +138,8 @@ Tài liệu phải nằm trên server ở cấp của người gọi, và không
 ### 4.4 `GET /agent/incidents`, `GET /agent/incidents/{id}`, `GET /agent/telemetry/{id}`
 
 Đọc từ `denso/gateway/sample_ops.json` (dữ liệu mẫu, đúng kiểu `Incident` / `TelemetrySnapshot`).
+`/agent/telemetry/{id}` nhận mã sự cố hoặc `deviceId` của snapshot (mã máy, như `iot_service`);
+giao diện hỏi bằng `deviceId` khi đã có, nếu chưa thì bằng mã sự cố.
 Response thật của `/agent/incidents`:
 ```json
 [{ "id": "INC-DEMO-01", "conversationId": "conv-inc-demo-01", "device": "A/C compressor test bench 01",

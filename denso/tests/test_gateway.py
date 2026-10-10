@@ -513,3 +513,13 @@ def test_document_file_is_served_only_at_the_callers_level(tmp_path):
     assert tc.get("/agent/documents/doc-high/file").status_code == 404  # a guest is level 1
     # Level 3 sees the document, but its original was never uploaded here.
     assert tc.get("/agent/documents/doc-high/file", headers={"Authorization": "Bearer tok-admin"}).status_code == 404
+
+
+def test_telemetry_is_found_by_incident_id_or_device_id(tmp_path):
+    ops_file = tmp_path / "ops.json"
+    ops_file.write_text(json.dumps({"telemetry": {"INC-1": {"deviceId": "bench-01", "points": []}}}), encoding="utf-8")
+    settings = Settings(level_servers=SERVERS, actions_log=tmp_path / "a.jsonl", ops_file=ops_file, upload_pipeline=False)
+    tc = TestClient(create_app(settings, transport=httpx.MockTransport(lambda r: httpx.Response(404))))
+    assert tc.get("/agent/telemetry/INC-1").json()["deviceId"] == "bench-01"
+    assert tc.get("/agent/telemetry/bench-01").json()["deviceId"] == "bench-01"
+    assert tc.get("/agent/telemetry/other").status_code == 404
