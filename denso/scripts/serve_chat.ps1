@@ -19,7 +19,8 @@ param(
     # Hosted UI: every deployment URL of the Vercel project "light-rag" in team "charlotte-eb9d"
     # (light-rag-charlotte-eb9d.vercel.app, light-rag-git-<branch>-charlotte-eb9d.vercel.app, ...).
     [string]$CorsRegex = '^https://light-rag(-[a-z0-9-]+)?-charlotte-eb9d\.vercel\.app$',
-    [string]$DemoSite = "https://light-rag-git-feat-rag-backend-charlotte-eb9d.vercel.app",
+    # Production deployment of the Vercel project (built from main).
+    [string]$DemoSite = "https://light-rag-charlotte-eb9d.vercel.app",
     [switch]$Restart,
     # Visitors without a token (the hosted demo) may upload and delete documents. For team testing only.
     [switch]$GuestUpload,
