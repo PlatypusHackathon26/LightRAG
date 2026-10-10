@@ -607,16 +607,57 @@ def test_without_the_iot_service_an_approval_is_only_recorded(tmp_path):
     assert tc.post("/agent/actions/ACT-1/approve").json()["ack"].startswith("ACK-")
 
 
-def test_a_chat_in_an_incident_conversation_goes_to_the_iot_agent(tmp_path):
-    seen, tc = _iot_client(tmp_path, _iot_ok)
-    r = tc.post("/agent/chat", json={"conversationId": "CONV-0001", "message": "What should I do?"})
-    assert r.json()["content"] == "IoT agent: lower the RPM."
-    assert not [x for x in seen if x.url.path == "/query"]
-    # The Q&A session and the IoT agent's own lookups are answered from the documents.
+LIVE_INCIDENT = {
+    **IOT_INCIDENT,
+    "alarm": "CẢNH BÁO NGUY HIỂM: Quạt dàn ngưng hỏng",
+    "telemetry": {"deviceId": "COMP-TB-01", "points": [
+        {"key": "discharge_temp", "label": "Nhiệt độ đầu xả", "value": 121.8, "unit": "°C", "threshold": 105.0,
+         "isAnomalous": True},
+        {"key": "compressor_rpm", "label": "Tốc độ máy nén", "value": 1500.0, "unit": "rpm", "threshold": None,
+         "isAnomalous": False}]},
+    "proposedAction": {"id": "ACT-0001", "titleVi": "Đề xuất: SET_RPM",
+                       "subtitleVi": "Hạ tốc độ máy nén xuống 1000 RPM trong khi chờ sửa quạt."},
+}
+
+
+def _iot_live(request: httpx.Request) -> httpx.Response:
+    if request.url.path == "/agent/incidents":
+        return httpx.Response(200, json=[LIVE_INCIDENT])
+    return _iot_ok(request)
+
+
+def test_a_chat_in_an_incident_is_answered_from_the_documents_with_the_incident_in_the_prompt(tmp_path):
+    seen, tc = _iot_client(tmp_path, _iot_live)
+    r = tc.post("/agent/chat", json={"conversationId": "CONV-0001", "message": "Cần kiểm tra gì tiếp theo?"})
+    assert r.json()["content"].startswith("From the documents")
+    assert not [x for x in seen if x.url.host == "iot" and x.url.path == "/agent/chat"]  # not the IoT rule bot
+    (query,) = [json.loads(x.content) for x in seen if x.url.path == "/query"]
+    # The fault steers retrieval of a vague Vietnamese question...
+    assert query["query"] == "Cần kiểm tra gì tiếp theo?\n(Quạt dàn ngưng hỏng)"
+    # ...and the live state reaches the answer prompt, marked as not coming from the documents.
+    prompt = query["user_prompt"]
+    assert "NOT from the documents" in prompt
+    assert "COMP-TB-01" in prompt and "Nhiệt độ đầu xả 121.8 °C, limit 105, OUT OF RANGE" in prompt
+    assert "Đề xuất: SET_RPM" in prompt and "waiting for approval" in prompt
+    assert "tiếng Việt" in prompt or "Vietnamese" in prompt  # the language instruction is kept
+    assert r.json()["events"][0]["label"] == "Incident context added (INC-0001, COMP-TB-01)"
+
+
+def test_an_english_question_in_an_incident_keeps_its_own_retrieval_text(tmp_path):
+    seen, tc = _iot_client(tmp_path, _iot_live)
+    tc.post("/agent/chat", json={"conversationId": "CONV-0001", "message": "How do I replace the condenser fan?"})
+    (query,) = [json.loads(x.content) for x in seen if x.url.path == "/query"]
+    assert query["query"] == "How do I replace the condenser fan?"  # a Vietnamese alarm would flip the reranker
+    assert "Quạt dàn ngưng hỏng" in query["user_prompt"]
+
+
+def test_other_conversations_get_no_incident_context(tmp_path):
+    seen, tc = _iot_client(tmp_path, _iot_live)
     for conv in ("CONV-LIVE", "iot-rag-abc123"):
-        r = tc.post("/agent/chat", json={"conversationId": conv, "message": "SCV bolt torque?"})
-        assert r.json()["content"].startswith("From the documents")
-    assert not [x for x in seen if x.url.host == "iot" and "iot-rag" in x.content.decode()]
+        tc.post("/agent/chat", json={"conversationId": conv, "message": "SCV bolt torque?"})
+    queries = [json.loads(x.content) for x in seen if x.url.path == "/query"]
+    assert [q["query"] for q in queries] == ["SCV bolt torque?", "SCV bolt torque?"]
+    assert not any("NOT from the documents" in (q.get("user_prompt") or "") for q in queries)
 
 
 def test_documents_still_answer_when_the_iot_service_is_down(tmp_path):

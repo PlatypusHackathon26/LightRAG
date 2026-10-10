@@ -345,7 +345,7 @@ không bao giờ gọi LightRAG trực tiếp. Đặc tả đầy đủ: `docs/A
 | `DELETE /agent/documents/{id}` | xoá khỏi mọi kho đang chạy; báo cấp nào chưa kiểm tra được |
 | `GET /agent/incidents`, `/agent/telemetry/{id}` | từ dịch vụ IoT khi bật `-WithIoT`, nếu không là dữ liệu MẪU (`sample_ops.json`) |
 | `POST /agent/actions/{id}/approve\|reject` | có IoT: chuyển sang IoT (cần `can_approve`), lệnh chạy trên máy mô phỏng; không có IoT: chỉ ghi log. **Không bao giờ gửi lệnh PLC** |
-| `POST /agent/chat` trong hội thoại của một sự cố IoT | agent IoT trả lời (biết telemetry và chẩn đoán của sự cố) |
+| `POST /agent/chat` trong hội thoại của một sự cố IoT | trả lời từ tài liệu như thường, kèm ngữ cảnh sự cố (máy, cảnh báo, số liệu cảm biến, lệnh đề xuất) trong prompt; trích dẫn và ngôn ngữ như phiên hỏi đáp |
 | `GET /agent/health` | trạng thái các kho LightRAG (và IoT) |
 
 ---

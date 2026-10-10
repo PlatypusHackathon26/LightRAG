@@ -532,6 +532,39 @@ def raw_file(file_path: str, data_dir: Path, max_level: int = MAX_LEVEL) -> Path
     return None
 
 
+def incident_context(inc: dict) -> str:
+    """The live state of an iot_service incident, for the answer prompt of a chat held in it."""
+    lines = [f"- Machine: {inc.get('device', '?')}; alarm: {inc.get('alarm', '?')}; "
+             f"severity: {inc.get('severity', '?')}; status: {inc.get('status', '?')}"]
+    points = (inc.get("telemetry") or {}).get("points") or []
+    if points:
+        def reading(pt: dict) -> str:
+            limit = f", limit {pt['threshold']:g}" if isinstance(pt.get("threshold"), (int, float)) else ""
+            flag = ", OUT OF RANGE" if pt.get("isAnomalous") else ""
+            return f"{pt.get('label', pt.get('key'))} {pt.get('value')} {pt.get('unit', '')}".rstrip() + f"{limit}{flag}"
+        lines.append("- Sensor readings now: " + "; ".join(reading(pt) for pt in points))
+    action = inc.get("proposedAction") or {}
+    if action:
+        execution = (inc.get("actionExecution") or {}).get("status") or "waiting for approval"
+        lines.append(f"- Monitoring agent's proposal ({execution}): {action.get('titleVi', '')}. "
+                     f"{action.get('subtitleVi', '')}".rstrip())
+    return ("The operator is asking about this live incident on the compressor test bench (data from the "
+            "monitoring system, NOT from the documents):\n" + "\n".join(lines) + "\n"
+            "Use it to understand the question. Causes, procedures and specifications must still come from the "
+            "documents and be cited as usual; sensor values may be quoted as live readings. If the documents do "
+            "not cover the question, say so.")
+
+
+def incident_query(message: str, inc: dict) -> str:
+    """Retrieval text for a chat in an incident: a short question ("what do I check next?") retrieves
+    nothing on its own, so the fault is added - in Vietnamese questions only, as the alarms are
+    Vietnamese and the reranker reads the question's language from the query."""
+    if question_language(message) != "vi":
+        return message
+    fault = (inc.get("alarm") or "").split(":", 1)[-1].strip()
+    return f"{message}\n({fault})" if fault and fault.lower() not in message.lower() else message
+
+
 def classify_target(message: str) -> str:
     return "lookup" if LOOKUP_QUESTION.search(message) else "knowledge"
 
@@ -587,7 +620,7 @@ class Settings:
     # Extra request fields, e.g. {"chat_template_kwargs": {"enable_thinking": false}} for Nemotron.
     lookup_llm_extra_body: dict = field(default_factory=dict)
     # iot_service (e.g. http://127.0.0.1:9710): incidents, telemetry and actions come from it instead
-    # of sample_ops.json, and chats in an incident's conversation go to its agent. None = samples.
+    # of sample_ops.json, and chats in an incident's conversation carry its live state. None = samples.
     iot_url: str | None = None
 
     @classmethod
@@ -733,14 +766,15 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
             raise HTTPException(status_code=r.status_code, detail=f"IoT service: {detail}")
         return r.json()
 
-    async def incident_conversation(conversation_id: str) -> bool:
-        """True when the conversation is an iot_service incident's (its agent answers there)."""
+    async def incident_for(conversation_id: str) -> dict | None:
+        """The iot_service incident whose conversation this is, else None."""
         if not settings.iot_url or conversation_id.startswith("iot-rag-"):  # the IoT agent's own lookups
-            return False
+            return None
         try:
-            return any(i.get("conversationId") == conversation_id for i in await iot("GET", "/agent/incidents"))
+            incidents = await iot("GET", "/agent/incidents")
         except HTTPException:
-            return False  # IoT down: the documents can still answer
+            return None  # IoT down: answered as a plain document question
+        return next((i for i in incidents if i.get("conversationId") == conversation_id), None)
 
     def log_action(row: dict) -> None:
         settings.actions_log.parent.mkdir(parents=True, exist_ok=True)
@@ -765,10 +799,10 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
 
     @app.post("/agent/chat")
     async def chat(req: ChatRequest, user: User = Depends(current_user)) -> dict:
-        if await incident_conversation(req.conversationId):
-            # The IoT agent knows the incident (telemetry, diagnosis, pending action); it looks
-            # documents up through this gateway in its own conversations.
-            return await iot("POST", "/agent/chat", json={"conversationId": req.conversationId, "message": req.message})
+        # In an incident's conversation the question is answered from the documents like any other,
+        # with the incident's live state in the prompt (the IoT agent's own chat, in rules mode, only
+        # repeats its diagnosis and cannot look anything up).
+        inc = await incident_for(req.conversationId)
         reply = small_talk_reply(req.message)
         if reply:
             # A greeting is not a question about the documents: no retrieval, no sources.
@@ -780,7 +814,7 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
         # History is per user, not per client-chosen id: a guest sending a level-3 user's
         # conversationId would otherwise get that conversation's answers as context.
         conversation = (user.level, user.name, req.conversationId)
-        target = req.target or classify_target(req.message)
+        target = "knowledge" if inc else (req.target or classify_target(req.message))
         unknown = catalogue.unknown_names(lookup_rows, req.message) if target == "lookup" and lookup_rows else set()
         if unknown:
             # No catalogue row mentions this vehicle: vector search still found a look-alike row
@@ -814,16 +848,19 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
             target, url, mode = "knowledge", settings.level_servers[user.level - 1], settings.knowledge_mode
         past = list(history[conversation])
         payload = {
-            "query": req.message,
+            "query": incident_query(req.message, inc) if inc else req.message,
             "mode": mode,
             "include_references": True,
             "include_chunk_content": True,
             "conversation_history": past or None,
         }
         instruction = language_instruction(req.message)
+        extra = [incident_context(inc)] if inc else []
         if instruction:
+            extra.append(instruction)
+        if extra:
             # Appended to the server's answer prompt (denso_answer.md): the prefix ends with a newline.
-            payload["user_prompt"] = "\n" + instruction
+            payload["user_prompt"] = "\n" + "\n".join(extra)
         try:
             r = await client.post(f"{url}/query", json=payload)
         except httpx.TimeoutException:
@@ -859,7 +896,8 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
             [{"role": "user", "content": req.message}, {"role": "assistant", "content": content}]
         )
         now = datetime.now(timezone.utc).isoformat()
-        events = [
+        events = ([{"id": f"ev-{uuid.uuid4().hex[:8]}", "timestamp": now, "type": "correlation",
+                    "label": f"Incident context added ({inc.get('id')}, {inc.get('device')})"}] if inc else []) + [
             {"id": f"ev-{uuid.uuid4().hex[:8]}", "timestamp": now, "type": "knowledge_retrieved",
              "label": (f"Retrieved {len(citations)} source document(s) ({target}, {mode}, level {user.level})"
                        if grounded else

@@ -140,6 +140,9 @@ Tài liệu phải nằm trên server ở cấp của người gọi, và không
 Đọc từ `denso/gateway/sample_ops.json` (dữ liệu mẫu, đúng kiểu `Incident` / `TelemetrySnapshot`).
 `/agent/telemetry/{id}` nhận mã sự cố hoặc `deviceId` của snapshot (mã máy, như `iot_service`);
 giao diện hỏi bằng `deviceId` khi đã có, nếu chưa thì bằng mã sự cố.
+Với `DENSO_IOT_URL`, các route này lấy từ `iot_service`; `POST /agent/chat` trong `conversationId` của
+một sự cố IoT vẫn trả lời từ tài liệu, nhưng thêm trạng thái sự cố (máy, cảnh báo, số liệu cảm biến, lệnh
+đề xuất) vào `user_prompt`, và câu hỏi tiếng Việt được thêm tên lỗi vào truy vấn tìm kiếm.
 Response thật của `/agent/incidents`:
 ```json
 [{ "id": "INC-DEMO-01", "conversationId": "conv-inc-demo-01", "device": "A/C compressor test bench 01",
