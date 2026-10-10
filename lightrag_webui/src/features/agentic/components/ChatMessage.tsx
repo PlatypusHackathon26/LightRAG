@@ -1,12 +1,135 @@
-import React from 'react'
+import React, { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { ChatMessage as ChatMessageType } from '../types/agentic'
-import { FileTextIcon, UserIcon, BotIcon } from 'lucide-react'
+import { useAgenticStore } from '../stores/agenticStore'
+import { pdfjs, Document, Page } from 'react-pdf'
+import { FileTextIcon, UserIcon, BotIcon, ChevronDownIcon, XIcon, EyeIcon, LoaderIcon } from 'lucide-react'
+
+// Set up PDF.js worker
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`
+
+function CitationPreviewModal({ doc, onClose }: { doc: any; onClose: () => void }) {
+  const [numPages, setNumPages] = useState<number | null>(null)
+  const [pdfError, setPdfError] = useState<string | null>(null)
+
+  if (!doc) return null
+
+  const handleLoadSuccess = ({ numPages: nextNumPages }: { numPages: number }) => {
+    setNumPages(nextNumPages)
+  }
+
+  const handleLoadError = (error: Error) => {
+    setPdfError(error.message)
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(4px)' }}
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Preview: ${doc.name}`}
+    >
+      <div
+        className="rounded overflow-hidden flex flex-col"
+        style={{
+          maxWidth: 900,
+          width: '95vw',
+          maxHeight: '90vh',
+          background: '#FFFFFF',
+          border: '1px solid #D9E1E8',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div
+          className="flex items-center justify-between px-4 py-3"
+          style={{ borderBottom: '1px solid #D9E1E8' }}
+        >
+          <div className="flex items-center gap-2">
+            <FileTextIcon size={14} style={{ color: '#00A896' }} />
+            <span className="font-semibold" style={{ fontSize: 15, color: '#172033', fontFamily: 'Inter, sans-serif' }}>
+              {doc.name}
+            </span>
+          </div>
+          <button
+            aria-label="Close preview"
+            onClick={onClose}
+            className="rounded p-1 hover:bg-[#F0F4F8] transition-colors focus-visible:outline-2 focus-visible:outline-[#00A896]"
+          >
+            <XIcon size={14} style={{ color: '#5B6575' }} />
+          </button>
+        </div>
+        <div className="flex-1 overflow-auto p-4" style={{ background: '#F8FAFC' }}>
+          {doc.file ? (
+            <Document
+              file={doc.file}
+              onLoadSuccess={handleLoadSuccess}
+              onLoadError={handleLoadError}
+              loading={
+                <div className="flex items-center justify-center py-8">
+                  <LoaderIcon size={24} className="animate-spin" style={{ color: '#00A896' }} />
+                  <span className="ml-2" style={{ fontSize: 13, color: '#5B6575', fontFamily: 'Inter, sans-serif' }}>
+                    Loading PDF...
+                  </span>
+                </div>
+              }
+            >
+              {pdfError ? (
+                <div className="text-center py-8" style={{ color: '#EF4444', fontSize: 13, fontFamily: 'Inter, sans-serif' }}>
+                  Failed to load PDF: {pdfError}
+                </div>
+              ) : (
+                Array.from(new Array(numPages ?? 0), (_, index) => (
+                  <div key={`page_${index + 1}`} className="mb-4">
+                    <Page
+                      pageNumber={index + 1}
+                      width={800}
+                      renderTextLayer={false}
+                      renderAnnotationLayer={false}
+                    />
+                  </div>
+                ))
+              )}
+            </Document>
+          ) : (
+            <div className="text-center py-8" style={{ color: '#5B6575', fontSize: 13, fontFamily: 'Inter, sans-serif' }}>
+              <FileTextIcon size={32} style={{ color: '#00A896', marginBottom: 8 }} />
+              <p>Document preview requires the original file.</p>
+              <p style={{ fontSize: 11, marginTop: 4 }}>This is mock data with extracted text only.</p>
+              <details className="mt-4 text-left">
+                <summary className="cursor-pointer" style={{ color: '#00A896' }}>
+                  View extracted text
+                </summary>
+                <pre
+                  className="mt-2 p-3 rounded leading-relaxed whitespace-pre-wrap"
+                  style={{ fontSize: 12, color: '#172033', fontFamily: 'Roboto Mono, monospace', background: '#F0F4F8', border: '1px solid #D9E1E8' }}
+                >
+                  {doc.extractedText ?? '(No extracted text available)'}
+                </pre>
+              </details>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function ChatMessage({ message }: { message: ChatMessageType }) {
   const isUser = message.role === 'user'
   const isSystem = message.role === 'system'
+  const [showSources, setShowSources] = useState(false)
+  const [previewDocId, setPreviewDocId] = useState<string | null>(null)
+  const { documents } = useAgenticStore()
+
+  const previewDoc = documents.find((d) => d.id === previewDocId) ?? null
+
+  const handlePreviewCitation = (citationId: string) => {
+    setPreviewDocId(citationId)
+  }
 
   if (isSystem) {
     return (
@@ -182,36 +305,100 @@ export default function ChatMessage({ message }: { message: ChatMessageType }) {
           )}
         </div>
 
-        {/* Citations */}
-        {message.citations && message.citations.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mt-1.5">
-            {message.citations.map((c) => (
+        {/* Source Button */}
+        {message.citations && message.citations.length > 0 && !isUser && (
+          <div className="mt-1.5">
+            <button
+              onClick={() => setShowSources(!showSources)}
+              className="flex items-center gap-1.5 rounded px-2.5 py-1 transition-colors hover:bg-[#EBF5F4] focus-visible:outline-2 focus-visible:outline-[#00A896]"
+              style={{
+                background: '#FFFFFF',
+                border: '1px solid #D9E1E8',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+              }}
+            >
+              <FileTextIcon size={12} style={{ color: '#00A896', flexShrink: 0 }} />
+              <span
+                className="font-medium"
+                style={{ fontSize: 12, color: '#5B6575', fontFamily: 'Roboto Mono, monospace' }}
+              >
+                Nguồn tài liệu ({message.citations.length})
+              </span>
+              <ChevronDownIcon
+                size={12}
+                style={{ color: '#5B6575', transition: 'transform 0.2s', transform: showSources ? 'rotate(180deg)' : 'rotate(0deg)' }}
+              />
+            </button>
+
+            {/* Citations Panel */}
+            {showSources && (
               <div
-                key={c.id}
-                className="flex items-center gap-1 rounded px-2 py-1"
+                className="mt-2 rounded overflow-hidden"
                 style={{
                   background: '#FFFFFF',
                   border: '1px solid #D9E1E8',
-                  boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
                 }}
-                title={c.excerpt}
               >
-                <FileTextIcon size={10} style={{ color: '#00A896', flexShrink: 0 }} />
-                <div className="leading-tight">
-                  <div className="font-medium" style={{ fontSize: 11, color: '#5B6575', fontFamily: 'Roboto Mono, monospace' }}>
-                    {c.documentName}
+                <div className="px-3 py-2" style={{ borderBottom: '1px solid #D9E1E8', background: '#F8FAFC' }}>
+                  <div className="flex items-center justify-between">
+                    <span
+                      className="font-medium"
+                      style={{ fontSize: 12, color: '#5B6575', fontFamily: 'Roboto Mono, monospace' }}
+                    >
+                      Tài liệu tham khảo
+                    </span>
+                    <button
+                      onClick={() => setShowSources(false)}
+                      className="rounded p-0.5 hover:bg-[#EEF2F7] transition-colors"
+                    >
+                      <XIcon size={12} style={{ color: '#5B6575' }} />
+                    </button>
                   </div>
-                  {c.pages && (
-                    <div style={{ fontSize: 10, color: '#5B6575', fontFamily: 'Roboto Mono, monospace' }}>
-                      Pages {c.pages}
-                    </div>
-                  )}
+                </div>
+                <div className="p-2 space-y-1.5 max-h-48 overflow-y-auto">
+                  {message.citations.map((c) => {
+                    const doc = documents.find((d) => d.name === c.documentName)
+                    return (
+                      <div
+                        key={c.id}
+                        className="flex items-start gap-2 rounded px-2 py-1.5 transition-colors hover:bg-[#F8FAFC]"
+                        style={{ border: '1px solid #D9E1E8' }}
+                        title={c.excerpt}
+                      >
+                        <FileTextIcon size={11} style={{ color: '#00A896', flexShrink: 0, marginTop: 2 }} />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium truncate" style={{ fontSize: 12, color: '#172033', fontFamily: 'Inter, sans-serif' }}>
+                            {c.documentName}
+                          </div>
+                          {c.pages && (
+                            <div style={{ fontSize: 11, color: '#5B6575', fontFamily: 'Roboto Mono, monospace' }}>
+                              Trang {c.pages}
+                            </div>
+                          )}
+                        </div>
+                        {doc && (
+                          <button
+                            onClick={() => handlePreviewCitation(doc.id)}
+                            className="rounded p-1 transition-colors hover:bg-[#EBF5F4] focus-visible:outline-2 focus-visible:outline-[#00A896]"
+                            title="Xem file nguồn"
+                            style={{ flexShrink: 0 }}
+                          >
+                            <EyeIcon size={12} style={{ color: '#00A896' }} />
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
-            ))}
+            )}
           </div>
         )}
       </div>
+
+      {/* Citation Preview Modal */}
+      <CitationPreviewModal doc={previewDoc} onClose={() => setPreviewDocId(null)} />
     </div>
   )
 }

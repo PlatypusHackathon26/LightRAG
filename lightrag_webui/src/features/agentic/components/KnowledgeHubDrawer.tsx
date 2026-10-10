@@ -1,9 +1,10 @@
-import { useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { useAgenticStore } from '../stores/agenticStore'
 import type { KnowledgeDocument } from '../types/agentic'
 import { agentClient } from '../../../api/agent'
 import { deleteLive, uploadLive } from '../uploadLive'
+import { pdfjs, Document, Page } from 'react-pdf'
 import {
   XIcon,
   UploadCloudIcon,
@@ -14,6 +15,9 @@ import {
   LoaderIcon,
   AlertCircleIcon,
 } from 'lucide-react'
+
+// Set up PDF.js worker
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`
 
 const STATUS_COLOR: Record<KnowledgeDocument['indexStatus'], string> = {
   uploading: '#F59E0B',
@@ -79,11 +83,11 @@ function DocumentRow({
     <tr
       style={{ borderBottom: '1px solid #EEF2F7' }}
     >
-      <td className="py-2 pr-3">
+      <td className="py-2 pr-3" style={{ width: '40%' }}>
         <div className="flex items-center gap-1.5">
           <FileTextIcon size={12} style={{ color: '#00A896', flexShrink: 0 }} />
           <span
-            className="font-medium truncate max-w-[180px]"
+            className="font-medium truncate"
             style={{ fontSize: 13, color: '#172033', fontFamily: 'Inter, sans-serif' }}
             title={doc.name}
           >
@@ -91,7 +95,7 @@ function DocumentRow({
           </span>
         </div>
         <div className="flex flex-wrap gap-1 mt-0.5">
-          {doc.tags.map((tag) => (
+          {doc.tags.slice(0, 3).map((tag) => (
             <span
               key={tag}
               className="rounded px-1 py-0.5"
@@ -100,6 +104,13 @@ function DocumentRow({
               {tag}
             </span>
           ))}
+          {doc.tags.length > 3 && (
+            <span
+              style={{ fontSize: 10, color: '#5B6575', fontFamily: 'Roboto Mono, monospace' }}
+            >
+              +{doc.tags.length - 3}
+            </span>
+          )}
         </div>
         {doc.statusNote && (
           <div
@@ -110,17 +121,17 @@ function DocumentRow({
           </div>
         )}
       </td>
-      <td className="py-2 pr-3 whitespace-nowrap">
+      <td className="py-2 pr-3 whitespace-nowrap" style={{ width: '12%' }}>
         <span style={{ fontSize: 12, color: '#5B6575', fontFamily: 'Roboto Mono, monospace' }}>
           {formatBytes(doc.sizeBytes)}
         </span>
       </td>
-      <td className="py-2 pr-3 whitespace-nowrap">
+      <td className="py-2 pr-3 whitespace-nowrap" style={{ width: '16%' }}>
         <span style={{ fontSize: 12, color: '#5B6575', fontFamily: 'Roboto Mono, monospace' }}>
           {doc.importedAt}
         </span>
       </td>
-      <td className="py-2 pr-3">
+      <td className="py-2 pr-3 whitespace-nowrap" style={{ width: '18%' }}>
         <div className="flex items-center gap-1.5">
           {isProcessing ? (
             <LoaderIcon size={11} className="animate-spin" style={{ color: statusColor }} />
@@ -148,7 +159,7 @@ function DocumentRow({
           </div>
         )}
       </td>
-      <td className="py-2">
+      <td className="py-2 whitespace-nowrap" style={{ width: '14%' }}>
         <div className="flex items-center gap-1">
           <button
             id={`doc-preview-${doc.id}`}
@@ -182,7 +193,19 @@ function PreviewModal({
   doc: KnowledgeDocument | null
   onClose: () => void
 }) {
+  const [numPages, setNumPages] = useState<number | null>(null)
+  const [pdfError, setPdfError] = useState<string | null>(null)
+
   if (!doc) return null
+
+  const handleLoadSuccess = ({ numPages: nextNumPages }: { numPages: number }) => {
+    setNumPages(nextNumPages)
+  }
+
+  const handleLoadError = (error: Error) => {
+    setPdfError(error.message)
+  }
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center"
@@ -195,9 +218,9 @@ function PreviewModal({
       <div
         className="rounded overflow-hidden flex flex-col"
         style={{
-          maxWidth: 640,
-          width: '90vw',
-          maxHeight: '80vh',
+          maxWidth: 900,
+          width: '95vw',
+          maxHeight: '90vh',
           background: '#FFFFFF',
           border: '1px solid #D9E1E8',
           boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
@@ -223,12 +246,61 @@ function PreviewModal({
           </button>
         </div>
         <div className="flex-1 overflow-auto p-4" style={{ background: '#F8FAFC' }}>
-          <pre
-            className="leading-relaxed whitespace-pre-wrap"
-            style={{ fontSize: 13, color: '#172033', fontFamily: 'Roboto Mono, monospace' }}
-          >
-            {doc.extractedText ?? '(No extracted text available)'}
-          </pre>
+          {doc.file ? (
+            <Document
+              file={doc.file}
+              onLoadSuccess={handleLoadSuccess}
+              onLoadError={handleLoadError}
+              loading={
+                <div className="flex items-center justify-center py-8">
+                  <LoaderIcon size={24} className="animate-spin" style={{ color: '#00A896' }} />
+                  <span className="ml-2" style={{ fontSize: 13, color: '#5B6575', fontFamily: 'Inter, sans-serif' }}>
+                    Loading PDF...
+                  </span>
+                </div>
+              }
+            >
+              {pdfError ? (
+                <div className="text-center py-8" style={{ color: '#EF4444', fontSize: 13, fontFamily: 'Inter, sans-serif' }}>
+                  Failed to load PDF: {pdfError}
+                </div>
+              ) : (
+                Array.from(new Array(numPages ?? 0), (_, index) => (
+                  <div key={`page_${index + 1}`} className="mb-4">
+                    <Page
+                      pageNumber={index + 1}
+                      width={800}
+                      renderTextLayer={false}
+                      renderAnnotationLayer={false}
+                    />
+                  </div>
+                ))
+              )}
+            </Document>
+          ) : doc.fileUrl ? (
+            <iframe
+              src={doc.fileUrl}
+              style={{ width: '100%', height: '100%', border: 'none' }}
+              title={doc.name}
+            />
+          ) : (
+            <div className="text-center py-8" style={{ color: '#5B6575', fontSize: 13, fontFamily: 'Inter, sans-serif' }}>
+              <FileTextIcon size={32} style={{ color: '#00A896', marginBottom: 8 }} />
+              <p>Document preview requires the original file.</p>
+              <p style={{ fontSize: 11, marginTop: 4 }}>This is mock data with extracted text only.</p>
+              <details className="mt-4 text-left">
+                <summary className="cursor-pointer" style={{ color: '#00A896' }}>
+                  View extracted text
+                </summary>
+                <pre
+                  className="mt-2 p-3 rounded leading-relaxed whitespace-pre-wrap"
+                  style={{ fontSize: 12, color: '#172033', fontFamily: 'Roboto Mono, monospace', background: '#F0F4F8', border: '1px solid #D9E1E8' }}
+                >
+                  {doc.extractedText ?? '(No extracted text available)'}
+                </pre>
+              </details>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -269,6 +341,7 @@ export default function KnowledgeHubDrawer() {
           importedAt: new Date().toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }),
           indexStatus: 'uploading',
           progress: 0,
+          file: file,
           extractedText: `(Simulated extracted text for ${file.name})\n\nIn a real deployment, this document would be parsed, chunked, and embedded into the LightRAG knowledge base.\n\nFile size: ${(file.size / 1024).toFixed(1)} KB\nFile type: ${file.type || 'unknown'}`,
         }
         addDocument(newDoc)
@@ -321,7 +394,7 @@ export default function KnowledgeHubDrawer() {
         aria-label="Knowledge Hub"
         className="fixed top-0 right-0 bottom-0 z-40 flex flex-col overflow-hidden"
         style={{
-          width: 440,
+          width: 650,
           background: '#FFFFFF',
           borderLeft: '1px solid #D9E1E8',
           boxShadow: '-12px 0 40px rgba(0,0,0,0.12)',
@@ -380,18 +453,24 @@ export default function KnowledgeHubDrawer() {
 
         {/* Document table */}
         <div className="flex-1 overflow-y-auto scrollbar-thin px-4 py-3">
-          <table className="w-full" style={{ borderCollapse: 'collapse' }}>
+          <table className="w-full" style={{ borderCollapse: 'collapse', tableLayout: 'fixed' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid #D9E1E8' }}>
-                {['Document', 'Size', 'Imported', 'Status', 'Actions'].map((h) => (
-                  <th
-                    key={h}
-                    className="pb-2 text-left uppercase tracking-wider"
-                    style={{ fontSize: 11, color: '#5B6575', fontFamily: 'Roboto Mono, monospace' }}
-                  >
-                    {h}
-                  </th>
-                ))}
+                <th className="pb-2 text-left uppercase tracking-wider" style={{ fontSize: 11, color: '#5B6575', fontFamily: 'Roboto Mono, monospace', width: '40%' }}>
+                  Document
+                </th>
+                <th className="pb-2 text-left uppercase tracking-wider" style={{ fontSize: 11, color: '#5B6575', fontFamily: 'Roboto Mono, monospace', width: '12%' }}>
+                  Size
+                </th>
+                <th className="pb-2 text-left uppercase tracking-wider" style={{ fontSize: 11, color: '#5B6575', fontFamily: 'Roboto Mono, monospace', width: '16%' }}>
+                  Imported
+                </th>
+                <th className="pb-2 text-left uppercase tracking-wider" style={{ fontSize: 11, color: '#5B6575', fontFamily: 'Roboto Mono, monospace', width: '18%' }}>
+                  Status
+                </th>
+                <th className="pb-2 text-left uppercase tracking-wider" style={{ fontSize: 11, color: '#5B6575', fontFamily: 'Roboto Mono, monospace', width: '14%' }}>
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody>
