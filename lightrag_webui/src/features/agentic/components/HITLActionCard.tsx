@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAgenticStore } from '../stores/agenticStore'
 import type { ProposedAction } from '../types/agentic'
+import { actionCommand } from '../format'
 import {
   ShieldAlertIcon,
   CpuIcon,
@@ -102,6 +103,7 @@ export default function HITLActionCard({ action }: { action: ProposedAction }) {
   }, [action.id, execution.status, expireAction])
 
   const isWaiting = execution.status === 'waiting'
+  const command = actionCommand(action.items)
   const isExecuting = execution.status === 'executing'
   const isSuccess = execution.status === 'success'
   const isRejected = execution.status === 'rejected'
@@ -314,7 +316,7 @@ export default function HITLActionCard({ action }: { action: ProposedAction }) {
         >
           <button
             id="hitl-approve-button"
-            aria-label="Confirm spindle derate: approve the proposed PLC action"
+            aria-label={`Approve the proposed command${command ? ` ${command}` : ''}`}
             onClick={() => approveAction(action.id)}
             disabled={!isWaiting}
             className="flex-1 rounded py-3 font-bold uppercase tracking-wider transition-all focus-visible:outline-2 focus-visible:outline-[#10B981] disabled:opacity-50 disabled:cursor-not-allowed"
@@ -326,12 +328,12 @@ export default function HITLActionCard({ action }: { action: ProposedAction }) {
               boxShadow: '0 2px 12px rgba(0,168,150,0.35)',
             }}
           >
-            ✓ CONFIRM SPINDLE DERATE
+            ✓ DUYỆT LỆNH{command ? ` ${command}` : ''}
           </button>
 
           <button
             id="hitl-reject-button"
-            aria-label="Reject the proposed action and keep current spindle load"
+            aria-label="Reject the proposed command and keep the machine as it is"
             onClick={() => rejectAction(action.id)}
             disabled={!isWaiting}
             className="flex-1 rounded py-3 font-bold uppercase tracking-wider transition-all focus-visible:outline-2 focus-visible:outline-[#EF4444] disabled:opacity-50 disabled:cursor-not-allowed"
@@ -343,7 +345,7 @@ export default function HITLActionCard({ action }: { action: ProposedAction }) {
               fontFamily: 'Roboto Mono, monospace',
             }}
           >
-            ✗ REJECT / KEEP CURRENT
+            ✗ TỪ CHỐI / GIỮ NGUYÊN
           </button>
 
           <Countdown

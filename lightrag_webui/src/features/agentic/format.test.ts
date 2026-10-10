@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { firstPage, formatImportedAt } from './format'
+import { actionCommand, firstPage, formatImportedAt } from './format'
 
 describe('agentic display helpers', () => {
   test('an ISO timestamp becomes a short local date and time', () => {
@@ -18,5 +18,16 @@ describe('agentic display helpers', () => {
     expect(firstPage('4, 7')).toBe(4)
     expect(firstPage(undefined)).toBe(undefined)
     expect(firstPage('')).toBe(undefined)
+  })
+})
+
+describe('approve button command', () => {
+  test('names the PLC command of the IoT service and of the demo data', () => {
+    expect(actionCommand([{ type: 'plc_command', params: { 'Lệnh': 'SET_RPM', 'Thiết bị': 'COMP-TB-02' } }])).toBe('SET_RPM')
+    expect(actionCommand([
+      { type: 'inventory', params: { Action: 'Reserve 1 unit' } },
+      { type: 'plc_command', params: { Command: 'S=50' } },
+    ])).toBe('S=50')
+    expect(actionCommand([{ type: 'inventory', params: {} }])).toBe(undefined)
   })
 })

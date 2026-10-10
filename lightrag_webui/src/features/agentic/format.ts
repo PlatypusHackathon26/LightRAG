@@ -17,3 +17,9 @@ export function firstPage(pages?: string): number | undefined {
   const n = Number(pages?.match(/\d+/)?.[0])
   return Number.isFinite(n) && n > 0 ? n : undefined
 }
+
+/** The command a proposed action would run ("SET_RPM", "S=50"), for the approve button. */
+export function actionCommand(items: { type: string; params: Record<string, string> }[]): string | undefined {
+  const plc = items.find((i) => i.type === 'plc_command')
+  return plc?.params['Lệnh'] ?? plc?.params.Command ?? undefined
+}
