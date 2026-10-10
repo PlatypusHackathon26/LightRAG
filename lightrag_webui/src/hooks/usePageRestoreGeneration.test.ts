@@ -39,10 +39,12 @@ describe('subscribeToPageRestore', () => {
 
 describe('BFCache consumers', () => {
   test('admin health and document polling restart without beforeunload poisoning', async () => {
-    const appSource = await Bun.file(new URL('../App.tsx', import.meta.url)).text()
-    const documentManagerSource = await Bun.file(
+    // LF line endings: a Windows checkout (core.autocrlf) has CRLF, and the multi-line
+    // expectation below would fail there only.
+    const appSource = (await Bun.file(new URL('../App.tsx', import.meta.url)).text()).replace(/\r\n/g, '\n')
+    const documentManagerSource = (await Bun.file(
       new URL('../features/DocumentManager.tsx', import.meta.url)
-    ).text()
+    ).text()).replace(/\r\n/g, '\n')
 
     for (const source of [appSource, documentManagerSource]) {
       expect(source).toContain('const pageRestoreGeneration = usePageRestoreGeneration()')

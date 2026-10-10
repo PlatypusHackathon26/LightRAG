@@ -1,5 +1,6 @@
 import { useRef, useCallback, useState } from 'react'
 import { SendIcon, PaperclipIcon } from 'lucide-react'
+import { agentConfig } from '../agentConfig'
 
 interface AgentComposerProps {
   onSend: (message: string) => void
@@ -97,7 +98,7 @@ export default function AgentComposer({ onSend, disabled }: AgentComposerProps) 
         className="text-center mt-1.5"
         style={{ fontSize: 11, color: '#C2CDD9', fontFamily: 'Roboto Mono, monospace' }}
       >
-        Enter to send · Shift+Enter for newline · DEMO MODE
+        Enter to send · Shift+Enter for newline · {agentConfig.live ? 'LIVE · Agent Gateway' : 'DEMO MODE (mock data)'}
       </div>
     </div>
   )
