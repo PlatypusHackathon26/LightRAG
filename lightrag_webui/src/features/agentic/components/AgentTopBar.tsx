@@ -1,33 +1,10 @@
-import { useEffect, useState } from 'react'
 import { useAgenticStore } from '../stores/agenticStore'
 import { agentClient } from '../../../api/agent'
 import { DatabaseIcon, CpuIcon, BookOpenIcon, ActivityIcon } from 'lucide-react'
 
-/** True while the gateway reaches the IoT service (checked at start, then every 30 s). */
-function useIotAvailable(): boolean {
-  const [available, setAvailable] = useState(false)
-  useEffect(() => {
-    if (!agentClient.live) return
-    let cancelled = false
-    const check = () =>
-      agentClient.fetchHealth().then(
-        (h) => !cancelled && setAvailable(Boolean(h.backends?.iot?.ok)),
-        () => !cancelled && setAvailable(false)
-      )
-    check()
-    const id = setInterval(check, 30000)
-    return () => {
-      cancelled = true
-      clearInterval(id)
-    }
-  }, [])
-  return available
-}
-
 export default function AgentTopBar() {
   const { knowledgeDrawerOpen, setKnowledgeDrawerOpen, documents } = useAgenticStore()
   const vectorizedCount = documents.filter((d) => d.indexStatus === 'vectorized').length
-  const iotAvailable = useIotAvailable()
 
   return (
     <header
@@ -63,18 +40,20 @@ export default function AgentTopBar() {
 
       {/* Right: IoT dashboard + Knowledge Hub + User */}
       <div className="flex items-center gap-3">
-        {iotAvailable && (
+        {/* Always shown with a live gateway: without the IoT service the page says so itself. */}
+        {agentClient.live && (
           <a
             id="iot-dashboard-link"
             href={agentClient.dashboardUrl()}
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Mở dashboard giám sát bệ thử trong tab mới"
+            title="Dashboard giám sát bệ thử (tab mới)"
             className="flex items-center gap-2 rounded px-3 py-1.5 font-medium transition-all hover:bg-[#475569] focus-visible:outline-2 focus-visible:outline-[#00A896]"
             style={{ fontSize: 13, background: '#334155', color: '#CBD5E1', border: '1px solid #475569', fontFamily: 'Inter, sans-serif' }}
           >
             <ActivityIcon size={14} />
-            <span>Giám sát bệ thử ↗</span>
+            <span>Dashboard</span>
           </a>
         )}
         <button
