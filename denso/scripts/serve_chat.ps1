@@ -157,7 +157,8 @@ if ($Tunnel) {
     if (-not $cf) { $cf = "${env:ProgramFiles(x86)}\cloudflared\cloudflared.exe" }
     Get-Process cloudflared -ErrorAction SilentlyContinue | Stop-Process -Force -Confirm:$false
     Remove-Item "$logs\tunnel.err.log" -ErrorAction SilentlyContinue
-    Start-Bg $cf @("tunnel", "--no-autoupdate", "--url", "http://localhost:9700") "tunnel"
+    # 127.0.0.1: with localhost cloudflared dialled [::1]:9700 first and logged a failure per request.
+    Start-Bg $cf @("tunnel", "--no-autoupdate", "--url", "http://127.0.0.1:9700") "tunnel"
     $url = $null
     foreach ($i in 1..40) {
         Start-Sleep 2

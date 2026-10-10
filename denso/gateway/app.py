@@ -1104,6 +1104,11 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
         """The dashboard's server-sent events, relayed as they arrive (no read timeout)."""
         if not settings.iot_url:
             raise HTTPException(status_code=404, detail="the IoT service is not enabled (-WithIoT)")
+        if "cf-ray" in request.headers:
+            # Through a Cloudflare quick tunnel the events never arrive (it holds the body back),
+            # and the open-but-silent stream left the dashboard empty. Refused, its EventSource
+            # errors and the dashboard polls /api/v1/dashboard/* every 3 s instead.
+            raise HTTPException(status_code=503, detail="live events are not relayed through the tunnel; poll instead")
         headers = {k: v for k, v in request.headers.items() if k.lower() in DASHBOARD_HEADERS}
         upstream = client.build_request("GET", f"{settings.iot_url}/api/v1/stream", params=request.query_params,
                                         headers=headers, timeout=httpx.Timeout(10, read=None))
@@ -1125,8 +1130,10 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
             finally:
                 await r.aclose()
 
-        return StreamingResponse(relay(), media_type="text/event-stream",
-                                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+        # Exactly "text/event-stream": media_type= would append "; charset=utf-8", and cloudflared
+        # (the quick tunnel) then buffered the whole stream - the dashboard got nothing remotely.
+        return StreamingResponse(relay(), headers={"Content-Type": "text/event-stream",
+                                                   "Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
     @app.get("/agent/incidents")
     async def incidents(user: User = Depends(current_user)) -> list[dict]:

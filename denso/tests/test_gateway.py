@@ -713,3 +713,12 @@ def test_no_dashboard_without_the_iot_service(tmp_path):
     tc = TestClient(create_app(settings, transport=httpx.MockTransport(lambda r: httpx.Response(500))))
     assert tc.get("/dashboard/").status_code == 404
     assert tc.get("/api/v1/stream").status_code == 404
+
+
+def test_through_the_tunnel_the_dashboard_is_told_to_poll(tmp_path):
+    # A Cloudflare quick tunnel holds the event stream back: refusing it makes the dashboard poll.
+    seen, tc = _iot_client(tmp_path, _iot_dashboard)
+    r = tc.get("/api/v1/stream", headers={"CF-Ray": "a488d6069b4385c1-HKG"})
+    assert r.status_code == 503
+    assert not [x for x in seen if x.url.path == "/api/v1/stream"]  # no idle upstream connection left open
+    assert tc.get("/api/v1/dashboard/events", headers={"CF-Ray": "x"}).status_code == 200  # polling still works
