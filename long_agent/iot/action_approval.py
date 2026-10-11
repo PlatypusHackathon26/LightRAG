@@ -49,9 +49,11 @@ class ActionApproval:
         dispatcher_callback: Optional[Callable[[Dict[str, Any]], Any]] = None,
         event_bus: Optional[Any] = None,
         default_ttl_sec: float = 300.0,  # Lệnh chờ duyệt quá 5 phút sẽ tự hết hạn (Expired)
+        require_approval_for_all: bool = False,  # True: cả lệnh LOW cũng chờ kỹ sư duyệt
     ) -> None:
         self.event_bus = event_bus
         self.default_ttl_sec = default_ttl_sec
+        self.require_approval_for_all = require_approval_for_all
         self._lock = Lock()
 
         if dispatcher_callback is not None:
@@ -114,6 +116,8 @@ class ActionApproval:
             cmd_name = str(command.get("command") or command.get("action") or "UNKNOWN")
             user_risk = command.get("risk_level")
             final_risk = self._assess_risk_level(cmd_name, user_risk)
+            if self.require_approval_for_all:
+                final_risk = "HIGH"
 
             # 1. RỦI RO THẤP (LOW): Chuyển xuống Dispatcher thực thi tức thì
             if final_risk == "LOW":

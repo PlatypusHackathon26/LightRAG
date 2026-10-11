@@ -4,6 +4,7 @@ import { mockIncidents } from '../mock/incidents'
 import { mockConversations } from '../mock/conversations'
 import { agentConfig } from '../agentConfig'
 import { mergeLiveIncidents } from '../liveIncidents'
+import { agentClient } from '../../../api/agent'
 import type {
   AgentEvent,
   AgentState,
@@ -199,6 +200,27 @@ export const useAgenticStore = create<AgenticStore>((set, get) => ({
         [actionId]: { status: 'executing' },
       },
     }))
+    if (get().isLive) {
+      // The gateway passes the decision to Long-agent, which runs the command on its simulator.
+      const now = () => new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      agentClient.approveAction(actionId).then(
+        (res) => {
+          set((s) => ({
+            actionExecutions: { ...s.actionExecutions, [actionId]: { status: 'success', executedAt: now(), ackCode: res.ack, responseText: res.ack } },
+            incidents: s.incidents.map((i) => (i.proposedAction?.id === actionId ? { ...i, status: 'acknowledged' as const } : i)),
+          }))
+          const inc = get().incidents.find((i) => i.proposedAction?.id === actionId)
+          if (inc) get().setAgentState(inc.conversationId, 'acknowledged')
+        },
+        (e: unknown) => {
+          // Not executed (no right, expired, Long-agent down): say so, never show it as done.
+          set((s) => ({
+            actionExecutions: { ...s.actionExecutions, [actionId]: { status: 'rejected', rejectedAt: now(), responseText: e instanceof Error ? e.message : String(e) } },
+          }))
+        }
+      )
+      return
+    }
     // Simulate execution delay
     setTimeout(() => {
       set((s) => ({
@@ -228,6 +250,7 @@ export const useAgenticStore = create<AgenticStore>((set, get) => ({
     }, 2200)
   },
   rejectAction: (actionId) => {
+    if (get().isLive) void agentClient.rejectAction(actionId).catch(() => { /* the ticket expires on its own */ })
     set((s) => ({
       actionExecutions: {
         ...s.actionExecutions,

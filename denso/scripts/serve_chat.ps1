@@ -110,6 +110,9 @@ if ($GuestUpload) { "WARNING    guests may upload and DELETE documents (-GuestUp
 if ($WithIoT) {
     if (-not (Test-Port 8085)) {
         $env:LONG_AGENT_HOST = "127.0.0.1"; $env:LONG_AGENT_PORT = "8085"   # no auth on its write routes
+        # Its agent diagnoses with the same model through the proxy (the proxy adds the API key).
+        $env:LONG_AGENT_LLM_BASE = "http://127.0.0.1:8899/v1"; $env:LONG_AGENT_LLM_MODEL = $Model
+        $env:LONG_AGENT_LLM_EXTRA_BODY = $ExtraBody
         Start-Bg $py @("main.py") "long_agent" "$repo\long_agent"
         Wait-Url "http://127.0.0.1:8085/api/machines" 20 | Out-Null
     }

@@ -256,7 +256,15 @@ Code của Long (repo `Long-agent`, nhánh `Phuc_update`), đưa vào bằng `gi
 bấm vào một máy để bật / tắt lỗi mô phỏng. Qua tunnel, trang tự hỏi lại mỗi 1,5 giây thay cho luồng SSE.
 
 Chỉ trang, danh sách máy và hộp chọn lỗi đi qua gateway; các route ghi khác của Long-agent (quyết định,
-lệnh PLC, upload) không có xác thực nên chỉ nghe trên máy. Agent của Long-agent vẫn dùng RAG giả lập.
+lệnh PLC, upload) không có xác thực nên chỉ nghe trên máy.
+
+Khi bộ lọc biên của Long-agent phát hiện bất thường, sự cố hiện trong **Automated Alerts** của chatbot (sau
+~4 giây): chỉ số lệch, số liệu cảm biến, chẩn đoán của agent. Agent chẩn đoán bằng LLM qua proxy NVIDIA
+(`LONG_AGENT_LLM_*`, `-WithIoT` tự đặt; không có thì dùng bản giả lập theo từ khoá), đề xuất lệnh trong danh
+mục của từng máy, và **mọi lệnh chờ kỹ sư duyệt** trên thẻ duyệt (`can_approve` hoặc `-GuestUpload`); duyệt
+xong lệnh chạy trên máy mô phỏng. `LONG_AGENT_AUTO_LOW=1` trả lại hành vi gốc (lệnh LOW chạy ngay),
+`LONG_AGENT_PROPOSE=0` tắt đề xuất. Hỏi trong phiên sự cố: trả lời từ tài liệu kèm trạng thái máy – kho chưa
+có tài liệu về 5 loại máy này nên cần upload thêm để trích dẫn đúng.
 
 Cập nhật từ repo của Long:
 

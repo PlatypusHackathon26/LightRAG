@@ -236,6 +236,22 @@ COMMAND_CATALOG: Dict[str, List[Dict[str, Any]]] = {
 }
 
 
+def _limits_text(machine_type: str) -> str:
+    """Danh nghĩa và ngưỡng của từng chỉ số (machines/specifications.py), để LLM biết chỉ số nào đang lệch."""
+    try:
+        from machines.specifications import MACHINE_METRICS
+    except ImportError:
+        return "(không có bảng ngưỡng)"
+    lines = []
+    for m in MACHINE_METRICS.get(machine_type, []):
+        limits = ", ".join(f"{name} {m[key]}" for key, name in (
+            ("min", "tối thiểu"), ("max", "tối đa"),
+            ("critical_min", "nguy hiểm dưới"), ("critical_max", "nguy hiểm trên")) if key in m)
+        lines.append(f"- {m['key']} ({m['label']}): danh nghĩa {m['nominal']} {m['unit']}"
+                     + (f"; {limits}" if limits else ""))
+    return "\n".join(lines) or "(không có bảng ngưỡng)"
+
+
 class RAGEngine:
     """RAG Engine phục vụ truy vấn cẩm nang và chuẩn hóa output hành động IoT."""
 
@@ -266,6 +282,8 @@ class RAGEngine:
             f"- Mã thiết bị: {machine_id}\n"
             f"- Dòng máy: {machine_type}\n"
             f"- Telemetry cảm biến hiện tại:\n{json.dumps(telemetry, ensure_ascii=False, indent=2)}\n\n"
+            f"--- GIÁ TRỊ DANH NGHĨA VÀ NGƯỠNG VẬN HÀNH ---\n{_limits_text(machine_type)}\n"
+            "So sánh từng chỉ số với ngưỡng: nguyên nhân phải giải thích được chính các chỉ số đang lệch.\n\n"
             f"--- DANH MỤC LỆNH PLC HỢP LỆ CHO DÒNG MÁY NÀY (BẮT BUỘC TUÂN THỦ) ---\n"
             f"{json.dumps(available_cmds, ensure_ascii=False, indent=2)}\n\n"
             "--- QUY TẮC ĐỊNH DẠNG ĐẦU RA (JSON SCHEMA BẮT BUỘC) ---\n"
@@ -274,7 +292,8 @@ class RAGEngine:
             "3. 'risk_level' phải đúng giá trị đã định nghĩa cho lệnh đó ('LOW' hoặc 'HIGH').\n"
             "4. Phải trả về DUY NHẤT một đối tượng JSON hợp lệ, không có lời mở đầu hay kết thúc, theo định dạng:\n"
             "{\n"
-            '  "diagnosis": "<Văn bản tiếng Việt giải thích nguyên nhân và khuyến nghị cho kỹ sư vận hành>",\n'
+            '  "diagnosis": "<2-3 câu tiếng Việt: chỉ số nào lệch khỏi ngưỡng (kèm giá trị), nguyên nhân khả dĩ nhất, '
+            'khuyến nghị. Không liệt kê các chỉ số bình thường>",\n'
             '  "actions": [\n'
             "    {\n"
             '      "command": "<TÊN_LỆNH_CHUẨN>",\n'

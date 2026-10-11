@@ -2,7 +2,8 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List
+import time
+from typing import Any, Dict, List, Tuple
 
 logger = logging.getLogger("AgentBrain")
 
@@ -14,6 +15,7 @@ class AgentBrain:
         tools: Any,
         event_bus: Any = None,
         execute_actions: bool = True,
+        repeat_window_s: float = 0.0,
     ) -> None:
         self.rag = rag_engine
         self.tools = tools
@@ -21,6 +23,10 @@ class AgentBrain:
         self.execute_actions = execute_actions
         # Bộ nhớ lưu trạng thái gần nhất của các máy
         self.machine_states: Dict[str, Dict[str, Any]] = {}
+        # Cùng máy + cùng nhóm chỉ số bất thường trong cửa sổ này thì không chẩn đoán lại: với LLM thật,
+        # mỗi cảnh báo lặp là một lượt gọi API và một đề xuất trùng. 0 = luôn chẩn đoán (như bản gốc).
+        self.repeat_window_s = repeat_window_s
+        self._last_diagnosed: Dict[Tuple[str, Tuple[str, ...]], float] = {}
 
     def handle_heartbeat(self, event: Dict[str, Any]) -> None:
         """Gói tin 'normal' (chu kỳ định kỳ): chỉ cập nhật trạng thái sống, không gọi RAG."""
@@ -36,6 +42,14 @@ class AgentBrain:
         machine_id = event.get("machine_id", "UNKNOWN")
         machine_type = event.get("machine_type", "")
         payload = event.get("payload", {})
+
+        params = tuple(sorted({str(a.get("param")) for a in event.get("anomalies") or [] if isinstance(a, dict)}))
+        key = (machine_id, params)
+        now = time.monotonic()
+        if self.repeat_window_s and now - self._last_diagnosed.get(key, float("-inf")) < self.repeat_window_s:
+            logger.info(f"[Brain] Bỏ qua cảnh báo lặp {machine_id} {params} (đã chẩn đoán gần đây)")
+            return
+        self._last_diagnosed[key] = now
 
         logger.info(f"[Brain] Bắt đầu xử lý cảnh báo cho máy {machine_id} ({machine_type})")
 
