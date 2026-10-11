@@ -84,7 +84,7 @@ class SmoothTelemetryTests(unittest.TestCase):
                 if metric["key"] == "Path_Feedrate_Override_Pct":
                     continue
                 row = re.search(
-                    r"^\| `" + re.escape(metric["key"]) + r"` \| ([^|]+)\| ([^|]+)\|",
+                    r"^\| `" + re.escape(metric["key"]) + r"`\s*\| ([^|]+)\| ([^|]+)\|",
                     document,
                     re.MULTILINE,
                 )

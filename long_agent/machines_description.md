@@ -1,4 +1,4 @@
-# ĐẶC THẢU MÔ PHỎNG 5 MÁY (machines_description.md)
+# ĐẶC TẢ MÔ PHỎNG 5 MÁY (machines_description.md)
 
 > Tài liệu mô tả hành vi mô phỏng của 5 thiết bị trong dự án **Long-agent / Denso Hackathon 2026**.
 > Đối tượng đọc: kỹ sư viết test, người vận hành demo, và bất kỳ ai cần hiểu vì sao
@@ -24,12 +24,12 @@ Khi không có sự cố, chỉ số hội tụ về điểm cân bằng này v�
 **Quy tắc thiết kế (đã hiệu chỉnh):** điểm cân bằng bình thường **trùng với giá trị khởi tạo**,
 nên máy chạy bình thường thì chỉ số **nằm yên quanh mức**, không trôi.
 
-| Máy | Chỉ số | Khởi tạo = điểm cân bằng | Hệ số đã sửa |
-|---|---|---|---|
-| CNC | `Spindle_Temp_C` | **38 °C** | `cool_coeff = 0.045 × (áp tưới/20)`: 0.54/0.045 = +12°C → 38°C |
-| Robot | `Motor_Temp_C` | **40 °C** | `cool_coeff = (9.25/10)² × 1.5 / 14 ≈ 0.091674`: cân bằng chính xác ở 40°C |
-| AMR | `Battery_Temp_C` | **33.6 °C** | điểm cân bằng pin đầy tải khi di chuyển |
-| AOI | `Optics_Cleanliness_Pct` | **99 %** | hồi phục bằng `ramp` về trần 99 (0.1%/s thường, 0.5%/s sau hiệu chuẩn) |
+| Máy   | Chỉ số                   | Khởi tạo = điểm cân bằng | Hệ số đã sửa                                                               |
+| ----- | ------------------------ | ------------------------ | -------------------------------------------------------------------------- |
+| CNC   | `Spindle_Temp_C`         | **38 °C**                | `cool_coeff = 0.045 × (áp tưới/20)`: 0.54/0.045 = +12°C → 38°C             |
+| Robot | `Motor_Temp_C`           | **40 °C**                | `cool_coeff = (9.25/10)² × 1.5 / 14 ≈ 0.091674`: cân bằng chính xác ở 40°C |
+| AMR   | `Battery_Temp_C`         | **33.6 °C**              | điểm cân bằng pin đầy tải khi di chuyển                                    |
+| AOI   | `Optics_Cleanliness_Pct` | **99 %**                 | hồi phục bằng `ramp` về trần 99 (0.1%/s thường, 0.5%/s sau hiệu chuẩn)     |
 
 Khi **có sự cố**, heat_in nhảy vọt → điểm cân bằng mới cao/thấp hơn hẳn →
 chỉ số **trồi/tụt sang mức mới**; áp suất/tải có thể đổi trong vài giây, nhiệt cần hàng chục giây đến vài phút. Lỗi nhẹ không nhất thiết vượt ngưỡng tĩnh.
@@ -79,23 +79,23 @@ Nhiễu chỉ cộng vào **giá trị xuất ra**, không tích lũy vào trạ
 
 **Chỉ số khi bình thường (± noise):**
 
-| Chỉ số | Mức bình thường | Noise |
-|---|---|---|
-| `Spindle_RotaryVelocity_RPM` | 12000 | ±15 |
-| `Spindle_Load_Pct` | ~45 % | ±0.3 |
-| `Spindle_Temp_C` | **38 °C** lúc mòn dao 12%; tăng nhẹ theo mòn dao | ±0.06 |
-| `Vibration_RMS_mm_s` | ~1.2 mm/s | ±0.03 |
-| `Coolant_Pressure_Bar` | 20 Bar | ±0.2 |
-| `Tool_Wear_Pct` | 12 %, **trôi cố ý** +0.005 %/s | — |
+| Chỉ số                       | Mức bình thường                                  | Noise |
+| ---------------------------- | ------------------------------------------------ | ----- |
+| `Spindle_RotaryVelocity_RPM` | 12000                                            | ±15   |
+| `Spindle_Load_Pct`           | ~45 %                                            | ±0.3  |
+| `Spindle_Temp_C`             | **38 °C** lúc mòn dao 12%; tăng nhẹ theo mòn dao | ±0.06 |
+| `Vibration_RMS_mm_s`         | ~1.2 mm/s                                        | ±0.03 |
+| `Coolant_Pressure_Bar`       | 20 Bar                                           | ±0.2  |
+| `Tool_Wear_Pct`              | 12 %, **trôi cố ý** +0.005 %/s                   | —     |
 
 **4 sự cố → tác động:**
 
-| Sự cố (code → tiếng Việt) | Chỉ số bị tác động | Đường đi | Lệnh PLC sửa |
-|---|---|---|---|
-| `SPINDLE_BEARING_LACK_OF_LUBE` — Thiếu dầu bôi trơn ổ bi trục chính | Load **+20**, sinh nhiệt thêm **+4.5°C/s**, Vib **+3.2** | Load ~65%, Temp đạt trần **140°C**; Vib từ 4.4 tăng tới ~14.9 do nhiệt trên 70°C | `REFILL_SPINDLE_LUBRICANT` |
-| `COOLANT_PUMP_FAILURE` — Hỏng bơm làm mát | Áp tưới **−8 Bar/s về 0**, Temp **↑** (toả chỉ 30%), Mòn dao **×7** | Áp →0 (mất áp <5), Temp →~66°C, Wear tăng nhanh | `REPAIR_COOLANT_SYSTEM` |
-| `TOOL_CHIPPING_OR_WEAR` — Dao phay mẻ/mòn | Load **+35**, Vib **+4.5**, Mòn dao **×3** | Load →80%, Vib →5.7 (vượt 4.5) | `REPLACE_TOOL` (reset mòn 0%) |
-| `GUIDEWAY_LUBRICATION_ISSUE` — Thiếu dầu trượt | Load **+8**, Vib **+1.5** | Biểu hiện nhẹ | `LUBRICATE_GUIDEWAYS` |
+| Sự cố (code → tiếng Việt)                                           | Chỉ số bị tác động                                                  | Đường đi                                                                         | Lệnh PLC sửa                  |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ----------------------------- |
+| `SPINDLE_BEARING_LACK_OF_LUBE` — Thiếu dầu bôi trơn ổ bi trục chính | Load **+20**, sinh nhiệt thêm **+4.5°C/s**, Vib **+3.2**            | Load ~65%, Temp đạt trần **140°C**; Vib từ 4.4 tăng tới ~14.9 do nhiệt trên 70°C | `REFILL_SPINDLE_LUBRICANT`    |
+| `COOLANT_PUMP_FAILURE` — Hỏng bơm làm mát                           | Áp tưới **−8 Bar/s về 0**, Temp **↑** (toả chỉ 30%), Mòn dao **×7** | Áp →0 (mất áp <5), Temp →~66°C, Wear tăng nhanh                                  | `REPAIR_COOLANT_SYSTEM`       |
+| `TOOL_CHIPPING_OR_WEAR` — Dao phay mẻ/mòn                           | Load **+35**, Vib **+4.5**, Mòn dao **×3**                          | Load →80%, Vib →5.7 (vượt 4.5)                                                   | `REPLACE_TOOL` (reset mòn 0%) |
+| `GUIDEWAY_LUBRICATION_ISSUE` — Thiếu dầu trượt                      | Load **+8**, Vib **+1.5**                                           | Biểu hiện nhẹ                                                                    | `LUBRICATE_GUIDEWAYS`         |
 
 **Ngưỡng cảnh báo:** Temp >75 (cảnh báo), >90 (nghiêm trọng); Vib >4.5, >7.1; Load >120; Áp tưới <5.
 
@@ -103,20 +103,20 @@ Nhiễu chỉ cộng vào **giá trị xuất ra**, không tích lũy vào trạ
 
 **Chỉ số khi bình thường:**
 
-| Chỉ số | Mức bình thường | Noise |
-|---|---|---|
-| `Joint_3_Current_A` | ~9.25 A | ±0.05 |
-| `Motor_Temp_C` | **40 °C** (cân bằng) | ±0.04 |
-| `Gripper_Pressure_Bar` | 6.0 Bar | ±0.08 |
-| `Payload_Kg` | 3.5 kg | — |
+| Chỉ số                 | Mức bình thường      | Noise |
+| ---------------------- | -------------------- | ----- |
+| `Joint_3_Current_A`    | ~9.25 A              | ±0.05 |
+| `Motor_Temp_C`         | **40 °C** (cân bằng) | ±0.04 |
+| `Gripper_Pressure_Bar` | 6.0 Bar              | ±0.08 |
+| `Payload_Kg`           | 3.5 kg               | —     |
 
 **3 sự cố:**
 
-| Sự cố | Chỉ số bị tác động | Đường đi | Lệnh PLC sửa |
-|---|---|---|---|
-| `GEARBOX_LACK_OF_GREASE` — Khô mỡ hộp số giảm tốc | Dòng **+8.5A**, sinh nhiệt thêm **+4.0°C/s** | Dòng →17.75A (>16.5 quá dòng), Temp →**~121°C** (>80) | `REFILL_GEARBOX_GREASE` |
-| `GRIPPER_PNEUMATIC_LEAK` — Rò khí nén tay gắp | Áp kẹp **−1.2 Bar/s** | Áp →0.8 Bar (<3.5 mất áp) | `REPAIR_PNEUMATIC_SYSTEM` |
-| `PAYLOAD_OVERLOAD` — Quá tải trọng gắp | Tải gắp **3.5→~12 kg** (dòng theo tải **↑~5.5A**), sinh nhiệt thêm **+1.5°C/s**, áp kẹp **↑~8 Bar** | Dòng →**~14.7A** (>12.5), Temp →~78°C, Tải **3.5→~12 kg**, Áp kẹp **6.0→~8 Bar** | `RESET_PAYLOAD` (về 3.5kg) |
+| Sự cố                                             | Chỉ số bị tác động                                                                                  | Đường đi                                                                         | Lệnh PLC sửa               |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | -------------------------- |
+| `GEARBOX_LACK_OF_GREASE` — Khô mỡ hộp số giảm tốc | Dòng **+8.5A**, sinh nhiệt thêm **+4.0°C/s**                                                        | Dòng →17.75A (>16.5 quá dòng), Temp →**~121°C** (>80)                            | `REFILL_GEARBOX_GREASE`    |
+| `GRIPPER_PNEUMATIC_LEAK` — Rò khí nén tay gắp     | Áp kẹp **−1.2 Bar/s**                                                                               | Áp →0.8 Bar (<3.5 mất áp)                                                        | `REPAIR_PNEUMATIC_SYSTEM`  |
+| `PAYLOAD_OVERLOAD` — Quá tải trọng gắp            | Tải gắp **3.5→~12 kg** (dòng theo tải **↑~5.5A**), sinh nhiệt thêm **+1.5°C/s**, áp kẹp **↑~8 Bar** | Dòng →**~14.7A** (>12.5), Temp →~78°C, Tải **3.5→~12 kg**, Áp kẹp **6.0→~8 Bar** | `RESET_PAYLOAD` (về 3.5kg) |
 
 **Ngưỡng:** Dòng >12.5 (cảnh báo), >16.5 (nghiêm trọng); Temp >65, >80; Áp <3.5.
 
@@ -126,20 +126,20 @@ Lỗi `PAYLOAD_OVERLOAD` mô phỏng gắp phôi vượt định mức nên cả
 
 **Chỉ số khi bình thường:**
 
-| Chỉ số | Mức bình thường | Noise |
-|---|---|---|
-| `Current_Velocity_m_s` | 1.2 m/s | ±0.02 |
-| `Battery_Pct` | 85 %, **trôi cố ý** −2.7333 %/phút (~2.7) khi di chuyển ở tải 25kg | ±0.05 |
-| `Battery_Temp_C` | **33.6 °C** (cân bằng) | ±0.1 |
-| `Lidar_Confidence_Pct` | 99.5 % | ±0.2 |
+| Chỉ số                 | Mức bình thường                                                    | Noise |
+| ---------------------- | ------------------------------------------------------------------ | ----- |
+| `Current_Velocity_m_s` | 1.2 m/s                                                            | ±0.02 |
+| `Battery_Pct`          | 85 %, **trôi cố ý** −2.7333 %/phút (~2.7) khi di chuyển ở tải 25kg | ±0.05 |
+| `Battery_Temp_C`       | **33.6 °C** (cân bằng)                                             | ±0.1  |
+| `Lidar_Confidence_Pct` | 99.5 %                                                             | ±0.2  |
 
 **3 sự cố:**
 
-| Sự cố | Chỉ số bị tác động | Đường đi | Lệnh PLC sửa |
-|---|---|---|---|
-| `BATTERY_CELL_DEGRADATION` — Pin chai lão hóa | Xả pin **×4**, Nhiệt pin **↑** | Pin tụt ~11%/phút, Temp →**~56°C** (>55 nguy hiểm) | `REPLACE_BATTERY_MODULE` (nạp lại 95%) |
-| `LIDAR_OPTICAL_DIRT` — Bụi bẩn ống kính LiDAR | Độ tin cậy **−2 %/s** | Lidar →40%, vượt <65 (mất định vị) | `CLEAN_LIDAR_OPTICS` |
-| `WHEEL_MOTOR_RESISTANCE` — Kẹt cơ cấu bánh xe | Tốc độ **×0.5**, Xả pin **×1.8** | Vận tốc →0.6 m/s, pin hao nhanh | `SERVICE_DRIVE_MOTOR` |
+| Sự cố                                         | Chỉ số bị tác động               | Đường đi                                           | Lệnh PLC sửa                           |
+| --------------------------------------------- | -------------------------------- | -------------------------------------------------- | -------------------------------------- |
+| `BATTERY_CELL_DEGRADATION` — Pin chai lão hóa | Xả pin **×4**, Nhiệt pin **↑**   | Pin tụt ~11%/phút, Temp →**~56°C** (>55 nguy hiểm) | `REPLACE_BATTERY_MODULE` (nạp lại 95%) |
+| `LIDAR_OPTICAL_DIRT` — Bụi bẩn ống kính LiDAR | Độ tin cậy **−2 %/s**            | Lidar →40%, vượt <65 (mất định vị)                 | `CLEAN_LIDAR_OPTICS`                   |
+| `WHEEL_MOTOR_RESISTANCE` — Kẹt cơ cấu bánh xe | Tốc độ **×0.5**, Xả pin **×1.8** | Vận tốc →0.6 m/s, pin hao nhanh                    | `SERVICE_DRIVE_MOTOR`                  |
 
 **Ngưỡng:** Pin <25 (cảnh báo), <15 (nghiêm trọng); Nhiệt pin >55; Lidar <65.
 
@@ -147,20 +147,20 @@ Lỗi `PAYLOAD_OVERLOAD` mô phỏng gắp phôi vượt định mức nên cả
 
 **Chỉ số khi bình thường:**
 
-| Chỉ số | Mức bình thường | Noise |
-|---|---|---|
-| `False_Reject_Rate_Pct` | 0.6 % | ±0.04 |
-| `Optics_Cleanliness_Pct` | 99 % (cân bằng trần) | ±0.1 |
-| `Illumination_Intensity_Lux` | 18500 Lux | ±15 |
-| `Conveyor_Speed_m_min` | 1.2 m/phút | ±0.02 |
+| Chỉ số                       | Mức bình thường      | Noise |
+| ---------------------------- | -------------------- | ----- |
+| `False_Reject_Rate_Pct`      | 0.6 %                | ±0.04 |
+| `Optics_Cleanliness_Pct`     | 99 % (cân bằng trần) | ±0.1  |
+| `Illumination_Intensity_Lux` | 18500 Lux            | ±15   |
+| `Conveyor_Speed_m_min`       | 1.2 m/phút           | ±0.02 |
 
 **3 sự cố (có chuỗi phản ứng):**
 
-| Sự cố | Chỉ số bị tác động | Đường đi | Lệnh PLC sửa |
-|---|---|---|---|
+| Sự cố                                                  | Chỉ số bị tác động                          | Đường đi                                   | Lệnh PLC sửa                               |
+| ------------------------------------------------------ | ------------------------------------------- | ------------------------------------------ | ------------------------------------------ |
 | `OPTICAL_LENS_CONTAMINATION` — Bẩn lăng kính quang học | Độ sạch **−0.5 %/s**, FRR **↑ theo độ bẩn** | Sạch →30%, FRR →**~11%** (nghiêm trọng >4) | `RECALIBRATE_OPTICS` (hồi phục dần về 99%) |
-| `LED_DRIVER_DEGRADATION` — Nguồn LED suy hao | Sáng **−350 Lux/s**, FRR **↑** | Sáng →9000 (<14000), FRR →~8% | `REPLACE_LED_MODULE` |
-| `SMEMA_CONVEYOR_JAM` — Kẹt bảng mạch trên băng chuyền | Tốc độ băng →**0** | Vận tốc 0, chu kỳ 0 | `CLEAR_CONVEYOR_JAM` |
+| `LED_DRIVER_DEGRADATION` — Nguồn LED suy hao           | Sáng **−350 Lux/s**, FRR **↑**              | Sáng →9000 (<14000), FRR →~8%              | `REPLACE_LED_MODULE`                       |
+| `SMEMA_CONVEYOR_JAM` — Kẹt bảng mạch trên băng chuyền  | Tốc độ băng →**0**                          | Vận tốc 0, chu kỳ 0                        | `CLEAR_CONVEYOR_JAM`                       |
 
 **Chuỗi phản ứng FRR:** `FRR = 0.6 + max(0, (88 − độ sạch)×0.18) + |18500 − sáng|/500×0.4`
 — kính bẩn hoặc thiếu sáng đều đẩy tỷ lệ từ chối giả lên.
@@ -171,19 +171,19 @@ Lỗi `PAYLOAD_OVERLOAD` mô phỏng gắp phôi vượt định mức nên cả
 
 **Chỉ số khi bình thường:**
 
-| Chỉ số | Mức bình thường | Noise |
-|---|---|---|
-| `Nozzle_Temp_Zone1` | 220 °C | ±0.12 |
-| `Clamping_Pressure_Bar` | 140 Bar | ±0.5 |
-| `Injection_Pressure_Bar` | ~95 Bar | ±0.5 |
+| Chỉ số                   | Mức bình thường | Noise |
+| ------------------------ | --------------- | ----- |
+| `Nozzle_Temp_Zone1`      | 220 °C          | ±0.12 |
+| `Clamping_Pressure_Bar`  | 140 Bar         | ±0.5  |
+| `Injection_Pressure_Bar` | ~95 Bar         | ±0.5  |
 
 **3 sự cố:**
 
-| Sự cố | Chỉ số bị tác động | Đường đi | Lệnh PLC sửa |
-|---|---|---|---|
-| `HEATER_BAND_RUNAWAY` — Rơ-le vòng nhiệt kẹt | Nhiệt đầu phun **+1.2°C/s** | →280°C (vượt 245 nguy hiểm); áp phun **↓** (nhựa loãng) | `SERVICE_HEATER_SSR` |
-| `HYDRAULIC_PROPORTIONAL_VALVE_LEAK` — Rò van tỉ lệ thủy lực | Áp kẹp khuôn **140 → 102 Bar** | <115 (mất áp kẹp) | `REPAIR_HYDRAULIC_VALVE` |
-| `NOZZLE_CLOGGING` — Nghẹt nhựa nòng phun | Áp phun **95 → 165 Bar** | >145 (quá áp phun) | `PURGE_BARREL` (đùn xả) |
+| Sự cố                                                       | Chỉ số bị tác động             | Đường đi                                                | Lệnh PLC sửa             |
+| ----------------------------------------------------------- | ------------------------------ | ------------------------------------------------------- | ------------------------ |
+| `HEATER_BAND_RUNAWAY` — Rơ-le vòng nhiệt kẹt                | Nhiệt đầu phun **+1.2°C/s**    | →280°C (vượt 245 nguy hiểm); áp phun **↓** (nhựa loãng) | `SERVICE_HEATER_SSR`     |
+| `HYDRAULIC_PROPORTIONAL_VALVE_LEAK` — Rò van tỉ lệ thủy lực | Áp kẹp khuôn **140 → 102 Bar** | <115 (mất áp kẹp)                                       | `REPAIR_HYDRAULIC_VALVE` |
+| `NOZZLE_CLOGGING` — Nghẹt nhựa nòng phun                    | Áp phun **95 → 165 Bar**       | >145 (quá áp phun)                                      | `PURGE_BARREL` (đùn xả)  |
 
 **Ngưỡng:** Nhiệt >245 (nghiêm trọng), <195 (cảnh báo); Áp kẹp <115; Áp phun >145.
 
@@ -204,12 +204,12 @@ SỬA LỖI:                 ╲___________/    trượt về mức cũ
 
 **Trôi CÓ CHỦ ĐÍCH (không phải bug):**
 
-| Chỉ số | Tốc độ | Lý do |
-|---|---|---|
-| `Tool_Wear_Pct` (CNC) | +0.005 %/s (~18%/giờ) | Mòn dao tích lũy vật lý |
-| `Battery_Pct` (AMR) | −2.7333 %/phút (~2.7) ở tải 25kg | Xả pin khi vận hành (sạc lại khi `CHARGING`) |
-| `boards_inspected_total` (AOI) | +1 board/s ở tốc độ mặc định, dừng khi kẹt/dừng máy | Tích lũy theo `dt`, không theo số lần gọi |
-| `boards_flagged_defect` (AOI) | Tăng ngẫu nhiên với xác suất FRR/100 cho mỗi bo kiểm tra | Không tăng cố định mỗi giây; dừng khi không có bo đi qua |
+| Chỉ số                         | Tốc độ                                                   | Lý do                                                    |
+| ------------------------------ | -------------------------------------------------------- | -------------------------------------------------------- |
+| `Tool_Wear_Pct` (CNC)          | +0.005 %/s (~18%/giờ)                                    | Mòn dao tích lũy vật lý                                  |
+| `Battery_Pct` (AMR)            | −2.7333 %/phút (~2.7) ở tải 25kg                         | Xả pin khi vận hành (sạc lại khi `CHARGING`)             |
+| `boards_inspected_total` (AOI) | +1 board/s ở tốc độ mặc định, dừng khi kẹt/dừng máy      | Tích lũy theo `dt`, không theo số lần gọi                |
+| `boards_flagged_defect` (AOI)  | Tăng ngẫu nhiên với xác suất FRR/100 cho mỗi bo kiểm tra | Không tăng cố định mỗi giây; dừng khi không có bo đi qua |
 
 Sửa lỗi sẽ đưa các chỉ số về mức phù hợp với trạng thái điều khiển hiện tại. Hiệu chuẩn quang học, thay LED, làm sạch LiDAR chỉ thay điều kiện/đích phục hồi; số đo tăng/giảm dần. Thay vật tư là trường hợp riêng: thay dao mới đặt mòn về 0%, thay cụm pin mới đặt mức pin 95%. `PURGE_BARREL` chuyển máy ép sang `PURGING`, cần `RESUME` để chạy lại.
 
@@ -231,11 +231,11 @@ Giá trị số + unit giữ nguyên; **không đổi dữ liệu backend**, ch�
 
 ## 5. Tham chiếu code
 
-| Thành phần | File |
-|---|---|
-| Động học, noise, cân bằng | `machines/*.py` → `generate_telemetry()` |
-| Chọn/hủy nhiều lỗi thủ công | `machines/base_machine.py` → `set_active_faults()`, `get_fault_config()` |
-| Ngưỡng tĩnh + ROC | `iot/telemetry_receiver.py` → `MACHINE_THRESHOLDS` |
-| Lệnh PLC & interlock an toàn | `iot/actuator_dispatcher.py` |
-| Stream dữ liệu + API chọn lỗi | `dashboard/server.py`, `dashboard/state_store.py` |
-| Hiển thị tiếng Việt | `dashboard/index.html` |
+| Thành phần                    | File                                                                     |
+| ----------------------------- | ------------------------------------------------------------------------ |
+| Động học, noise, cân bằng     | `machines/*.py` → `generate_telemetry()`                                 |
+| Chọn/hủy nhiều lỗi thủ công   | `machines/base_machine.py` → `set_active_faults()`, `get_fault_config()` |
+| Ngưỡng tĩnh + ROC             | `iot/telemetry_receiver.py` → `MACHINE_THRESHOLDS`                       |
+| Lệnh PLC & interlock an toàn  | `iot/actuator_dispatcher.py`                                             |
+| Stream dữ liệu + API chọn lỗi | `dashboard/server.py`, `dashboard/state_store.py`                        |
+| Hiển thị tiếng Việt           | `dashboard/index.html`                                                   |
