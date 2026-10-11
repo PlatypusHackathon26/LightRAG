@@ -1,4 +1,4 @@
-# dashboard/state_store.py (phan 1/2)
+# dashboard/state_store.py
 from __future__ import annotations
 from datetime import datetime
 from threading import Lock
@@ -174,48 +174,6 @@ class StateStore:
                         m["status"] = mapped
                         return True
             return False
-
-    def register_upload(self, filename: str) -> Dict[str, Any]:
-        with self._lock:
-            rec = {"filename": filename, "timestamp": _now()}
-            self._uploads.append(rec)
-            return rec
-
-    # ---- Snapshot / API cu ----
-    def get_snapshot(self) -> Dict[str, Any]:
-        with self._lock:
-            return {
-                "server_time": _now(), "machines": dict(self._states),
-                "conversations": list(self._conversations),
-                "pending_approvals": [],
-                "alerts": list(self._alerts), "uploads": list(self._uploads),
-            }
-
-    def snapshot(self) -> Dict[str, Any]:
-        with self._lock:
-            machines = []
-            for mid, st in self._states.items():
-                machines.append({
-                    "machine_id": mid,
-                    "machine_type": st.get("machine_type", ""),
-                    "model": st.get("model", ""), "location": st.get("location", ""),
-                    "status": st.get("status", st.get("label", "normal")),
-                    "telemetry": st.get("telemetry", {}),
-                    "history": st.get("history", {}),
-                    "last_agent_result": st.get("last_agent_result"),
-                    "active_faults": st.get("active_faults", []),
-                })
-            return {"machines": machines, "alerts": list(self._alerts)}
-
-    def record_agent_result(self, machine_id: str, result: Dict[str, Any]) -> None:
-        with self._lock:
-            st = self._states.get(machine_id)
-            if st is not None:
-                st["last_agent_result"] = result
-            for a in reversed(self._alerts):
-                if a.get("machine_id") == machine_id:
-                    a["agent_result"] = result
-                    break
 
     def register_upload(self, filename: str) -> Dict[str, Any]:
         with self._lock:

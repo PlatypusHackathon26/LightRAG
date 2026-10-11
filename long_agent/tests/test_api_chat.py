@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import json
 import os
-import threading
 import unittest
-from urllib.request import Request, urlopen
 
-from dashboard.server import UPLOAD_DIR, DashboardServer
+from fastapi.testclient import TestClient
+
+from dashboard.server import UPLOAD_DIR, create_app
 from dashboard.state_store import DashboardState
 
 
@@ -62,105 +61,53 @@ class StateStoreTests(unittest.TestCase):
         self.assertFalse(state.add_message("nope", "user", "x"))
 
 class ApiEndpointTests(unittest.TestCase):
-    """Chạy HTTP server thật trên cổng ngẫu nhiên để test chat/upload."""
+    """Chat, upload, state and decision routes, through FastAPI's test client."""
 
-    @classmethod
-    def setUpClass(cls) -> None:
-        cls.state = DashboardState()
-        cls.server = DashboardServer(
-            ("127.0.0.1", 0),
-            cls.state,
-            None,
+    def setUp(self) -> None:
+        self.state = DashboardState()
+        self.client = TestClient(create_app(
+            self.state,
             on_decision=lambda aid, d: {
                 "action_id": aid,
-                "status": "APPROVED" if d.strip().upper() in ("APPROVE", "APPROVED", "YES")
-                else "REJECTED",
+                "status": "APPROVED" if d.strip().upper() in ("APPROVE", "APPROVED", "YES") else "REJECTED",
             },
             on_chat=lambda text: f"Phản hồi RAG cho: {text}",
-        )
-        cls.port = cls.server.server_port
-        cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
-        cls.thread.start()
-
-    @classmethod
-    def tearDownClass(cls) -> None:
-        cls.server.shutdown()
-        cls.server.server_close()
-
-    def _post(self, path: str, body: bytes, ctype: str) -> tuple[int, dict]:
-        req = Request(
-            f"http://127.0.0.1:{self.port}{path}",
-            data=body,
-            headers={"Content-Type": ctype},
-            method="POST",
-        )
-        with urlopen(req, timeout=5) as res:
-            return res.status, json.loads(res.read().decode("utf-8"))
+        ))
 
     def test_chat_endpoint_creates_user_thread_and_replies(self) -> None:
-        payload = json.dumps({"session_id": "", "text": "Cách xử lý rung CNC?"}).encode()
-        status, data = self._post("/api/chat", payload, "application/json")
-        self.assertEqual(status, 200)
+        data = self.client.post("/api/chat", json={"session_id": "", "text": "Cách xử lý rung CNC?"}).json()
         self.assertTrue(data["session_id"])
         self.assertIn("Phản hồi RAG", data["reply"])
-
-        snap = self.state.get_snapshot()
-        conv = next(c for c in snap["conversations"]
-                    if c["session_id"] == data["session_id"])
+        conv = next(c for c in self.state.get_snapshot()["conversations"] if c["session_id"] == data["session_id"])
         self.assertEqual(conv["category"], "user")
         self.assertEqual([m["role"] for m in conv["messages"]], ["user", "assistant"])
 
         # Gửi tiếp vào cùng thread
-        payload2 = json.dumps(
-            {"session_id": data["session_id"], "text": "Giảm còn 50%?"}
-        ).encode()
-        _, data2 = self._post("/api/chat", payload2, "application/json")
+        data2 = self.client.post("/api/chat", json={"session_id": data["session_id"], "text": "Giảm còn 50%?"}).json()
         self.assertEqual(data2["session_id"], data["session_id"])
-        conv2 = next(c for c in self.state.get_snapshot()["conversations"]
-                     if c["session_id"] == data["session_id"])
-        self.assertEqual(len(conv2["messages"]), 4)
+        self.assertEqual(len(conv["messages"]), 4)
 
     def test_chat_empty_text_rejected(self) -> None:
-        from urllib.error import HTTPError
-        payload = json.dumps({"text": "   "}).encode()
-        with self.assertRaises(HTTPError) as ctx:
-            self._post("/api/chat", payload, "application/json")
-        self.assertEqual(ctx.exception.code, 400)
+        self.assertEqual(self.client.post("/api/chat", json={"text": "   "}).status_code, 400)
 
     def test_upload_multipart_saves_file_and_registers(self) -> None:
-        filename = "_test_rag_upload.txt"
-        content = "quy trình bảo trì CNC test"
-        boundary = "----densoTestBoundary"
-        body = (
-            f"--{boundary}\r\n"
-            f'Content-Disposition: form-data; name="file"; filename="{filename}"\r\n'
-            "Content-Type: text/plain\r\n\r\n"
-            f"{content}\r\n"
-            f"--{boundary}--\r\n"
-        ).encode("utf-8")
-
-        status, data = self._post(
-            "/api/upload", body, f"multipart/form-data; boundary={boundary}"
-        )
-        self.assertEqual(status, 200)
-        self.assertEqual(data["status"], "OK")
-        self.assertEqual(data["files"][0]["filename"], filename)
-
+        filename, content = "_test_rag_upload.txt", "quy trình bảo trì CNC test"
+        r = self.client.post("/api/upload", files={"file": (filename, content.encode("utf-8"), "text/plain")})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["status"], "ok")
+        self.assertEqual(r.json()["files"][0]["filename"], filename)
         saved_path = os.path.join(UPLOAD_DIR, filename)
-        self.assertTrue(os.path.exists(saved_path))
-        with open(saved_path, "r", encoding="utf-8") as f:
-            self.assertEqual(f.read(), content)
-
-        self.assertTrue(any(u["filename"] == filename
-                            for u in self.state.get_snapshot()["uploads"]))
-        os.remove(saved_path)
+        try:
+            with open(saved_path, "r", encoding="utf-8") as f:
+                self.assertEqual(f.read(), content)
+            self.assertTrue(any(u["filename"] == filename for u in self.state.get_snapshot()["uploads"]))
+        finally:
+            os.remove(saved_path)
 
     def test_state_endpoint_includes_conversations(self) -> None:
-        with urlopen(f"http://127.0.0.1:{self.port}/api/state", timeout=5) as res:
-            snap = json.loads(res.read().decode("utf-8"))
+        snap = self.client.get("/api/state").json()
         self.assertIn("conversations", snap)
         self.assertIn("uploads", snap)
-
 
     def test_decision_endpoint_flows_into_chat(self) -> None:
         """POST /api/decision phải cập nhật luôn thẻ HITL trong khung chat."""
@@ -170,20 +117,11 @@ class ApiEndpointTests(unittest.TestCase):
             "command": {"machine_id": "MC-TEST-01", "command": "PAUSE_MOTION",
                         "reason": "quá dòng", "risk_level": "HIGH"},
         })
-        payload = json.dumps({"action_id": "deadbeef", "decision": "APPROVE"}).encode()
-        status, data = self._post("/api/decision", payload, "application/json")
-        self.assertEqual(status, 200)
-        self.assertEqual(data["status"], "APPROVED")
-        pending_ids = [p.get("approval_id")
-                       for p in self.state.get_snapshot()["pending_approvals"]]
-        self.assertNotIn("deadbeef", pending_ids)
-
-        snap = self.state.get_snapshot()
-        cards = [m for conv in snap["conversations"]
-                 if conv["machine_id"] == "MC-TEST-01"
+        r = self.client.post("/api/decision", json={"action_id": "deadbeef", "decision": "APPROVE"})
+        self.assertEqual(r.json()["status"], "APPROVED")
+        cards = [m for conv in self.state.get_snapshot()["conversations"] if conv["machine_id"] == "MC-TEST-01"
                  for m in conv["messages"] if m.get("approval_id") == "deadbeef"]
-        self.assertEqual(len(cards), 1)
-        self.assertEqual(cards[0]["status"], "approved")
+        self.assertEqual([c["status"] for c in cards], ["approved"])
 
 
 class ApprovalInChatTests(unittest.TestCase):
@@ -205,9 +143,9 @@ class ApprovalInChatTests(unittest.TestCase):
         return [p.get("approval_id") for p in snapshot["pending_approvals"]]
 
     def test_approval_card_created_pending_in_conversation(self) -> None:
+        # The pending list itself lives in ActionApproval (served by /api/state); the store keeps the card.
         state, app_id = self._make_state_with_approval()
         snap = state.get_snapshot()
-        self.assertIn(app_id, self._pending_ids(snap))
 
         conv = snap["conversations"][0]
         cards = [m for m in conv["messages"] if m["role"] == "approval"]

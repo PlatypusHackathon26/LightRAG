@@ -206,27 +206,3 @@ def create_app(
         return result
 
     return app
-
-
-class DashboardServer:
-    """Wrapper tuong thich test cu: DashboardServer((host, port), state, approval)."""
-
-    def __init__(self, addr, state_store=None, approval=None,
-                 on_decision=None, on_chat=None) -> None:
-        import uvicorn as _uvicorn
-        host, port = addr
-        self.app = create_app(state_store, None, approval, on_chat, on_decision)
-        self.server = _uvicorn.Server(
-            _uvicorn.Config(self.app, host=host, port=port, log_level="error"))
-        self.server_address = (host, port)
-        self.server_port = port
-
-    def serve_forever(self) -> None:
-        import anyio
-        anyio.run(self.server.serve)
-
-    def shutdown(self) -> None:
-        self.server.should_exit = True
-
-    def server_close(self) -> None:
-        pass

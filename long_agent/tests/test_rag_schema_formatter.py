@@ -81,7 +81,10 @@ class RagSchemaFormatterTests(unittest.TestCase):
 
     def test_whitelisting_filters_out_invented_commands(self) -> None:
         # Giả lập trường hợp LLM tự bịa ra lệnh không có trong whitelist
-        fake_llm_callable = lambda prompt: json.dumps({
+        def fake_llm_callable(prompt):
+            return json.dumps(FAKE_ANSWER)
+
+        FAKE_ANSWER = {
             "diagnosis": "Lỗi động cơ",
             "actions": [
                 {
@@ -97,7 +100,7 @@ class RagSchemaFormatterTests(unittest.TestCase):
                     "reason": "Giảm tốc độ ăn dao",
                 },
             ],
-        })
+        }
 
         rag_with_llm = RAGEngine(llm_callable=fake_llm_callable)
         res = rag_with_llm.query_with_schema(

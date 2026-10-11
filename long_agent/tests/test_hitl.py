@@ -1,149 +1,122 @@
+"""Human-in-the-loop: what runs at once, what waits for an engineer, and what never runs."""
 from __future__ import annotations
 
-import json
-import threading
+import time
 import unittest
-from urllib.error import HTTPError
-from urllib.request import Request, urlopen
+from unittest.mock import MagicMock
+
+from fastapi.testclient import TestClient
 
 from agent.brain import AgentBrain
-from agent.tools import AgentTools
-from dashboard.server import DashboardServer
-from dashboard.state_store import DashboardState
+from dashboard.server import create_app
+from dashboard.state_store import StateStore
 from iot.action_approval import ActionApproval, ActionDispatchError
 from iot.actuator_dispatcher import ActuatorDispatcher
 
 
 class FakeDispatcher:
-    def __init__(self) -> None:
-        self.calls: list[tuple[str, str, dict]] = []
+    def __init__(self, status: str = "SUCCESS") -> None:
+        self.status = status
+        self.calls: list[dict] = []
 
-    def dispatch(self, machine_id: str, action: str, payload: dict) -> dict:
-        self.calls.append((machine_id, action, payload))
-        return {"status": "dispatched", "machine_id": machine_id, "action": action}
+    def execute(self, command: dict) -> dict:
+        self.calls.append(command)
+        return {"status": self.status, "machine_id": command.get("machine_id")}
 
 
 class HitlTests(unittest.TestCase):
     def setUp(self) -> None:
         self.dispatcher = FakeDispatcher()
-        self.approvals = ActionApproval(self.dispatcher)
+        self.approvals = ActionApproval(dispatcher=self.dispatcher)
 
-    def test_agent_proposes_action_without_dispatching_but_creates_ticket_and_notification(self) -> None:
-        tools = AgentTools()
-        brain = AgentBrain(tools=tools)
-        result = brain.handle_alert(
-            {
-                "machine_id": "MC-MILL-01",
-                "payload": {
-                    "issue": "spindle thermal overload",
-                    "telemetry": {"Spindle_Temp_C": 91},
-                },
-            }
-        )
+    def test_a_low_risk_command_runs_at_once_by_default(self) -> None:
+        result = self.approvals.process_action_request({"machine_id": "MC-MILL-01", "command": "FEED_HOLD"})
+        self.assertEqual(result["status"], "SUCCESS")
+        self.assertEqual([c["command"] for c in self.dispatcher.calls], ["FEED_HOLD"])
 
-        self.assertEqual(len(result["recommendations"]), 1)
+    def test_a_high_risk_command_waits_and_runs_once_after_approval(self) -> None:
+        ticket = self.approvals.process_action_request({"machine_id": "MC-MILL-01", "command": "REPLACE_TOOL"})
+        self.assertEqual(ticket["status"], "PENDING_APPROVAL")
         self.assertEqual(self.dispatcher.calls, [])
-        self.assertEqual([item["tool"] for item in tools.action_log], ["create_ticket", "send_notification"])
-
-    def test_dispatcher_observes_machines_added_after_construction(self) -> None:
-        class Machine:
-            def receive_plc_command(self, command: str, payload: dict) -> dict:
-                return {"event_type": "plc_command", "command": command, "payload": payload}
-
-        registry = {}
-        dispatcher = ActuatorDispatcher(machine_registry=registry)
-        registry["MC-MILL-01"] = Machine()
-
-        result = dispatcher.dispatch("MC-MILL-01", "feed_hold", {"reason": "hot"})
-        self.assertEqual(result["status"], "dispatched")
-        self.assertEqual(result["plc_command"], "FEED_HOLD")
-
-    def test_pending_and_rejected_actions_never_dispatch(self) -> None:
-        proposal = self.approvals.propose("MC-MILL-01", "feed_hold", {"reason": "temperature"})
-        self.assertEqual(proposal["status"], "pending")
-        self.assertEqual(self.dispatcher.calls, [])
-
-        rejected = self.approvals.decide(proposal["action_id"], "reject")
-        self.assertEqual(rejected["status"], "rejected")
-        self.assertEqual(self.dispatcher.calls, [])
-        with self.assertRaises(RuntimeError):
-            self.approvals.decide(proposal["action_id"], "approve")
-
-    def test_approved_action_dispatches_once(self) -> None:
-        proposal = self.approvals.propose("RB-ASSY-01", "safe_home", {"reason": "overload"})
-        approved = self.approvals.decide(proposal["action_id"], "approve")
-
+        approved = self.approvals.decide(ticket["approval_id"], "approve")
         self.assertEqual(approved["status"], "approved")
-        self.assertEqual(self.dispatcher.calls, [("RB-ASSY-01", "safe_home", {"reason": "overload"})])
-        self.assertEqual(approved["dispatch_result"]["status"], "dispatched")
-        with self.assertRaises(RuntimeError):
-            self.approvals.decide(proposal["action_id"], "approve")
+        self.assertEqual(len(self.dispatcher.calls), 1)
+        with self.assertRaises(KeyError):  # a ticket is consumed by its decision
+            self.approvals.decide(ticket["approval_id"], "approve")
         self.assertEqual(len(self.dispatcher.calls), 1)
 
-    def test_dispatch_failure_is_not_reported_as_approved(self) -> None:
-        class UnavailableDispatcher:
-            def dispatch(self, machine_id: str, action: str, payload: dict) -> dict:
-                return {"status": "unknown_machine", "machine_id": machine_id}
+    def test_an_unknown_command_is_treated_as_high_risk(self) -> None:
+        ticket = self.approvals.process_action_request({"machine_id": "MC-MILL-01", "command": "SELF_DESTRUCT"})
+        self.assertEqual(ticket["status"], "PENDING_APPROVAL")
 
-        approvals = ActionApproval(UnavailableDispatcher())
-        proposal = approvals.propose("MISSING", "feed_hold")
+    def test_a_rejected_command_never_runs(self) -> None:
+        ticket = self.approvals.propose("MC-MILL-01", "REPLACE_TOOL", {"reason": "mòn dao"})
+        self.assertEqual(self.approvals.decide(ticket["action_id"], "reject")["status"], "rejected")
+        with self.assertRaises(KeyError):
+            self.approvals.decide(ticket["action_id"], "approve")
+        self.assertEqual(self.dispatcher.calls, [])
+
+    def test_a_failed_dispatch_is_not_reported_as_approved(self) -> None:
+        approvals = ActionApproval(dispatcher=FakeDispatcher(status="REJECTED"))
+        ticket = approvals.propose("MISSING", "REPLACE_TOOL")
         with self.assertRaises(ActionDispatchError):
-            approvals.decide(proposal["action_id"], "approve")
-        self.assertEqual(approvals.snapshot()[0]["status"], "dispatch_failed")
+            approvals.decide(ticket["action_id"], "approve")
 
-    def test_unknown_action_and_invalid_decision_are_rejected(self) -> None:
+    def test_unknown_tickets_and_decisions_are_refused(self) -> None:
         with self.assertRaises(KeyError):
             self.approvals.decide("missing-id", "approve")
         with self.assertRaises(ValueError):
             self.approvals.decide("missing-id", "execute")
 
-    def test_pending_proposals_are_not_expired_or_evicted(self) -> None:
-        proposals = [
-            self.approvals.propose("MC-MILL-01", f"action-{index}")
-            for index in range(105)
-        ]
-        snapshot = self.approvals.snapshot()
-        self.assertEqual(len(snapshot), 105)
-        self.assertEqual(snapshot[-1]["action_id"], proposals[0]["action_id"])
+    def test_a_ticket_left_undecided_expires(self) -> None:
+        approvals = ActionApproval(dispatcher=self.dispatcher, default_ttl_sec=0.05)
+        approvals.propose("MC-MILL-01", "REPLACE_TOOL")
+        self.assertEqual(len(approvals.get_pending_actions()), 1)
+        time.sleep(0.1)
+        self.assertEqual(approvals.get_pending_actions(), [])
         self.assertEqual(self.dispatcher.calls, [])
 
-    def test_http_approval_endpoint_dispatches_only_after_approval(self) -> None:
-        state = DashboardState()
-        proposal = self.approvals.propose("MC-MILL-01", "feed_hold", {"reason": "thermal"})
-        server = DashboardServer(("127.0.0.1", 0), state, self.approvals)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
-        base_url = f"http://127.0.0.1:{server.server_address[1]}"
-        try:
-            with urlopen(f"{base_url}/api/state", timeout=2) as response:
-                snapshot = json.loads(response.read().decode("utf-8"))
-                self.assertEqual(snapshot["actions"][0]["status"], "pending")
+    def test_the_dispatcher_reaches_a_registered_machine(self) -> None:
+        machine = MagicMock(machine_id="MC-MILL-01", machine_type="CNC_MILLING")
+        machine.receive_plc_command.return_value = {"status": "OK"}
+        dispatcher = ActuatorDispatcher()
+        dispatcher.register_machine(machine)
+        result = dispatcher.dispatch("MC-MILL-01", "FEED_HOLD", {"reason": "nóng"})
+        self.assertEqual(result["plc_command"], "FEED_HOLD")
+        self.assertTrue(machine.receive_plc_command.called)
+        self.assertNotEqual(dispatcher.dispatch("MC-NONE", "FEED_HOLD")["status"], "dispatched")
 
-            cross_origin_request = Request(
-                f"{base_url}/api/actions/{proposal['action_id']}/approve",
-                method="POST",
-            )
-            with self.assertRaises(HTTPError) as error:
-                urlopen(cross_origin_request, timeout=2)
-            self.assertEqual(error.exception.code, 403)
-            error.exception.close()
-            self.assertEqual(self.dispatcher.calls, [])
+    def test_with_proposals_off_the_brain_only_announces_them(self) -> None:
+        bus = MagicMock()
+        rag = MagicMock()
+        rag.query_with_schema.return_value = {
+            "diagnosis": "Quá nhiệt trục chính",
+            "actions": [{"command": "FEED_HOLD", "params": {}, "risk_level": "LOW", "reason": "giảm nhiệt"}],
+        }
+        AgentBrain(rag_engine=rag, tools=MagicMock(), event_bus=bus, execute_actions=False).handle_alert(
+            {"machine_id": "MC-MILL-01", "machine_type": "CNC_MILLING", "payload": {"Spindle_Temp_C": 91}})
+        types = [call.args[0]["event_type"] for call in bus.publish.call_args_list]
+        self.assertEqual(types, ["chat_notification", "action_proposed"])  # never "action_command"
 
-            request = Request(
-                f"{base_url}/api/actions/{proposal['action_id']}/approve",
-                method="POST",
-                headers={"Origin": base_url},
-            )
-            with urlopen(request, timeout=2) as response:
-                payload = json.loads(response.read().decode("utf-8"))
-                self.assertEqual(response.status, 200)
-                self.assertEqual(payload["action"]["status"], "approved")
 
-            self.assertEqual(len(self.dispatcher.calls), 1)
-        finally:
-            server.shutdown()
-            server.server_close()
-            thread.join(timeout=2)
+class ApprovalEndpointTests(unittest.TestCase):
+    def test_the_approve_endpoint_refuses_other_origins(self) -> None:
+        dispatcher = FakeDispatcher()
+        approvals = ActionApproval(dispatcher=dispatcher)
+        ticket = approvals.propose("MC-MILL-01", "REPLACE_TOOL")
+        client = TestClient(create_app(StateStore(), approval=approvals))
+
+        state = client.get("/api/state").json()
+        self.assertEqual([a["action_id"] for a in state["actions"]], [ticket["action_id"]])
+
+        refused = client.post(f"/api/actions/{ticket['action_id']}/approve", headers={"Origin": "http://evil.example"})
+        self.assertEqual(refused.status_code, 403)
+        self.assertEqual(dispatcher.calls, [])
+
+        ok = client.post(f"/api/actions/{ticket['action_id']}/approve", headers={"Origin": "http://testserver"})
+        self.assertEqual(ok.status_code, 200)
+        self.assertEqual(ok.json()["action"]["status"], "approved")
+        self.assertEqual(len(dispatcher.calls), 1)
 
 
 if __name__ == "__main__":
