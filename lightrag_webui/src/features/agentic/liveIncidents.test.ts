@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { incidentActions, mergeLiveIncidents } from './liveIncidents'
-import type { Conversation, Incident, ProposedAction } from './types/agentic'
+import { mergeLiveIncidents } from './liveIncidents'
+import type { Conversation, Incident } from './types/agentic'
 
 const qa: Conversation = {
   id: 'CONV-LIVE', type: 'manual', title: 'Hỏi đáp', timestamp: '2026-10-11T00:00:00Z',
@@ -61,16 +61,5 @@ describe('live incidents in the sidebar', () => {
     expect(mergeLiveIncidents(convs, [incident('resolved', [])])[0].agentState).toBe('investigating')
     expect(mergeLiveIncidents([qa], [incident('resolved', [])])[0].agentState).toBe('idle')
     expect(mergeLiveIncidents(convs, []).map((c) => c.id)).toEqual(['CONV-LIVE'])
-  })
-
-  test('every waiting action of an incident is listed; an older gateway still gives its one action', () => {
-    const action = (id: string): ProposedAction => ({
-      id, incidentId: 'LA-MC-MILL-01', titleVi: id, subtitleVi: '', diagnosisEn: '', items: [], timerSeconds: 300, createdAt: '',
-    })
-    const both = { ...incident('awaiting_approval', []), proposedAction: action('APR-2'), proposedActions: [action('APR-2'), action('APR-4')] }
-    expect(incidentActions(both).map((a) => a.id)).toEqual(['APR-2', 'APR-4'])
-    expect(incidentActions({ ...incident('awaiting_approval', []), proposedAction: action('APR-2') }).map((a) => a.id)).toEqual(['APR-2'])
-    expect(incidentActions(incident('resolved', []))).toEqual([])
-    expect(incidentActions(undefined)).toEqual([])
   })
 })

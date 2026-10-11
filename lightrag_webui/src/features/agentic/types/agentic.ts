@@ -97,8 +97,6 @@ export interface ProposedAction {
   items: ProposedActionItem[]
   timerSeconds: number
   createdAt: string
-  /** Live: "repair" fixes the fault's cause, "mitigation" only eases it (boost, slow down, hold). */
-  kind?: 'repair' | 'mitigation'
 }
 
 // ─── Action Execution ─────────────────────────────────────────────────────────
@@ -161,8 +159,6 @@ export interface Incident {
   resolvedAt?: string
   telemetry?: TelemetrySnapshot
   proposedAction?: ProposedAction
-  /** Live: every ticket waiting for this machine, repairs first (proposedAction is the first one). */
-  proposedActions?: ProposedAction[]
   actionExecution?: ActionExecution
   tags?: string[]
   /** Live (Long-agent): the alert thread - edge-filter alerts and the monitoring agent's diagnoses. */

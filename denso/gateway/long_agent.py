@@ -93,61 +93,37 @@ def _messages(machine_id: str, raw: list[dict]) -> list[dict]:
     return shown
 
 
-# Commands that fix a fault's cause; anything else (boost, slow down, hold) only mitigates it.
-REPAIR_PREFIXES = (
-    "REPAIR_",
-    "REPLACE_",
-    "REFILL_",
-    "SERVICE_",
-    "LUBRICATE_",
-    "RECALIBRATE_",
-    "CLEAN_",
-    "RETURN_TO_CHARGER",
-)
-
-
-def is_repair(command: str) -> bool:
-    return command.upper().startswith(REPAIR_PREFIXES)
-
-
-def _proposals(machine_id: str, incident_id: str, pending: list[dict]) -> list[dict]:
-    """Every ticket waiting for this machine, repairs before mitigations, oldest first within each."""
-    mine = [a for a in pending if a.get("machine_id") == machine_id]
-    # sort is stable: within repairs and within mitigations, Long-agent's order is kept
-    mine.sort(key=lambda a: not is_repair(a.get("command", "")))
-    return [_proposal(a, incident_id) for a in mine]
-
-
-def _proposal(a: dict, incident_id: str) -> dict:
-    machine_id = a.get("machine_id", "")
-    command = a.get("command", "")
-    repair = is_repair(command)
-    params = {
-        "Lệnh": command,
-        "Thiết bị": machine_id,
-        **{
-            str(k): str(v)
-            for k, v in (a.get("params") or a.get("payload") or {}).items()
-        },
-    }
-    return {
-        "id": a.get("approval_id") or a.get("action_id"),
-        "incidentId": incident_id,
-        "titleVi": f"{'Sửa nguyên nhân gốc' if repair else 'Biện pháp tạm thời'}: {command}",
-        "subtitleVi": a.get("reason", ""),
-        "kind": "repair" if repair else "mitigation",
-        "diagnosisEn": "",
-        "items": [
-            {
-                "type": "plc_command",
-                "title": "Lệnh điều khiển PLC",
-                "description": command,
-                "params": params,
-            }
-        ],
-        "timerSeconds": 300,
-        "createdAt": a.get("timestamp") or datetime.now().isoformat(),
-    }
+def _proposal(machine_id: str, incident_id: str, pending: list[dict]) -> dict | None:
+    for a in pending:
+        if a.get("machine_id") != machine_id:
+            continue
+        command = a.get("command", "")
+        params = {
+            "Lệnh": command,
+            "Thiết bị": machine_id,
+            **{
+                str(k): str(v)
+                for k, v in (a.get("params") or a.get("payload") or {}).items()
+            },
+        }
+        return {
+            "id": a.get("approval_id") or a.get("action_id"),
+            "incidentId": incident_id,
+            "titleVi": f"Đề xuất: {command}",
+            "subtitleVi": a.get("reason", ""),
+            "diagnosisEn": "",
+            "items": [
+                {
+                    "type": "plc_command",
+                    "title": "Lệnh điều khiển PLC",
+                    "description": command,
+                    "params": params,
+                }
+            ],
+            "timerSeconds": 300,
+            "createdAt": a.get("timestamp") or datetime.now().isoformat(),
+        }
+    return None
 
 
 def _episode(alerts: list[dict]) -> list[dict]:
@@ -205,7 +181,7 @@ def incidents_from_state(state: dict) -> list[dict]:
         )
         alarm = f"Bất thường: {', '.join(params)}" if params else "Cảnh báo bất thường"
         incident_id = f"LA-{mid}"
-        proposals = _proposals(mid, incident_id, pending)
+        proposal = _proposal(mid, incident_id, pending)
         active = machine.get("label") == "alert" or warn
         msgs = _messages(mid, conv.get("messages") or [])
         timestamp = alert.get("timestamp") or (
@@ -218,7 +194,7 @@ def incidents_from_state(state: dict) -> list[dict]:
             "alarm": alarm,
             "severity": "critical" if critical else ("high" if active else "medium"),
             "status": "awaiting_approval"
-            if proposals
+            if proposal
             else ("active" if active else "resolved"),
             "timestamp": timestamp,
             "telemetry": {
@@ -230,10 +206,8 @@ def incidents_from_state(state: dict) -> list[dict]:
             "messages": msgs,
             "tags": ["long-agent", machine.get("machine_type", "").lower()],
         }
-        if proposals:
-            # proposedAction stays the first ticket for older clients; proposedActions lists them all.
-            incident["proposedAction"] = proposals[0]
-            incident["proposedActions"] = proposals
+        if proposal:
+            incident["proposedAction"] = proposal
         out.append(incident)
     return sorted(out, key=lambda i: i["timestamp"], reverse=True)
 

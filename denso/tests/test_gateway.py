@@ -1115,30 +1115,6 @@ def test_a_pending_long_agent_action_becomes_a_hitl_proposal():
     )
 
 
-def test_every_waiting_ticket_is_shown_repairs_first():
-    from long_agent import incidents_from_state
-
-    def ticket(aid, mid, command):
-        return {"approval_id": aid, "machine_id": mid, "command": command}
-
-    state = {
-        **LA_STATE,
-        "pending_approvals": [
-            ticket("APR-1", "MC-MILL-01", "COOLANT_BOOST"),
-            ticket("APR-2", "MC-MILL-01", "REPAIR_COOLANT_SYSTEM"),
-            ticket("APR-3", "MC-ROBOT-01", "REPAIR_PNEUMATIC_SYSTEM"),
-            ticket("APR-4", "MC-MILL-01", "REFILL_SPINDLE_LUBRICANT"),
-        ],
-    }
-    (inc,) = incidents_from_state(state)
-    actions = inc["proposedActions"]
-    # two faults need two repairs: both are listed, before the temporary measure; other machines' are not
-    assert [a["id"] for a in actions] == ["APR-2", "APR-4", "APR-1"]
-    assert [a["kind"] for a in actions] == ["repair", "repair", "mitigation"]
-    assert actions[0]["titleVi"] == "Sửa nguyên nhân gốc: REPAIR_COOLANT_SYSTEM"
-    assert inc["proposedAction"]["id"] == "APR-2"  # older clients still get one card
-
-
 def _la_gateway(tmp_path, state=None):
     seen = []
 
