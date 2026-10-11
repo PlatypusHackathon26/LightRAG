@@ -707,7 +707,7 @@ def test_a_chat_in_a_long_agent_alert_carries_the_machine_state(tmp_path):
     assert query["query"] == "Cần kiểm tra gì tiếp theo?\n(Áp suất tưới nguội, Nhiệt độ trục chính)"
     assert "NOT from the documents" in query["user_prompt"]
     assert "Nhiệt độ trục chính 78.6 °C, limit 75, OUT OF RANGE" in query["user_prompt"]
-    assert "unverified" in query["user_prompt"]  # Long-agent's mock diagnosis is a guess, not a source
+    assert "may be wrong" in query["user_prompt"]  # the monitoring agent's diagnosis is not a source
     # Other conversations are plain document questions.
     tc.post("/agent/chat", json={"conversationId": "CONV-LIVE", "message": "SCV bolt torque?"})
     last = [json.loads(x.content) for x in seen if x.url.path == "/query"][-1]
@@ -749,3 +749,41 @@ def test_page_one_of_a_markdown_upload_is_not_cited_as_a_page(tmp_path):
     content, citations = without_page_one(content, citations, tmp_path)
     assert content == "Áp suất giảm 1.2 Bar/s (machines_description.md). Siết 6.9 Nm (Manual, p. 1)."
     assert [c["pages"] for c in citations] == [None, "1"]  # a PDF's page 1 is a real page
+
+
+def test_a_repair_procedure_is_one_card_with_one_item_per_step():
+    import time as _time
+    from long_agent import incidents_from_state
+    steps = [{"command": "SAFE_STOP", "desc": "Dừng máy có kiểm soát", "params": {}, "kind": "control"},
+             {"command": "LOCKOUT", "desc": "Cô lập năng lượng", "params": {}},
+             {"command": "REPAIR_COOLANT_SYSTEM", "desc": "Sửa bơm tưới nguội", "params": {}, "duration_s": 60,
+              "kind": "repair"},
+             {"command": "UNLOCK", "desc": "Gỡ khoá", "params": {}}]
+    pending = [{"approval_id": "APP-1", "machine_id": "MC-MILL-01", "kind": "repair", "command": "REPAIR_COOLANT_SYSTEM",
+                "title": "Sửa: REPAIR_COOLANT_SYSTEM", "steps": steps, "reason": "Bơm hỏng",
+                "created_at": "2026-10-11T12:06:00", "expires_at": _time.time() + 1200}]
+    (inc,) = incidents_from_state({**LA_STATE, "pending_approvals": pending})
+    card = inc["proposedAction"]
+    assert inc["status"] == "awaiting_approval"
+    assert card["titleVi"] == "Sửa: REPAIR_COOLANT_SYSTEM"
+    assert [i["description"] for i in card["items"]] == ["SAFE_STOP", "LOCKOUT", "REPAIR_COOLANT_SYSTEM", "UNLOCK"]
+    assert card["items"][2]["params"] == {"Lệnh": "REPAIR_COOLANT_SYSTEM", "Thiết bị": "MC-MILL-01", "Thời gian": "~60 s"}
+    assert card["items"][0]["params"] == {}   # the steps around the repair only describe themselves
+    assert 1190 <= card["timerSeconds"] <= 1200   # from the ticket's own expiry, not a fixed 300
+
+
+def test_procedure_steps_show_in_the_thread_and_keep_the_incident_open():
+    from long_agent import incidents_from_state
+    convs = [{"category": "system_alert", "machine_id": "MC-MILL-01", "messages": [
+        *LA_STATE["conversations"][0]["messages"],
+        {"role": "approval", "approval_id": "APP-1", "status": "approved", "timestamp": "2026-10-11T12:06:00"},
+        {"role": "event", "text": "✔ Kỹ sư đã duyệt: Sửa: REPAIR_COOLANT_SYSTEM", "timestamp": "2026-10-11T12:06:01"},
+        {"role": "event", "text": "✓ REPAIR_COOLANT_SYSTEM: đã sửa xong", "timestamp": "2026-10-11T12:07:30"},
+    ]}]
+    machines = {**LA_STATE["machines"], "MC-MILL-01": {**LA_STATE["machines"]["MC-MILL-01"], "label": "normal",
+                                                       "state": "STOPPED", "telemetry": {"Spindle_Temp_C": 30.0}}}
+    (inc,) = incidents_from_state({**LA_STATE, "machines": machines, "conversations": convs})
+    contents = [m["content"] for m in inc["messages"]]
+    assert "✓ REPAIR_COOLANT_SYSTEM: đã sửa xong" in contents
+    assert not any(c.startswith("⚠ ✔") for c in contents)   # events are not shown as alerts
+    assert inc["status"] == "active" and inc["machineState"] == "STOPPED"   # stopped, not yet restarted
