@@ -4,7 +4,11 @@
  * operator typed in the thread, and the answers to it, are kept. The thread is in the order
  * things happened, so an alert raised after a question appears below it.
  */
-import type { AgentState, ChatMessage, Conversation, Incident } from './types/agentic'
+import type { AgentState, ChatMessage, Conversation, Incident, ProposedAction } from './types/agentic'
+
+/** The actions waiting on an incident: all of them from a live gateway, the single one otherwise. */
+export const incidentActions = (incident: Incident | undefined): ProposedAction[] =>
+  incident?.proposedActions ?? (incident?.proposedAction ? [incident.proposedAction] : [])
 
 export const GATEWAY_MESSAGE_PREFIX = 'la-'
 

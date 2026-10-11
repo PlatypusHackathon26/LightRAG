@@ -142,6 +142,11 @@ Tài liệu phải nằm trên server ở cấp của người gọi, và không
 (503) để trang chuyển sang hỏi `/api/machines`. Các route khác của Long-agent không được chuyển tiếp.
 Không có `DENSO_IOT_URL` thì các route này trả 404.
 
+Khi có `DENSO_IOT_URL`, `/agent/incidents` dựng sự cố từ cảnh báo của Long-agent. Mỗi vé đang chờ duyệt của
+máy là một phần tử trong `proposedActions` (lệnh sửa nguyên nhân gốc trước, `kind: "repair"`; biện pháp tạm
+thời sau, `kind: "mitigation"`), vì một máy có thể có nhiều lỗi cùng lúc và mỗi lỗi cần lệnh sửa riêng.
+`proposedAction` vẫn là phần tử đầu tiên cho client cũ.
+
 ### 4.4 `GET /agent/incidents`, `GET /agent/incidents/{id}`, `GET /agent/telemetry/{id}`
 
 Đọc từ `denso/gateway/sample_ops.json` (dữ liệu mẫu, đúng kiểu `Incident` / `TelemetrySnapshot`).

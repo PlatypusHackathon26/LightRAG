@@ -3,7 +3,7 @@ import { mockDocuments } from '../mock/knowledge'
 import { mockIncidents } from '../mock/incidents'
 import { mockConversations } from '../mock/conversations'
 import { agentConfig } from '../agentConfig'
-import { mergeLiveIncidents } from '../liveIncidents'
+import { incidentActions, mergeLiveIncidents } from '../liveIncidents'
 import { NEW_CONVERSATION_TITLE, isBlank, loadHistory, newConversation, saveHistory, titleFrom } from '../chatHistory'
 import { type DismissedAlerts, dismiss, loadDismissed, saveDismissed, visibleIncidents } from '../alertDismissal'
 import { agentClient } from '../../../api/agent'
@@ -112,6 +112,17 @@ interface AgenticStore {
   previewDocumentId: string | null
   setPreviewDocumentId: (id: string | null) => void
 }
+
+const ownsAction = (incident: Incident, actionId: string): boolean =>
+  incidentActions(incident).some((a) => a.id === actionId)
+
+/** Another action of the same incident still waits for a decision (so the incident is not done yet). */
+const othersWaiting = (
+  incident: Incident,
+  actionId: string,
+  executions: Record<string, { status: ActionExecutionStatus }>,
+): boolean =>
+  incidentActions(incident).some((a) => a.id !== actionId && (executions[a.id]?.status ?? 'waiting') === 'waiting')
 
 /** Rows created in the browser for an upload, before the gateway knows the document's id. */
 export const UPLOAD_ROW_PREFIX = 'doc-upload-'
@@ -276,10 +287,10 @@ export const useAgenticStore = create<AgenticStore>((set, get) => ({
         (res) => {
           set((s) => ({
             actionExecutions: { ...s.actionExecutions, [actionId]: { status: 'success', executedAt: now(), ackCode: res.ack, responseText: res.ack } },
-            incidents: s.incidents.map((i) => (i.proposedAction?.id === actionId ? { ...i, status: 'acknowledged' as const } : i)),
+            incidents: s.incidents.map((i) => (ownsAction(i, actionId) && !othersWaiting(i, actionId, s.actionExecutions) ? { ...i, status: 'acknowledged' as const } : i)),
           }))
-          const inc = get().incidents.find((i) => i.proposedAction?.id === actionId)
-          if (inc) get().setAgentState(inc.conversationId, 'acknowledged')
+          const inc = get().incidents.find((i) => ownsAction(i, actionId))
+          if (inc && !othersWaiting(inc, actionId, get().actionExecutions)) get().setAgentState(inc.conversationId, 'acknowledged')
         },
         (e: unknown) => {
           // Not executed (no right, expired, Long-agent down): say so, never show it as done.
@@ -306,14 +317,14 @@ export const useAgenticStore = create<AgenticStore>((set, get) => ({
         },
         // Update incident status
         incidents: s.incidents.map((i) =>
-          i.proposedAction?.id === actionId
+          ownsAction(i, actionId) && !othersWaiting(i, actionId, s.actionExecutions)
             ? { ...i, status: 'acknowledged' as const }
             : i
         ),
       }))
       // Update conversation agent state
-      const inc = get().incidents.find((i) => i.proposedAction?.id === actionId)
-      if (inc) {
+      const inc = get().incidents.find((i) => ownsAction(i, actionId))
+      if (inc && !othersWaiting(inc, actionId, get().actionExecutions)) {
         get().setAgentState(inc.conversationId, 'acknowledged')
       }
     }, 2200)
@@ -331,11 +342,11 @@ export const useAgenticStore = create<AgenticStore>((set, get) => ({
         },
       },
       incidents: s.incidents.map((i) =>
-        i.proposedAction?.id === actionId ? { ...i, status: 'active' as const } : i
+        ownsAction(i, actionId) && !othersWaiting(i, actionId, s.actionExecutions) ? { ...i, status: 'active' as const } : i
       ),
     }))
-    const inc = get().incidents.find((i) => i.proposedAction?.id === actionId)
-    if (inc) {
+    const inc = get().incidents.find((i) => ownsAction(i, actionId))
+    if (inc && !othersWaiting(inc, actionId, get().actionExecutions)) {
       get().setAgentState(inc.conversationId, 'rejected')
     }
   },
@@ -351,8 +362,8 @@ export const useAgenticStore = create<AgenticStore>((set, get) => ({
         },
       },
     }))
-    const inc = get().incidents.find((i) => i.proposedAction?.id === actionId)
-    if (inc) {
+    const inc = get().incidents.find((i) => ownsAction(i, actionId))
+    if (inc && !othersWaiting(inc, actionId, get().actionExecutions)) {
       get().setAgentState(inc.conversationId, 'expired')
     }
   },

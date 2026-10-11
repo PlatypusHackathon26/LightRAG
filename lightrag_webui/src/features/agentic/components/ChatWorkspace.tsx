@@ -8,6 +8,7 @@ import AgentComposer from './AgentComposer'
 import { AlertTriangleIcon } from 'lucide-react'
 import { agentClient } from '@/api/agent'
 import { isBlank } from '../chatHistory'
+import { incidentActions } from '../liveIncidents'
 
 /** What a new conversation shows before the first question (the original Long-agent welcome). */
 function Welcome() {
@@ -116,6 +117,7 @@ export default function ChatWorkspace() {
   const incident = conversation.incidentId
     ? incidents.find((i) => i.id === conversation.incidentId)
     : undefined
+  const actions = incidentActions(incident)
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden" style={{ background: '#0F172A' }}>
@@ -180,12 +182,21 @@ export default function ChatWorkspace() {
           <ChatMessage key={msg.id} message={msg} />
         ))}
 
-        {/* HITL action card - rendered inline after messages */}
-        {incident?.proposedAction && (
-          <div className="px-0">
-            <HITLActionCard action={incident.proposedAction} />
+        {/* HITL action cards - every ticket waiting for this machine, repairs first */}
+        {actions.length > 1 && (
+          <div className="mx-4 mt-3 mb-1 flex items-center gap-2 rounded-lg px-3 py-2" style={{ fontSize: 12, background: '#2A1F0A', border: '1px solid #78350F', color: '#FCD34D' }}>
+            <span aria-hidden>⏳</span>
+            <span>
+              <b>{actions.length} lệnh chờ duyệt</b> cho máy này – mỗi lỗi cần lệnh sửa riêng; duyệt các lệnh{' '}
+              <b>sửa nguyên nhân gốc</b> trước, biện pháp tạm thời để sau.
+            </span>
           </div>
         )}
+        {actions.map((action) => (
+          <div key={action.id} className="px-0">
+            <HITLActionCard action={action} />
+          </div>
+        ))}
 
         <div ref={messagesEndRef} />
       </div>
