@@ -27,7 +27,7 @@ function Reading({ point }: { point: TelemetryPoint }) {
         {point.label}
       </div>
       <div className="flex items-baseline gap-1 mt-0.5">
-        <span className="font-semibold tabular-nums" style={{ fontSize: 18, color: '#F1F5F9', fontFamily: 'Roboto Mono, monospace' }}>
+        <span className="font-semibold tabular-nums" style={{ fontSize: 18, color: off ? '#F87171' : '#34D399', fontFamily: 'Roboto Mono, monospace' }}>
           {formatReading(point.value)}
         </span>
         <span style={{ fontSize: 11, color: '#64748B' }}>{point.unit}</span>
