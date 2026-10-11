@@ -5,6 +5,7 @@ import { mockConversations } from '../mock/conversations'
 import { agentConfig } from '../agentConfig'
 import { mergeLiveIncidents } from '../liveIncidents'
 import { NEW_CONVERSATION_TITLE, isBlank, loadHistory, newConversation, saveHistory, titleFrom } from '../chatHistory'
+import { type DismissedAlerts, dismiss, loadDismissed, saveDismissed, visibleIncidents } from '../alertDismissal'
 import { agentClient } from '../../../api/agent'
 import type {
   AgentEvent,
@@ -30,6 +31,14 @@ const browserStorage = (): Storage | undefined => {
   }
 }
 const firstConversation = newConversation()
+const SIDEBAR_STORAGE_KEY = 'denso-agentic-sidebar-open'
+const initialSidebarOpen = (): boolean => {
+  try {
+    return browserStorage()?.getItem(SIDEBAR_STORAGE_KEY) !== 'false'
+  } catch {
+    return true
+  }
+}
 const initialConversations: Conversation[] = agentConfig.live
   ? [firstConversation, ...loadHistory(browserStorage())]
   : mockConversations
@@ -52,6 +61,13 @@ interface AgenticStore {
   // ── Sidebar ────────────────────────────────────────────────────────────────
   sidebarFilter: SidebarFilter
   setSidebarFilter: (f: SidebarFilter) => void
+  /** The left panel can be collapsed, as in Claude; remembered in this browser. */
+  sidebarOpen: boolean
+  setSidebarOpen: (open: boolean) => void
+  /** Alerts the operator cleared (only handled ones), by incident id and episode timestamp. */
+  dismissedAlerts: DismissedAlerts
+  /** Clear handled alerts from the sidebar; active or waiting ones are kept. */
+  dismissAlerts: (incidentIds: string[]) => void
 
   // ── Active conversation ────────────────────────────────────────────────────
   activeConversationId: string | null
@@ -118,6 +134,7 @@ export const useAgenticStore = create<AgenticStore>((set, get) => ({
   syncLiveIncidents: (incidents) => {
     set((s) => {
       const active = s.conversations.find((c) => c.id === s.activeConversationId)
+      incidents = visibleIncidents(incidents, s.dismissedAlerts)
       return {
         incidents,
         conversations: mergeLiveIncidents(s.conversations, incidents),
@@ -129,6 +146,29 @@ export const useAgenticStore = create<AgenticStore>((set, get) => ({
   // ── Sidebar ────────────────────────────────────────────────────────────────
   sidebarFilter: 'all',
   setSidebarFilter: (f) => set({ sidebarFilter: f }),
+  sidebarOpen: initialSidebarOpen(),
+  setSidebarOpen: (open) => {
+    set({ sidebarOpen: open })
+    try {
+      browserStorage()?.setItem(SIDEBAR_STORAGE_KEY, String(open))
+    } catch {
+      /* not remembered: still works for this visit */
+    }
+  },
+  dismissedAlerts: loadDismissed(browserStorage()),
+  dismissAlerts: (incidentIds) => {
+    const s = get()
+    const dismissedAlerts = dismiss(s.dismissedAlerts, s.incidents.filter((i) => incidentIds.includes(i.id)))
+    saveDismissed(browserStorage(), dismissedAlerts)
+    const incidents = visibleIncidents(s.incidents, dismissedAlerts)
+    const kept = new Set(incidents.map((i) => i.id))
+    set({
+      dismissedAlerts,
+      incidents,
+      conversations: s.conversations.filter((c) => c.type !== 'incident' || (c.incidentId !== undefined && kept.has(c.incidentId))),
+    })
+    if (!get().conversations.some((c) => c.id === get().activeConversationId)) get().startNewConversation()
+  },
 
   // ── Active conversation ────────────────────────────────────────────────────
   activeConversationId: agentConfig.live ? firstConversation.id : 'CONV-001',

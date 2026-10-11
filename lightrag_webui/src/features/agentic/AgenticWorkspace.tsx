@@ -14,6 +14,7 @@ export default function AgenticWorkspace() {
   // Live mode: replace the mock documents/incidents with the Agent Gateway's.
   const loadLiveData = useAgenticStore((s) => s.loadLiveData)
   const syncLiveIncidents = useAgenticStore((s) => s.syncLiveIncidents)
+  const sidebarOpen = useAgenticStore((s) => s.sidebarOpen)
   useEffect(() => {
     void loadLiveData({ documents: agentClient.fetchDocuments, incidents: agentClient.fetchIncidents })
   }, [loadLiveData])
@@ -41,8 +42,8 @@ export default function AgenticWorkspace() {
 
       {/* Main layout */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Left sidebar: 25% min 300px */}
-        <IncidentSidebar />
+        {/* Left sidebar: 25%, collapsible from the top bar */}
+        {sidebarOpen && <IncidentSidebar />}
 
         {/* Main workspace: flex-1 */}
         <main className="flex-1 flex flex-col overflow-hidden">

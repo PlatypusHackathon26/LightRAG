@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAgenticStore } from '../stores/agenticStore'
 import { agentClient } from '../../../api/agent'
-import { ActivityIcon, UploadIcon } from 'lucide-react'
+import { ActivityIcon, PanelLeftIcon, UploadIcon } from 'lucide-react'
 
 const pad = (n: number) => String(n).padStart(2, '0')
 const stamp = (d: Date) =>
@@ -17,7 +17,7 @@ function useClock(): string {
 }
 
 export default function AgentTopBar() {
-  const { knowledgeDrawerOpen, setKnowledgeDrawerOpen, documents, isLive, liveError } = useAgenticStore()
+  const { knowledgeDrawerOpen, setKnowledgeDrawerOpen, documents, isLive, liveError, sidebarOpen, setSidebarOpen } = useAgenticStore()
   const vectorizedCount = documents.filter((d) => d.indexStatus === 'vectorized').length
   const clock = useClock()
   const online = !(isLive && liveError)
@@ -27,8 +27,20 @@ export default function AgentTopBar() {
       className="ag-topbar flex items-center justify-between px-4 shrink-0"
       style={{ height: 48, background: 'rgba(15,23,42,0.8)', borderBottom: '1px solid #1E293B', backdropFilter: 'blur(6px)' }}
     >
-      {/* Left: brand */}
+      {/* Left: sidebar toggle (as in Claude) + brand */}
       <div className="flex items-center gap-3 min-w-0">
+        <button
+          id="sidebar-toggle"
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          aria-label={sidebarOpen ? 'Đóng thanh bên' : 'Mở thanh bên'}
+          aria-expanded={sidebarOpen}
+          aria-controls="agentic-sidebar"
+          title={sidebarOpen ? 'Đóng thanh bên' : 'Mở thanh bên'}
+          className="flex items-center justify-center rounded-md transition hover:bg-[#1E293B] focus-visible:outline-2 focus-visible:outline-[#06B6D4]"
+          style={{ width: 30, height: 30, color: sidebarOpen ? '#E2E8F0' : '#94A3B8' }}
+        >
+          <PanelLeftIcon size={18} />
+        </button>
         <span className="relative flex" style={{ width: 10, height: 10 }} aria-hidden>
           <span className="absolute inline-flex h-full w-full rounded-full animate-ping" style={{ background: '#10B981', opacity: 0.6 }} />
           <span className="relative inline-flex rounded-full" style={{ width: 10, height: 10, background: '#10B981' }} />
