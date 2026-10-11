@@ -239,4 +239,3 @@ Giá trị số + unit giữ nguyên; **không đổi dữ liệu backend**, ch�
 | Lệnh PLC & interlock an toàn | `iot/actuator_dispatcher.py` |
 | Stream dữ liệu + API chọn lỗi | `dashboard/server.py`, `dashboard/state_store.py` |
 | Hiển thị tiếng Việt | `dashboard/index.html` |
-

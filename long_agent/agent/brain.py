@@ -27,7 +27,9 @@ class AgentBrain:
         # mỗi cảnh báo lặp (kể cả từng chỉ số của cùng một sự cố đến lệch nhau vài giây) là một lượt gọi API
         # và một chẩn đoán trùng. 0 = luôn chẩn đoán (như bản gốc).
         self.repeat_window_s = repeat_window_s
-        self._diagnosed: Dict[str, Tuple[float, set]] = {}  # máy -> (thời điểm, các chỉ số đã chẩn đoán)
+        self._diagnosed: Dict[
+            str, Tuple[float, set]
+        ] = {}  # máy -> (thời điểm, các chỉ số đã chẩn đoán)
 
     def handle_heartbeat(self, event: Dict[str, Any]) -> None:
         """Gói tin 'normal' (chu kỳ định kỳ): chỉ cập nhật trạng thái sống, không gọi RAG."""
@@ -44,17 +46,28 @@ class AgentBrain:
         machine_type = event.get("machine_type", "")
         payload = event.get("payload", {})
 
-        params = {str(a.get("param")) for a in event.get("anomalies") or [] if isinstance(a, dict)}
+        params = {
+            str(a.get("param"))
+            for a in event.get("anomalies") or []
+            if isinstance(a, dict)
+        }
         now = time.monotonic()
         if self.repeat_window_s:
             since, seen = self._diagnosed.get(machine_id, (float("-inf"), set()))
             if now - since < self.repeat_window_s and params <= seen:
-                logger.info(f"[Brain] Bỏ qua cảnh báo lặp {machine_id} {sorted(params)} (đã chẩn đoán gần đây)")
+                logger.info(
+                    f"[Brain] Bỏ qua cảnh báo lặp {machine_id} {sorted(params)} (đã chẩn đoán gần đây)"
+                )
                 return
             # Chỉ số mới tham gia: chẩn đoán lại với toàn bộ telemetry hiện tại.
-            self._diagnosed[machine_id] = (now, (seen | params) if now - since < self.repeat_window_s else params)
+            self._diagnosed[machine_id] = (
+                now,
+                (seen | params) if now - since < self.repeat_window_s else params,
+            )
 
-        logger.info(f"[Brain] Bắt đầu xử lý cảnh báo cho máy {machine_id} ({machine_type})")
+        logger.info(
+            f"[Brain] Bắt đầu xử lý cảnh báo cho máy {machine_id} ({machine_type})"
+        )
 
         # =========================================================================
         # BƯỚC 1: Gọi RAG + LLM với Schema ép buộc để chuẩn hóa định dạng IoT
@@ -64,7 +77,9 @@ class AgentBrain:
 
         schema_result = None
         # Kiểm tra nếu RAG hỗ trợ query_with_schema và trả về dict thực sự
-        if hasattr(self.rag, "query_with_schema") and callable(getattr(self.rag, "query_with_schema", None)):
+        if hasattr(self.rag, "query_with_schema") and callable(
+            getattr(self.rag, "query_with_schema", None)
+        ):
             try:
                 res = self.rag.query_with_schema(
                     machine_id=machine_id,
@@ -79,7 +94,9 @@ class AgentBrain:
         if schema_result is not None:
             diagnosis_text = str(schema_result.get("diagnosis", "") or "")
             raw_actions = schema_result.get("actions", [])
-            actions = list(raw_actions) if isinstance(raw_actions, (list, tuple)) else []
+            actions = (
+                list(raw_actions) if isinstance(raw_actions, (list, tuple)) else []
+            )
         else:
             # Fallback tương thích nếu đối tượng RAG chỉ hỗ trợ query chuỗi
             rag_input = (
@@ -92,19 +109,27 @@ class AgentBrain:
 
         # Phát câu chẩn đoán của RAG lên Chatbot Dashboard cho kỹ sư đọc
         if self.event_bus and diagnosis_text:
-            self.event_bus.publish({
-                "event_type": "chat_notification",
-                "machine_id": machine_id,
-                "text": diagnosis_text,
-                "source": "AI_RAG",
-            })
+            self.event_bus.publish(
+                {
+                    "event_type": "chat_notification",
+                    "machine_id": machine_id,
+                    "text": diagnosis_text,
+                    "source": "AI_RAG",
+                }
+            )
 
         # =========================================================================
         # BƯỚC 2: Phòng vệ an toàn (Defensive Fallback)
         # Nếu LLM không sinh ra actions trong JSON thì dùng Tool bóc tách từ text
         # =========================================================================
-        if not actions and diagnosis_text and hasattr(self.tools, "translate_advice_to_actions"):
-            logger.info("[Brain] Kích hoạt Defensive Fallback: Dùng tools để bóc tách hành động từ văn bản.")
+        if (
+            not actions
+            and diagnosis_text
+            and hasattr(self.tools, "translate_advice_to_actions")
+        ):
+            logger.info(
+                "[Brain] Kích hoạt Defensive Fallback: Dùng tools để bóc tách hành động từ văn bản."
+            )
             extracted = self.tools.translate_advice_to_actions(
                 machine_id=machine_id,
                 machine_type=machine_type,
@@ -129,7 +154,9 @@ class AgentBrain:
                 reason = act.get("reason", "Thực thi theo khuyến nghị chuẩn từ RAG")
 
                 command_event = {
-                    "event_type": "action_command" if self.execute_actions else "action_proposed",
+                    "event_type": "action_command"
+                    if self.execute_actions
+                    else "action_proposed",
                     "machine_id": machine_id,
                     "command": cmd_name,
                     "params": params,

@@ -73,7 +73,9 @@ class TelemetryReceiver:
         now_iso = datetime.now().isoformat()
 
         # 1. Phát hiện toàn bộ bất thường (ngưỡng tĩnh + tốc độ thay đổi ROC)
-        raw_anomalies = self._detect_anomalies(machine_id, machine_type, payload, now_mono)
+        raw_anomalies = self._detect_anomalies(
+            machine_id, machine_type, payload, now_mono
+        )
 
         # 2. Bộ lọc chống spam (Cooldown)
         active_anomalies: List[Dict[str, Any]] = []
@@ -122,7 +124,11 @@ class TelemetryReceiver:
         return None
 
     def _detect_anomalies(
-        self, machine_id: str, machine_type: str, payload: Dict[str, Any], now_mono: float
+        self,
+        machine_id: str,
+        machine_type: str,
+        payload: Dict[str, Any],
+        now_mono: float,
     ) -> List[Dict[str, Any]]:
         threshold_config = MACHINE_THRESHOLDS.get(machine_type, {})
         if not threshold_config:
@@ -145,7 +151,13 @@ class TelemetryReceiver:
             current_val = float(val)
 
             # Bỏ qua kiểm tra áp suất thấp nếu máy đang dừng, ngắt hoặc sạc
-            if "Pressure" in param and ctrl_exec in ("FEED_HOLD", "EMERGENCY_STOP", "PAUSED", "MOLD_MAINTENANCE", "IDLE"):
+            if "Pressure" in param and ctrl_exec in (
+                "FEED_HOLD",
+                "EMERGENCY_STOP",
+                "PAUSED",
+                "MOLD_MAINTENANCE",
+                "IDLE",
+            ):
                 continue
             if param == "Battery_Pct" and ctrl_exec == "CHARGING":
                 continue
@@ -153,18 +165,22 @@ class TelemetryReceiver:
             # 1. So khớp ngưỡng tĩnh cứng
             static_violated = False
             if "max" in limits and current_val > limits["max"]:
-                anomalies.append({
-                    "param": param,
-                    "value": current_val,
-                    "reason": f"Vượt ngưỡng trần cho phép ({current_val} > {limits['max']})",
-                })
+                anomalies.append(
+                    {
+                        "param": param,
+                        "value": current_val,
+                        "reason": f"Vượt ngưỡng trần cho phép ({current_val} > {limits['max']})",
+                    }
+                )
                 static_violated = True
             elif "min" in limits and current_val < limits["min"]:
-                anomalies.append({
-                    "param": param,
-                    "value": current_val,
-                    "reason": f"Dưới ngưỡng sàn quy định ({current_val} < {limits['min']})",
-                })
+                anomalies.append(
+                    {
+                        "param": param,
+                        "value": current_val,
+                        "reason": f"Dưới ngưỡng sàn quy định ({current_val} < {limits['min']})",
+                    }
+                )
                 static_violated = True
 
             # 2. So khớp tốc độ biến thiên theo thời gian (ROC)
@@ -190,11 +206,13 @@ class TelemetryReceiver:
                     if duration_sec >= (window_sec * 0.8):
                         roc_per_min = ((current_val - oldest_val) / duration_sec) * 60.0
                         if roc_per_min > max_roc:
-                            anomalies.append({
-                                "param": param,
-                                "value": current_val,
-                                "roc_per_min": round(roc_per_min, 2),
-                                "reason": f"Tốc độ tăng quá nhanh (+{round(roc_per_min, 2)}/phút > {max_roc}/phút)",
-                            })
+                            anomalies.append(
+                                {
+                                    "param": param,
+                                    "value": current_val,
+                                    "roc_per_min": round(roc_per_min, 2),
+                                    "reason": f"Tốc độ tăng quá nhanh (+{round(roc_per_min, 2)}/phút > {max_roc}/phút)",
+                                }
+                            )
 
         return anomalies

@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import random
 import time
@@ -24,8 +24,8 @@ class RobotArm(BaseMachine):
         self.servo_power_enabled = True
         self.gripper_command = "CLAMP"
         self.payload_kg = self.nominal("Payload_Kg")
-        self.overload_payload_kg = 12.0   # Phôi quá tải: khối lượng gắp vượt định mức
-        self.overload_gripper_bar = 8.0   # Tăng lực kẹp để giữ phôi nặng
+        self.overload_payload_kg = 12.0  # Phôi quá tải: khối lượng gắp vượt định mức
+        self.overload_gripper_bar = 8.0  # Tăng lực kẹp để giữ phôi nặng
 
         # 2. Trạng thái vật lý
         self.joint_3_current_a = self.nominal("Joint_3_Current_A")
@@ -40,7 +40,7 @@ class RobotArm(BaseMachine):
         self.active_faults = {
             "GEARBOX_LACK_OF_GREASE": False,  # Khô mỡ hộp số giảm tốc khớp 3
             "GRIPPER_PNEUMATIC_LEAK": False,  # Xì khí nén kẹp phôi
-            "PAYLOAD_OVERLOAD": False,        # Quá tải trọng gắp
+            "PAYLOAD_OVERLOAD": False,  # Quá tải trọng gắp
         }
 
     def generate_telemetry(self) -> Dict[str, Any]:
@@ -59,16 +59,24 @@ class RobotArm(BaseMachine):
 
             # --- DÒNG ĐIỆN SERVO KHỚP 3 ---
             if self.state == "RUNNING" and self.servo_power_enabled:
-                base_target_j3 = 5.0 * (self.speed_override_pct / 100.0) + (payload_target / 7.0) * 4.5 + 2.0
+                base_target_j3 = (
+                    5.0 * (self.speed_override_pct / 100.0)
+                    + (payload_target / 7.0) * 4.5
+                    + 2.0
+                )
                 if self.active_faults["GEARBOX_LACK_OF_GREASE"]:
-                    base_target_j3 += 8.5  # Ma sát khô bánh răng làm động cơ kéo dòng lớn
+                    base_target_j3 += (
+                        8.5  # Ma sát khô bánh răng làm động cơ kéo dòng lớn
+                    )
                 target_j3 = base_target_j3
             elif self.state == "PAUSED":
                 target_j3 = 2.0
             else:
                 target_j3 = 0.0
 
-            self.joint_3_current_a = self.approach(self.joint_3_current_a, target_j3, dt, 4.0)
+            self.joint_3_current_a = self.approach(
+                self.joint_3_current_a, target_j3, dt, 4.0
+            )
 
             # --- CÂN BẰNG NHIỆT KHỚP (JOULE THERMAL DYNAMICS) ---
             if self.joint_3_current_a > 1.0:
@@ -79,19 +87,27 @@ class RobotArm(BaseMachine):
                     heat_in += 1.5  # Động cơ quá tải sinh nhiệt ngoài mô hình I²R
                 # Hệ số danh nghĩa giữ nhiệt cân bằng ở 40°C khi dòng điện 9.25 A.
                 self.joint_3_temp_c = self.approach(
-                    self.joint_3_temp_c, self.ambient_temp_c + heat_in / self.motor_cooling_coeff,
-                    dt, 1.0 / self.motor_cooling_coeff,
+                    self.joint_3_temp_c,
+                    self.ambient_temp_c + heat_in / self.motor_cooling_coeff,
+                    dt,
+                    1.0 / self.motor_cooling_coeff,
                 )
             else:
                 cooling = (self.joint_3_temp_c - self.ambient_temp_c) * 0.08 * dt
-                self.joint_3_temp_c = max(self.ambient_temp_c, self.joint_3_temp_c - cooling)
+                self.joint_3_temp_c = max(
+                    self.ambient_temp_c, self.joint_3_temp_c - cooling
+                )
 
-            self.joint_3_temp_c = max(self.ambient_temp_c, min(140.0, self.joint_3_temp_c))
+            self.joint_3_temp_c = max(
+                self.ambient_temp_c, min(140.0, self.joint_3_temp_c)
+            )
 
             # --- ÁP SUẤT TAY GẮP KHÍ NÉN ---
             if self.gripper_command == "CLAMP":
                 if self.active_faults["GRIPPER_PNEUMATIC_LEAK"]:
-                    self.actual_gripper_pressure_bar = max(0.8, self.actual_gripper_pressure_bar - 1.2 * dt)
+                    self.actual_gripper_pressure_bar = max(
+                        0.8, self.actual_gripper_pressure_bar - 1.2 * dt
+                    )
                 else:
                     grip_target = (
                         self.overload_gripper_bar
@@ -102,7 +118,9 @@ class RobotArm(BaseMachine):
                         self.actual_gripper_pressure_bar, grip_target, dt, 1.2
                     )
             else:
-                self.actual_gripper_pressure_bar = max(0.0, self.actual_gripper_pressure_bar - 8.0 * dt)
+                self.actual_gripper_pressure_bar = max(
+                    0.0, self.actual_gripper_pressure_bar - 8.0 * dt
+                )
 
             noise_j3 = random.uniform(-0.05, 0.05)
             noise_temp = random.uniform(-0.04, 0.04)
@@ -110,9 +128,15 @@ class RobotArm(BaseMachine):
 
             return {
                 "Controller_Execution": self.state,
-                "Joint_3_Current_A": round(max(0.0, self.joint_3_current_a + noise_j3), 2),
-                "Motor_Temp_C": round(max(self.ambient_temp_c, self.joint_3_temp_c + noise_temp), 2),
-                "Gripper_Pressure_Bar": round(max(0.0, self.actual_gripper_pressure_bar + noise_grip), 2),
+                "Joint_3_Current_A": round(
+                    max(0.0, self.joint_3_current_a + noise_j3), 2
+                ),
+                "Motor_Temp_C": round(
+                    max(self.ambient_temp_c, self.joint_3_temp_c + noise_temp), 2
+                ),
+                "Gripper_Pressure_Bar": round(
+                    max(0.0, self.actual_gripper_pressure_bar + noise_grip), 2
+                ),
                 "Payload_Kg": round(self.payload_kg, 2),
                 "Speed_Override_Pct": self.speed_override_pct,
                 "Simulated_Active_Faults": self.get_active_faults(),
@@ -127,7 +151,11 @@ class RobotArm(BaseMachine):
             return "CRITICAL_SERVO_OVERCURRENT"
         if temp > 80.0:
             return "CRITICAL_SERVO_OVERHEAT"
-        if self.gripper_command == "CLAMP" and pressure < 3.5 and self.state == "RUNNING":
+        if (
+            self.gripper_command == "CLAMP"
+            and pressure < 3.5
+            and self.state == "RUNNING"
+        ):
             return "CRITICAL_GRIPPER_PRESSURE_LOSS"
         if temp > 65.0:
             return "WARNING_SERVO_ELEVATED_TEMPERATURE"
@@ -175,10 +203,14 @@ class RobotArm(BaseMachine):
                 self.state = "COLLISION_STOP"
                 self.speed_override_pct = 0.0
                 self.servo_power_enabled = False
-                detail = "NGẮT KHẨN CẤP: Ngắt nguồn driver servo, khóa chốt phanh cơ học."
+                detail = (
+                    "NGẮT KHẨN CẤP: Ngắt nguồn driver servo, khóa chốt phanh cơ học."
+                )
 
             else:
-                detail = f"Lệnh '{command}' không được hỗ trợ bởi bộ điều khiển Denso RC8A."
+                detail = (
+                    f"Lệnh '{command}' không được hỗ trợ bởi bộ điều khiển Denso RC8A."
+                )
 
             return self._build_event(
                 "plc_command_executed",

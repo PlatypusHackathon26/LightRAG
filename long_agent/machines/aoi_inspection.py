@@ -39,8 +39,8 @@ class AoiInspection(BaseMachine):
         # 3. Khai báo danh mục lỗi
         self.active_faults = {
             "OPTICAL_LENS_CONTAMINATION": False,  # Bụi bẩn bám lăng kính Moire
-            "LED_DRIVER_DEGRADATION": False,      # Nguồn LED suy hao, giảm sáng
-            "SMEMA_CONVEYOR_JAM": False,          # Kẹt bảng mạch trên băng chuyền
+            "LED_DRIVER_DEGRADATION": False,  # Nguồn LED suy hao, giảm sáng
+            "SMEMA_CONVEYOR_JAM": False,  # Kẹt bảng mạch trên băng chuyền
         }
 
     def generate_telemetry(self) -> Dict[str, Any]:
@@ -54,32 +54,49 @@ class AoiInspection(BaseMachine):
                 target_speed = self.target_conveyor_speed
             else:
                 target_speed = 0.0
-            self.conveyor_speed_m_min = self.ramp(self.conveyor_speed_m_min, target_speed, dt, 0.2)
+            self.conveyor_speed_m_min = self.ramp(
+                self.conveyor_speed_m_min, target_speed, dt, 0.2
+            )
             target_cycle = 4.1 if target_speed > 0 else 0.0
-            self.inspection_cycle_time_sec = self.ramp(self.inspection_cycle_time_sec, target_cycle, dt, 0.7)
+            self.inspection_cycle_time_sec = self.ramp(
+                self.inspection_cycle_time_sec, target_cycle, dt, 0.7
+            )
 
             # --- ĐỘ SẠCH THẤU KÍNH & CHIẾU SÁNG ---
             if self.active_faults["OPTICAL_LENS_CONTAMINATION"]:
-                self.optics_cleanliness_pct = max(30.0, self.optics_cleanliness_pct - 0.5 * dt)
+                self.optics_cleanliness_pct = max(
+                    30.0, self.optics_cleanliness_pct - 0.5 * dt
+                )
             else:
                 self.optics_cleanliness_pct = self.ramp(
-                    self.optics_cleanliness_pct, self.optics_cleanliness_target_pct,
-                    dt, self.optics_recovery_rate,
+                    self.optics_cleanliness_pct,
+                    self.optics_cleanliness_target_pct,
+                    dt,
+                    self.optics_recovery_rate,
                 )
 
             if self.active_faults["LED_DRIVER_DEGRADATION"]:
-                self.illumination_actual_lux = max(9000.0, self.illumination_actual_lux - 350.0 * dt)
+                self.illumination_actual_lux = max(
+                    9000.0, self.illumination_actual_lux - 350.0 * dt
+                )
             else:
                 self.illumination_actual_lux = self.ramp(
-                    self.illumination_actual_lux, self.illumination_target_lux, dt, 350.0
+                    self.illumination_actual_lux,
+                    self.illumination_target_lux,
+                    dt,
+                    350.0,
                 )
 
             # --- TỶ LỆ TỪ CHỐI GIẢ (FRR %) ---
             if self.state == "RUNNING":
                 dirt_penalty = max(0.0, (88.0 - self.optics_cleanliness_pct) * 0.18)
-                lux_penalty = max(0.0, abs(18500.0 - self.illumination_actual_lux) / 500.0 * 0.4)
+                lux_penalty = max(
+                    0.0, abs(18500.0 - self.illumination_actual_lux) / 500.0 * 0.4
+                )
                 target_frr = 0.6 + dirt_penalty + lux_penalty
-                self.false_reject_rate_pct = self.approach(self.false_reject_rate_pct, target_frr, dt, 4.0)
+                self.false_reject_rate_pct = self.approach(
+                    self.false_reject_rate_pct, target_frr, dt, 4.0
+                )
 
                 # Nominal throughput is one board per second; no boards move during a jam.
                 if target_speed > 0.0 and self.conveyor_speed_m_min > 0.0:
@@ -94,14 +111,24 @@ class AoiInspection(BaseMachine):
             noise_frr = random.uniform(-0.04, 0.04)
             noise_lux = random.uniform(-15.0, 15.0)
             noise_clean = random.uniform(-0.1, 0.1)
-            noise_conv = random.uniform(-0.02, 0.02) if self.conveyor_speed_m_min > 0.0 else 0.0
+            noise_conv = (
+                random.uniform(-0.02, 0.02) if self.conveyor_speed_m_min > 0.0 else 0.0
+            )
 
             return {
                 "Controller_Execution": self.state,
-                "False_Reject_Rate_Pct": round(max(0.0, self.false_reject_rate_pct + noise_frr), 2),
-                "Optics_Cleanliness_Pct": round(max(0.0, self.optics_cleanliness_pct + noise_clean), 2),
-                "Illumination_Intensity_Lux": round(max(0.0, self.illumination_actual_lux + noise_lux), 0),
-                "Conveyor_Speed_m_min": round(max(0.0, self.conveyor_speed_m_min + noise_conv), 2),
+                "False_Reject_Rate_Pct": round(
+                    max(0.0, self.false_reject_rate_pct + noise_frr), 2
+                ),
+                "Optics_Cleanliness_Pct": round(
+                    max(0.0, self.optics_cleanliness_pct + noise_clean), 2
+                ),
+                "Illumination_Intensity_Lux": round(
+                    max(0.0, self.illumination_actual_lux + noise_lux), 0
+                ),
+                "Conveyor_Speed_m_min": round(
+                    max(0.0, self.conveyor_speed_m_min + noise_conv), 2
+                ),
                 "Inspection_Cycle_Time_Sec": round(self.inspection_cycle_time_sec, 2),
                 "Total_Inspected_Count": self.boards_inspected_total,
                 "Total_Defect_Count": self.boards_flagged_defect,
@@ -138,7 +165,9 @@ class AoiInspection(BaseMachine):
 
             elif command == "REPLACE_LED_MODULE":
                 self.clear_fault("LED_DRIVER_DEGRADATION")
-                detail = "Đã bảo trì driver LED; cường độ sáng khôi phục mức tiêu chuẩn."
+                detail = (
+                    "Đã bảo trì driver LED; cường độ sáng khôi phục mức tiêu chuẩn."
+                )
 
             elif command == "CLEAR_CONVEYOR_JAM":
                 self.clear_fault("SMEMA_CONVEYOR_JAM")

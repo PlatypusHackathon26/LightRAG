@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import random
 import math
@@ -41,9 +41,9 @@ class InjectionMolding(BaseMachine):
 
         # 3. Khai báo danh mục lỗi
         self.active_faults = {
-            "HEATER_BAND_RUNAWAY": False,               # Kẹt rơ-le nhiệt, quá nhiệt đầu phun
-            "HYDRAULIC_PROPORTIONAL_VALVE_LEAK": False, # Hở van thủy lực kẹp khuôn, tụt áp
-            "NOZZLE_CLOGGING": False,                   # Nghẹt nhựa lạnh nòng phun
+            "HEATER_BAND_RUNAWAY": False,  # Kẹt rơ-le nhiệt, quá nhiệt đầu phun
+            "HYDRAULIC_PROPORTIONAL_VALVE_LEAK": False,  # Hở van thủy lực kẹp khuôn, tụt áp
+            "NOZZLE_CLOGGING": False,  # Nghẹt nhựa lạnh nòng phun
         }
 
     def generate_telemetry(self) -> Dict[str, Any]:
@@ -68,15 +68,27 @@ class InjectionMolding(BaseMachine):
             ):
                 self.nozzle_temp_zone1_actual = self.nozzle_temp_zone1_target
 
-            if self.state in ("EMERGENCY_STOP", "MOLD_MAINTENANCE") or not self.heater_bands_enabled:
-                cooling = (self.nozzle_temp_zone1_actual - self.ambient_temp_c) * 0.05 * dt
-                self.nozzle_temp_zone1_actual = max(self.ambient_temp_c, self.nozzle_temp_zone1_actual - cooling)
+            if (
+                self.state in ("EMERGENCY_STOP", "MOLD_MAINTENANCE")
+                or not self.heater_bands_enabled
+            ):
+                cooling = (
+                    (self.nozzle_temp_zone1_actual - self.ambient_temp_c) * 0.05 * dt
+                )
+                self.nozzle_temp_zone1_actual = max(
+                    self.ambient_temp_c, self.nozzle_temp_zone1_actual - cooling
+                )
             else:
                 if self.active_faults["HEATER_BAND_RUNAWAY"]:
-                    self.nozzle_temp_zone1_actual = min(280.0, self.nozzle_temp_zone1_actual + 1.2 * dt)
+                    self.nozzle_temp_zone1_actual = min(
+                        280.0, self.nozzle_temp_zone1_actual + 1.2 * dt
+                    )
                 else:
                     target = self.approach(
-                        self.nozzle_temp_zone1_actual, self.nozzle_temp_zone1_target, dt, 15.0
+                        self.nozzle_temp_zone1_actual,
+                        self.nozzle_temp_zone1_target,
+                        dt,
+                        15.0,
                     )
                     self.nozzle_temp_zone1_actual = self.ramp(
                         self.nozzle_temp_zone1_actual, target, dt, 1.2
@@ -90,9 +102,13 @@ class InjectionMolding(BaseMachine):
                 target_p = self.clamping_pressure_target_bar
                 if self.active_faults["HYDRAULIC_PROPORTIONAL_VALVE_LEAK"]:
                     target_p = 102.0  # Tụt áp kẹp do hở van
-                self.clamping_pressure_bar = self.approach(self.clamping_pressure_bar, target_p, dt, 5.0)
+                self.clamping_pressure_bar = self.approach(
+                    self.clamping_pressure_bar, target_p, dt, 5.0
+                )
             else:
-                self.clamping_pressure_bar = max(0.0, self.clamping_pressure_bar - 40.0 * dt)
+                self.clamping_pressure_bar = max(
+                    0.0, self.clamping_pressure_bar - 40.0 * dt
+                )
 
             # --- ÁP SUẤT PHUN NHỰA ---
             if self.state == "RUNNING" and self.clamping_pressure_bar > 80.0:
@@ -101,22 +117,36 @@ class InjectionMolding(BaseMachine):
                     base_inj = 165.0
                 viscosity_offset = (220.0 - self.nozzle_temp_zone1_actual) * 0.35
                 target_inj = base_inj + viscosity_offset
-                self.injection_pressure_bar = self.approach(self.injection_pressure_bar, target_inj, dt, 5.0)
+                self.injection_pressure_bar = self.approach(
+                    self.injection_pressure_bar, target_inj, dt, 5.0
+                )
             else:
-                self.injection_pressure_bar = self.ramp(self.injection_pressure_bar, 0.0, dt, 20.0)
+                self.injection_pressure_bar = self.ramp(
+                    self.injection_pressure_bar, 0.0, dt, 20.0
+                )
 
             noise_temp = random.uniform(-0.12, 0.12)
-            noise_clamp = random.uniform(-0.5, 0.5) if self.clamping_pressure_bar > 5.0 else 0.0
-            noise_inj = random.uniform(-0.5, 0.5) if self.injection_pressure_bar > 5.0 else 0.0
+            noise_clamp = (
+                random.uniform(-0.5, 0.5) if self.clamping_pressure_bar > 5.0 else 0.0
+            )
+            noise_inj = (
+                random.uniform(-0.5, 0.5) if self.injection_pressure_bar > 5.0 else 0.0
+            )
 
             return {
                 "Controller_Execution": self.state,
                 "Cycle_Phase": self.cycle_phase,
-                "Nozzle_Temp_Zone1": round(self.nozzle_temp_zone1_actual + noise_temp, 2),
+                "Nozzle_Temp_Zone1": round(
+                    self.nozzle_temp_zone1_actual + noise_temp, 2
+                ),
                 "Barrel_Temp_Zone2": round(self.barrel_temp_zone2_actual, 2),
                 "Mold_Temp_C": round(self.mold_temp_c, 1),
-                "Clamping_Pressure_Bar": round(max(0.0, self.clamping_pressure_bar + noise_clamp), 1),
-                "Injection_Pressure_Bar": round(max(0.0, self.injection_pressure_bar + noise_inj), 1),
+                "Clamping_Pressure_Bar": round(
+                    max(0.0, self.clamping_pressure_bar + noise_clamp), 1
+                ),
+                "Injection_Pressure_Bar": round(
+                    max(0.0, self.injection_pressure_bar + noise_inj), 1
+                ),
                 "Cushion_Position_mm": round(self.screw_position_mm, 2),
                 "Cycle_Time_Sec": 22.4,
                 "Simulated_Active_Faults": self.get_active_faults(),

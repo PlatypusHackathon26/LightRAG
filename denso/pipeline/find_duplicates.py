@@ -41,14 +41,26 @@ def shingles(text: str, k: int = 8) -> set[tuple[str, ...]]:
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("--md", type=Path, default=DEFAULT_MD)
-    ap.add_argument("--min-chars", type=int, default=80, help="Ignore paragraphs shorter than this")
+    ap.add_argument(
+        "--min-chars", type=int, default=80, help="Ignore paragraphs shorter than this"
+    )
     ap.add_argument("--page-sim", type=float, default=0.8)
-    ap.add_argument("--include-lookup", action="store_true", help="Also scan '- lookup' files (slow)")
+    ap.add_argument(
+        "--include-lookup",
+        action="store_true",
+        help="Also scan '- lookup' files (slow)",
+    )
     args = ap.parse_args()
 
-    files = [f for f in sorted(args.md.glob("*.md")) if args.include_lookup or " - lookup." not in f.name]
+    files = [
+        f
+        for f in sorted(args.md.glob("*.md"))
+        if args.include_lookup or " - lookup." not in f.name
+    ]
     para_index: dict[str, list[tuple[str, int]]] = defaultdict(list)
     page_shingles: dict[tuple[str, int], set] = {}
     total_chars = 0
@@ -63,10 +75,16 @@ def main() -> None:
 
     dups = {k: v for k, v in para_index.items() if len(v) > 1}
     wasted = sum(len(k) * (len(v) - 1) for k, v in dups.items())
-    print(f"Exact duplicate paragraphs: {len(dups)} distinct, {sum(len(v) - 1 for v in dups.values())} extra copies, "
-          f"~{wasted} chars ({wasted / max(total_chars, 1):.1%} of paragraph text)")
-    for k, v in sorted(dups.items(), key=lambda kv: -len(kv[0]) * (len(kv[1]) - 1))[:12]:
-        where = ", ".join(f"{d[:18]} p{n}" for d, n in v[:4]) + (" ..." if len(v) > 4 else "")
+    print(
+        f"Exact duplicate paragraphs: {len(dups)} distinct, {sum(len(v) - 1 for v in dups.values())} extra copies, "
+        f"~{wasted} chars ({wasted / max(total_chars, 1):.1%} of paragraph text)"
+    )
+    for k, v in sorted(dups.items(), key=lambda kv: -len(kv[0]) * (len(kv[1]) - 1))[
+        :12
+    ]:
+        where = ", ".join(f"{d[:18]} p{n}" for d, n in v[:4]) + (
+            " ..." if len(v) > 4 else ""
+        )
         print(f"  x{len(v)} {len(k):5} chars  [{where}]  {k[:70]}")
 
     print(f"\nNear-duplicate pages (shingle Jaccard >= {args.page_sim:.0%}):")

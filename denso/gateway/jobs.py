@@ -16,21 +16,45 @@ import uuid
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-ALLOWED = {".pdf", ".docx", ".pptx", ".xlsx", ".html", ".md", ".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".webp", ".txt"}
-SCANNABLE = {".pdf", ".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".webp"}  # may hold pages only OCR can read
+ALLOWED = {
+    ".pdf",
+    ".docx",
+    ".pptx",
+    ".xlsx",
+    ".html",
+    ".md",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".tiff",
+    ".bmp",
+    ".webp",
+    ".txt",
+}
+SCANNABLE = {
+    ".pdf",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".tiff",
+    ".bmp",
+    ".webp",
+}  # may hold pages only OCR can read
 SAFE_NAME = re.compile(r"[^\w\s().,+-]", re.UNICODE)
 
 
 @dataclass
 class Job:
     id: str
-    name: str            # file name as saved under raw/
+    name: str  # file name as saved under raw/
     level: int
     size: int
-    status: str = "uploading"   # uploading | parsing | chunking | embedding | vectorized | error
+    status: str = (
+        "uploading"  # uploading | parsing | chunking | embedding | vectorized | error
+    )
     progress: int = 0
-    stage: str = "queued"       # human-readable step
-    images: str = "pending"     # pending | running | done | skipped | error
+    stage: str = "queued"  # human-readable step
+    images: str = "pending"  # pending | running | done | skipped | error
     error: str | None = None
     created: float = field(default_factory=time.time)
     finished: float | None = None
@@ -54,8 +78,14 @@ def safe_filename(name: str) -> str:
 
 
 class JobRunner:
-    def __init__(self, repo: Path, level_servers: list[str], python: str | None = None,
-                 docling: str = "http://127.0.0.1:5001", read_images: bool = True):
+    def __init__(
+        self,
+        repo: Path,
+        level_servers: list[str],
+        python: str | None = None,
+        docling: str = "http://127.0.0.1:5001",
+        read_images: bool = True,
+    ):
         self.repo = repo
         self.data = repo / "denso" / "data"
         self.logs = repo / "denso" / "logs"
@@ -86,7 +116,11 @@ class JobRunner:
         return self.jobs.get(job_id)
 
     def active(self) -> list[Job]:
-        return [j for j in self.jobs.values() if j.status != "vectorized" or j.images == "running"]
+        return [
+            j
+            for j in self.jobs.values()
+            if j.status != "vectorized" or j.images == "running"
+        ]
 
     # ------------------------------------------------------------------ worker
     async def _work(self) -> None:
@@ -95,7 +129,11 @@ class JobRunner:
             try:
                 await self._run(job)
             except Exception as exc:  # noqa: BLE001 - reported on the job, never kills the worker
-                job.status, job.error, job.finished = "error", str(exc)[:500], time.time()
+                job.status, job.error, job.finished = (
+                    "error",
+                    str(exc)[:500],
+                    time.time(),
+                )
 
     async def _step(self, job: Job, args: list[str], log_name: str) -> None:
         log = self.logs / f"upload_{job.id}.log"
@@ -104,12 +142,23 @@ class JobRunner:
             fh.write(f"\n$ {' '.join(args)}\n")
             fh.flush()
             proc = await asyncio.create_subprocess_exec(
-                self.python, *args, cwd=self.repo, stdout=fh, stderr=asyncio.subprocess.STDOUT,
-                env={**os.environ, "PYTHONIOENCODING": "utf-8"})
+                self.python,
+                *args,
+                cwd=self.repo,
+                stdout=fh,
+                stderr=asyncio.subprocess.STDOUT,
+                env={**os.environ, "PYTHONIOENCODING": "utf-8"},
+            )
             code = await proc.wait()
         if code != 0:
-            tail = log.read_text(encoding="utf-8", errors="replace").strip().splitlines()[-3:]
-            raise RuntimeError(f"{log_name} failed (exit {code}): {' | '.join(tail)[:400]}")
+            tail = (
+                log.read_text(encoding="utf-8", errors="replace")
+                .strip()
+                .splitlines()[-3:]
+            )
+            raise RuntimeError(
+                f"{log_name} failed (exit {code}): {' | '.join(tail)[:400]}"
+            )
 
     async def _ingest(self, job: Job, hinted: Path, label: str) -> list[str]:
         """Upload to every running server of levels job.level..3; return the levels skipped.
@@ -123,10 +172,23 @@ class JobRunner:
             if not await self._healthy(url):
                 skipped.append(f"level_{lv}")
                 continue
-            await self._step(job, ["denso/scripts/ingest.py", "--server", url, "--replace", "--poll", "5",
-                                   str(hinted)], f"{label} (level {lv})")
+            await self._step(
+                job,
+                [
+                    "denso/scripts/ingest.py",
+                    "--server",
+                    url,
+                    "--replace",
+                    "--poll",
+                    "5",
+                    str(hinted),
+                ],
+                f"{label} (level {lv})",
+            )
         if len(skipped) == len(self.level_servers) - job.level + 1:
-            raise RuntimeError(f"no LightRAG server running for level {job.level} or above")
+            raise RuntimeError(
+                f"no LightRAG server running for level {job.level} or above"
+            )
         return skipped
 
     async def _healthy(self, url: str) -> bool:
@@ -147,38 +209,98 @@ class JobRunner:
 
     async def _run(self, job: Job) -> None:
         raw = self.data / "raw" / job.name
-        if raw.suffix.lower() != ".txt" and not await self._healthy(self.docling):  # parse.py reads text itself
-            raise RuntimeError("Docling is not running on " + self.docling +
-                               " - start it with denso/start.ps1 -DoclingOnly, then upload again") from None
-        job.status, job.stage, job.progress = "parsing", "Docling đang đọc bố cục, bảng và trang", 10
+        if raw.suffix.lower() != ".txt" and not await self._healthy(
+            self.docling
+        ):  # parse.py reads text itself
+            raise RuntimeError(
+                "Docling is not running on "
+                + self.docling
+                + " - start it with denso/start.ps1 -DoclingOnly, then upload again"
+            ) from None
+        job.status, job.stage, job.progress = (
+            "parsing",
+            "Docling đang đọc bố cục, bảng và trang",
+            10,
+        )
         # --force: an upload replacing a file of the same name must be read again, not served from
         # the previous parse (parse.py skips files whose meta.json exists).
-        await self._step(job, ["denso/pipeline/parse.py", "--level", str(job.level), "--docling", self.docling,
-                               "--cooldown", "2", "--force", str(raw)], "parse")
+        await self._step(
+            job,
+            [
+                "denso/pipeline/parse.py",
+                "--level",
+                str(job.level),
+                "--docling",
+                self.docling,
+                "--cooldown",
+                "2",
+                "--force",
+                str(raw),
+            ],
+            "parse",
+        )
         ocr_note = ""
         if job.level == 1 and raw.suffix.lower() in SCANNABLE:
             # Scanned pages / photos: the vision model reads Vietnamese diacritics Docling's OCR drops.
             # Level 1 only (the page images leave the machine); on failure Docling's text stays.
             job.stage, job.progress = "Đọc trang scan bằng mô hình thị giác", 40
             try:
-                await self._step(job, ["denso/pipeline/ocr_pages.py", "--docs", job.stem], "read scanned pages")
+                await self._step(
+                    job,
+                    ["denso/pipeline/ocr_pages.py", "--docs", job.stem],
+                    "read scanned pages",
+                )
             except RuntimeError as exc:
-                ocr_note = f"; đọc trang scan lỗi, dùng OCR của Docling: {str(exc)[:120]}"
-        job.status, job.stage, job.progress = "chunking", "Làm sạch, gắn dấu trang và ngôn ngữ", 60
+                ocr_note = (
+                    f"; đọc trang scan lỗi, dùng OCR của Docling: {str(exc)[:120]}"
+                )
+        job.status, job.stage, job.progress = (
+            "chunking",
+            "Làm sạch, gắn dấu trang và ngôn ngữ",
+            60,
+        )
         await self._step(job, ["denso/pipeline/clean.py", job.stem], "clean")
-        job.status, job.stage, job.progress = "embedding", "Tạo vector và nạp vào kho tri thức", 80
+        job.status, job.stage, job.progress = (
+            "embedding",
+            "Tạo vector và nạp vào kho tri thức",
+            80,
+        )
         skipped = await self._ingest(job, self._ingest_copy(job.stem), "ingest")
-        note = (f" - chưa nạp vào {', '.join(skipped)} (server chưa chạy)" if skipped else "") + ocr_note
-        job.status, job.stage, job.progress = "vectorized", f"Sẵn sàng hỏi đáp (có trích dẫn trang){note}", 100
+        note = (
+            f" - chưa nạp vào {', '.join(skipped)} (server chưa chạy)"
+            if skipped
+            else ""
+        ) + ocr_note
+        job.status, job.stage, job.progress = (
+            "vectorized",
+            f"Sẵn sàng hỏi đáp (có trích dẫn trang){note}",
+            100,
+        )
         if not self.read_images or raw.suffix.lower() != ".pdf" or job.level > 1:
-            job.images, job.finished = "skipped", time.time()  # images leave the machine: public docs only
+            job.images, job.finished = (
+                "skipped",
+                time.time(),
+            )  # images leave the machine: public docs only
             return
-        job.images, job.stage = "running", "Sẵn sàng hỏi đáp; đang đọc chữ trong ảnh để bổ sung"
+        job.images, job.stage = (
+            "running",
+            "Sẵn sàng hỏi đáp; đang đọc chữ trong ảnh để bổ sung",
+        )
         try:
-            await self._step(job, ["denso/pipeline/ocr_images.py", "--docs", job.stem], "read images")
-            await self._step(job, ["denso/pipeline/clean.py", job.stem], "clean with images")
+            await self._step(
+                job, ["denso/pipeline/ocr_images.py", "--docs", job.stem], "read images"
+            )
+            await self._step(
+                job, ["denso/pipeline/clean.py", job.stem], "clean with images"
+            )
             await self._ingest(job, self._ingest_copy(job.stem), "ingest with images")
-            job.images, job.stage = "done", f"Sẵn sàng hỏi đáp (đã gồm chữ trong ảnh){note}"
+            job.images, job.stage = (
+                "done",
+                f"Sẵn sàng hỏi đáp (đã gồm chữ trong ảnh){note}",
+            )
         except RuntimeError as exc:
-            job.images, job.stage = "error", f"Sẵn sàng hỏi đáp; đọc ảnh lỗi: {str(exc)[:160]}"
+            job.images, job.stage = (
+                "error",
+                f"Sẵn sàng hỏi đáp; đọc ảnh lỗi: {str(exc)[:160]}",
+            )
         job.finished = time.time()

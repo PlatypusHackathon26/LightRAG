@@ -30,7 +30,18 @@ SECONDS_PER_KG_CHUNK = 150
 
 def parse_native(md: Path, out_dir: Path) -> Path:
     subprocess.run(
-        [sys.executable, "-m", "lightrag.parser.cli", str(md), "--engine", "native", "-o", str(out_dir), "--preview", "0"],
+        [
+            sys.executable,
+            "-m",
+            "lightrag.parser.cli",
+            str(md),
+            "--engine",
+            "native",
+            "-o",
+            str(out_dir),
+            "--preview",
+            "0",
+        ],
         check=True,
         cwd=REPO,
         capture_output=True,
@@ -43,15 +54,24 @@ def chunk(md: Path, tokenizer, size: int, overlap: int) -> list[dict]:
         blocks = parse_native(md, Path(tmp))
         content = md.read_text(encoding="utf-8")
         return chunking_by_paragraph_semantic(
-            tokenizer, content, size, blocks_path=str(blocks), chunk_overlap_token_size=overlap
+            tokenizer,
+            content,
+            size,
+            blocks_path=str(blocks),
+            chunk_overlap_token_size=overlap,
         )
 
 
 def summarize(name: str, chunks: list[dict]) -> dict:
     tokens = [c["tokens"] for c in chunks]
     # Citable = a page marker, or a slice of a large table that carries clean.py's "Trang" column.
-    with_page = sum(bool(PAGE_MARK.search(c["content"]) or TABLE_PAGE_COL.search(c["content"])) for c in chunks)
-    tables = sum(c["content"].count("<table") for c in chunks)  # native parser renders tables as <table format="json">
+    with_page = sum(
+        bool(PAGE_MARK.search(c["content"]) or TABLE_PAGE_COL.search(c["content"]))
+        for c in chunks
+    )
+    tables = sum(
+        c["content"].count("<table") for c in chunks
+    )  # native parser renders tables as <table format="json">
     return {
         "file": name,
         "chunks": len(chunks),
@@ -66,16 +86,24 @@ def summarize(name: str, chunks: list[dict]) -> dict:
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("files", nargs="*", help="cleaned_md file names (default: all)")
     ap.add_argument("--md", type=Path, default=DEFAULT_MD)
     ap.add_argument("--size", type=int, default=2000, help="CHUNK_P_SIZE")
     ap.add_argument("--overlap", type=int, default=100, help="CHUNK_P_OVERLAP_SIZE")
-    ap.add_argument("--show", type=int, default=0, help="Print the first N chunks of each file")
+    ap.add_argument(
+        "--show", type=int, default=0, help="Print the first N chunks of each file"
+    )
     ap.add_argument("--json", type=Path, help="Also write the summary as JSON")
     args = ap.parse_args()
 
-    files = [args.md / f for f in args.files] if args.files else sorted(args.md.glob("*.md"))
+    files = (
+        [args.md / f for f in args.files]
+        if args.files
+        else sorted(args.md.glob("*.md"))
+    )
     tokenizer = TiktokenTokenizer()
     rows = []
     for md in files:
@@ -89,7 +117,9 @@ def main() -> None:
         )
         for c in chunks[: args.show]:
             head = c.get("heading") or {}
-            print(f"   --- chunk {c['chunk_order_index']} ({c['tokens']} tok) heading={head.get('heading')!r} parents={head.get('parent_headings')}")
+            print(
+                f"   --- chunk {c['chunk_order_index']} ({c['tokens']} tok) heading={head.get('heading')!r} parents={head.get('parent_headings')}"
+            )
             print("   " + c["content"][:500].replace("\n", "\n   "))
 
     kg = [r for r in rows if r["kg"]]
@@ -102,7 +132,9 @@ def main() -> None:
     total = sum(r["chunks"] for r in rows)
     print(f"Chunks that carry a page marker (citable page): {marked}/{total}")
     if args.json:
-        args.json.write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8")
+        args.json.write_text(
+            json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
 
 
 if __name__ == "__main__":

@@ -120,7 +120,9 @@ def _oversized(path: pathlib.Path) -> list[tuple[str, int, int]]:
 def test_no_docstring_grows_into_a_design_document():
     offenders = []
     for path in _python_files():
-        rel = path.relative_to(_REPO_ROOT).as_posix()  # "/" on Windows too, like _KNOWN_OVERSIZED
+        rel = path.relative_to(
+            _REPO_ROOT
+        ).as_posix()  # "/" on Windows too, like _KNOWN_OVERSIZED
         for name, lines, limit in _oversized(path):
             if (rel, name) in _KNOWN_OVERSIZED:
                 continue
@@ -143,7 +145,9 @@ def test_the_known_oversized_list_does_not_go_stale():
     """
     still_oversized = set()
     for path in _python_files():
-        rel = path.relative_to(_REPO_ROOT).as_posix()  # "/" on Windows too, like _KNOWN_OVERSIZED
+        rel = path.relative_to(
+            _REPO_ROOT
+        ).as_posix()  # "/" on Windows too, like _KNOWN_OVERSIZED
         for name, _lines, _limit in _oversized(path):
             still_oversized.add((rel, name))
 

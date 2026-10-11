@@ -244,11 +244,20 @@ def _limits_text(machine_type: str) -> str:
         return "(không có bảng ngưỡng)"
     lines = []
     for m in MACHINE_METRICS.get(machine_type, []):
-        limits = ", ".join(f"{name} {m[key]}" for key, name in (
-            ("min", "tối thiểu"), ("max", "tối đa"),
-            ("critical_min", "nguy hiểm dưới"), ("critical_max", "nguy hiểm trên")) if key in m)
-        lines.append(f"- {m['key']} ({m['label']}): danh nghĩa {m['nominal']} {m['unit']}"
-                     + (f"; {limits}" if limits else ""))
+        limits = ", ".join(
+            f"{name} {m[key]}"
+            for key, name in (
+                ("min", "tối thiểu"),
+                ("max", "tối đa"),
+                ("critical_min", "nguy hiểm dưới"),
+                ("critical_max", "nguy hiểm trên"),
+            )
+            if key in m
+        )
+        lines.append(
+            f"- {m['key']} ({m['label']}): danh nghĩa {m['nominal']} {m['unit']}"
+            + (f"; {limits}" if limits else "")
+        )
     return "\n".join(lines) or "(không có bảng ngưỡng)"
 
 
@@ -264,10 +273,17 @@ def _deviations_text(machine_type: str, telemetry: Dict[str, Any]) -> str:
         if not isinstance(value, (int, float)) or isinstance(value, bool):
             continue
         if "max" in m and value > m["max"]:
-            out.append(f"- {m['key']} ({m['label']}) = {value} {m['unit']} > tối đa {m['max']}")
+            out.append(
+                f"- {m['key']} ({m['label']}) = {value} {m['unit']} > tối đa {m['max']}"
+            )
         elif "min" in m and value < m["min"]:
-            out.append(f"- {m['key']} ({m['label']}) = {value} {m['unit']} < tối thiểu {m['min']}")
-    return "\n".join(out) or "- Chưa chỉ số nào vượt ngưỡng tĩnh (cảnh báo do tốc độ biến thiên): xét chỉ số đang đổi nhanh."
+            out.append(
+                f"- {m['key']} ({m['label']}) = {value} {m['unit']} < tối thiểu {m['min']}"
+            )
+    return (
+        "\n".join(out)
+        or "- Chưa chỉ số nào vượt ngưỡng tĩnh (cảnh báo do tốc độ biến thiên): xét chỉ số đang đổi nhanh."
+    )
 
 
 class RAGEngine:
@@ -352,13 +368,17 @@ class RAGEngine:
         }
         """
         prompt = self.build_format_prompt(machine_id, machine_type, telemetry)
-        logger.info(f"[RAGEngine] Gửi truy vấn có Schema tới LLM cho {machine_id} ({machine_type})")
+        logger.info(
+            f"[RAGEngine] Gửi truy vấn có Schema tới LLM cho {machine_id} ({machine_type})"
+        )
 
         raw_output = self._call_llm_or_rag(prompt, mode=mode)
         parsed = self._safe_parse_json(raw_output)
 
         # Hậu kiểm tra danh mục lệnh (Whitelisting check)
-        valid_commands = {cmd["command"] for cmd in COMMAND_CATALOG.get(machine_type, [])}
+        valid_commands = {
+            cmd["command"] for cmd in COMMAND_CATALOG.get(machine_type, [])
+        }
         filtered_actions: List[Dict[str, Any]] = []
         for act in parsed.get("actions", []):
             cmd_name = act.get("command", "").strip().upper()
@@ -366,7 +386,11 @@ class RAGEngine:
                 act["command"] = cmd_name
                 # Đồng bộ risk_level theo danh mục
                 meta = next(
-                    (c for c in COMMAND_CATALOG[machine_type] if c["command"] == cmd_name),
+                    (
+                        c
+                        for c in COMMAND_CATALOG[machine_type]
+                        if c["command"] == cmd_name
+                    ),
                     None,
                 )
                 if meta:
@@ -396,7 +420,11 @@ class RAGEngine:
 
         # Phản hồi mẫu thông minh theo từ khóa (khi chạy không LLM key)
         if "cnc_milling" in text_lower or "mc-mill-01" in text_lower:
-            if "spindle_temp_c" in text_lower or "nhiệt" in text_lower or "lube" in text_lower:
+            if (
+                "spindle_temp_c" in text_lower
+                or "nhiệt" in text_lower
+                or "lube" in text_lower
+            ):
                 return (
                     "Khuyến nghị khẩn cấp từ cẩm nang DMG MORI: Nhiệt độ trục chính vượt ngưỡng an toàn. "
                     "Yêu cầu kích hoạt dung dịch làm mát tối đa (TOGGLE_COOLANT) và giảm tải tốc độ chạy dao "
@@ -458,7 +486,12 @@ class RAGEngine:
         """Sinh JSON mẫu chuẩn xác phục vụ testbed và demo khi chưa có API key."""
         text = prompt.lower()
         if "cnc_milling" in text or "mc-mill-01" in text:
-            if "spindle_temp_c" in text or "rung" in text or "vibration" in text or "lube" in text:
+            if (
+                "spindle_temp_c" in text
+                or "rung" in text
+                or "vibration" in text
+                or "lube" in text
+            ):
                 return json.dumps(
                     {
                         "diagnosis": (
@@ -577,7 +610,9 @@ class RAGEngine:
                     "actions": list(data.get("actions", [])),
                 }
         except Exception as exc:
-            logger.warning(f"[RAGEngine] Không thể parse JSON trực tiếp: {exc} | Raw text: {raw_text[:120]}")
+            logger.warning(
+                f"[RAGEngine] Không thể parse JSON trực tiếp: {exc} | Raw text: {raw_text[:120]}"
+            )
 
         # Fallback an toàn nếu LLM trả về văn bản tự do
         return {

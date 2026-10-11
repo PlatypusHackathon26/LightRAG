@@ -120,33 +120,71 @@ class RagSchemaFormatterTests(unittest.TestCase):
         nhưng cùng mang 1 ý nghĩa: đều được format về cùng lệnh IoT.
         """
         # Cùng một ý đồ can thiệp: Giảm feedrate 50% + Bơm bôi trơn trục chính
-        style_formal_json = json.dumps({
-            "diagnosis": "Kính gửi quý kỹ sư, hệ thống ghi nhận nhiệt độ tăng cao vượt mức cho phép.",
-            "actions": [
-                {"command": "SET_FEED_OVERRIDE", "params": {"override_pct": 50.0}, "risk_level": "LOW", "reason": "Giảm tải"},
-                {"command": "REFILL_SPINDLE_LUBRICANT", "params": {}, "risk_level": "HIGH", "reason": "Bôi trơn"}
-            ]
-        })
+        style_formal_json = json.dumps(
+            {
+                "diagnosis": "Kính gửi quý kỹ sư, hệ thống ghi nhận nhiệt độ tăng cao vượt mức cho phép.",
+                "actions": [
+                    {
+                        "command": "SET_FEED_OVERRIDE",
+                        "params": {"override_pct": 50.0},
+                        "risk_level": "LOW",
+                        "reason": "Giảm tải",
+                    },
+                    {
+                        "command": "REFILL_SPINDLE_LUBRICANT",
+                        "params": {},
+                        "risk_level": "HIGH",
+                        "reason": "Bôi trơn",
+                    },
+                ],
+            }
+        )
 
-        style_brief_json = json.dumps({
-            "diagnosis": "Nóng trục chính. Hạ tải dao ngay.",
-            "actions": [
-                {"command": "SET_FEED_OVERRIDE", "params": {"override_pct": 50.0}, "risk_level": "LOW", "reason": "Hạ tốc 50%"},
-                {"command": "REFILL_SPINDLE_LUBRICANT", "params": {}, "risk_level": "HIGH", "reason": "Thêm dầu"}
-            ]
-        })
+        style_brief_json = json.dumps(
+            {
+                "diagnosis": "Nóng trục chính. Hạ tải dao ngay.",
+                "actions": [
+                    {
+                        "command": "SET_FEED_OVERRIDE",
+                        "params": {"override_pct": 50.0},
+                        "risk_level": "LOW",
+                        "reason": "Hạ tốc 50%",
+                    },
+                    {
+                        "command": "REFILL_SPINDLE_LUBRICANT",
+                        "params": {},
+                        "risk_level": "HIGH",
+                        "reason": "Thêm dầu",
+                    },
+                ],
+            }
+        )
 
-        style_english_json = json.dumps({
-            "diagnosis": "Critical spindle overheat detected on MC-MILL-01.",
-            "actions": [
-                {"command": "SET_FEED_OVERRIDE", "params": {"override_pct": 50.0}, "risk_level": "LOW", "reason": "Reduce feed to 50%"},
-                {"command": "REFILL_SPINDLE_LUBRICANT", "params": {}, "risk_level": "HIGH", "reason": "Refill lube"}
-            ]
-        })
+        style_english_json = json.dumps(
+            {
+                "diagnosis": "Critical spindle overheat detected on MC-MILL-01.",
+                "actions": [
+                    {
+                        "command": "SET_FEED_OVERRIDE",
+                        "params": {"override_pct": 50.0},
+                        "risk_level": "LOW",
+                        "reason": "Reduce feed to 50%",
+                    },
+                    {
+                        "command": "REFILL_SPINDLE_LUBRICANT",
+                        "params": {},
+                        "risk_level": "HIGH",
+                        "reason": "Refill lube",
+                    },
+                ],
+            }
+        )
 
         for mock_output in (style_formal_json, style_brief_json, style_english_json):
             rag_engine = RAGEngine(llm_callable=lambda p: mock_output)
-            res = rag_engine.query_with_schema("MC-MILL-01", "CNC_MILLING", {"Spindle_Temp_C": 92.0})
+            res = rag_engine.query_with_schema(
+                "MC-MILL-01", "CNC_MILLING", {"Spindle_Temp_C": 92.0}
+            )
             cmds = [a["command"] for a in res["actions"]]
             self.assertEqual(cmds, ["SET_FEED_OVERRIDE", "REFILL_SPINDLE_LUBRICANT"])
             self.assertEqual(res["actions"][0]["params"]["override_pct"], 50.0)
@@ -165,7 +203,9 @@ class AgentBrainIntegrationTests(unittest.TestCase):
 
         tools = AgentTools(event_bus=bus)
         rag = RAGEngine()
-        brain = AgentBrain(rag_engine=rag, tools=tools, event_bus=bus, execute_actions=True)
+        brain = AgentBrain(
+            rag_engine=rag, tools=tools, event_bus=bus, execute_actions=True
+        )
 
         alert_event = {
             "event_type": "alert",
@@ -181,6 +221,7 @@ class AgentBrainIntegrationTests(unittest.TestCase):
 
         # Chờ nhẹ cho worker event bus
         import time
+
         time.sleep(0.3)
 
         # 1. Có thông báo chẩn đoán lên chat cho kỹ sư

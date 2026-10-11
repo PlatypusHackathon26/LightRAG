@@ -474,7 +474,9 @@ class AgentTools:
                 if "speed_pct" in params or "override_pct" in params:
                     pct_match = re.search(r"(\d+)\s*%", text_lower)
                     if pct_match:
-                        key = "override_pct" if "override_pct" in params else "speed_pct"
+                        key = (
+                            "override_pct" if "override_pct" in params else "speed_pct"
+                        )
                         params[key] = float(pct_match.group(1))
 
                 if "target_temp" in params:
@@ -485,12 +487,14 @@ class AgentTools:
                     if temp_match:
                         params["target_temp"] = float(temp_match.group(1))
 
-                actions.append({
-                    "command": cmd_name,
-                    "params": params,
-                    "risk_level": cmd_info["risk_level"],
-                    "reason": f"Khuyến nghị từ RAG: {cmd_info['desc']}",
-                })
+                actions.append(
+                    {
+                        "command": cmd_name,
+                        "params": params,
+                        "risk_level": cmd_info["risk_level"],
+                        "reason": f"Khuyến nghị từ RAG: {cmd_info['desc']}",
+                    }
+                )
 
         logger.info(
             f"[Tools] Đã phân tích văn bản cho {machine_id} -> Tìm thấy {len(actions)} hành động: "
@@ -508,11 +512,13 @@ class AgentTools:
     ) -> None:
         """Hàm hỗ trợ gửi trực tiếp 1 lệnh đơn lẻ vào EventBus khi cần."""
         if self.event_bus:
-            self.event_bus.publish({
-                "event_type": "action_command",
-                "machine_id": machine_id,
-                "command": command,
-                "params": params,
-                "risk_level": risk_level,
-                "reason": reason,
-            })
+            self.event_bus.publish(
+                {
+                    "event_type": "action_command",
+                    "machine_id": machine_id,
+                    "command": command,
+                    "params": params,
+                    "risk_level": risk_level,
+                    "reason": reason,
+                }
+            )

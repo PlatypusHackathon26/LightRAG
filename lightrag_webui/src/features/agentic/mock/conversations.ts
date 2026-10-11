@@ -329,7 +329,7 @@ Overall OEE: **78.3%** (Target: 85%) — ⚠️ Below target
 
 **Top 3 Loss Causes:**
 1. 🔴 Spindle overheating (CNC-01, CNC-02): **34%** of downtime
-2. 🟡 Tool change errors: 18% of downtime  
+2. 🟡 Tool change errors: 18% of downtime
 3. 🟡 Setup time: 26% of downtime
 
 The RCA for CNC-01's spindle failure in September shows delayed PM as the primary cause. Implementing AI-based early warning (as active today for CNC-02) is the key corrective action.`,

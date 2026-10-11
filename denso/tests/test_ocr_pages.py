@@ -29,7 +29,9 @@ def test_an_image_upload_is_one_scanned_page(tmp_path):
 def test_only_pdf_pages_without_a_text_layer_are_scanned(tmp_path):
     # Page 1: an image-only scan. Page 2 is the same scan: both are pages only OCR can read.
     pdf = tmp_path / "phieu.pdf"
-    scan_image().save(pdf, save_all=True, append_images=[scan_image("Siết 6,9 – 10,8 Nm")])
+    scan_image().save(
+        pdf, save_all=True, append_images=[scan_image("Siết 6,9 – 10,8 Nm")]
+    )
     assert sorted(scan_pages(pdf)) == [1, 2]
     assert scan_pages(tmp_path / "notes.docx") == {}
 
@@ -37,7 +39,11 @@ def test_only_pdf_pages_without_a_text_layer_are_scanned(tmp_path):
 def test_replace_pages_swaps_only_the_scanned_pages():
     md = f"page one{PAGE_BREAK}page two{PAGE_BREAK}page three"
     out = replace_pages(md, {2: "Lắp 2 chốt dẫn hướng"}).split(PAGE_BREAK)
-    assert out[0] == "page one" and out[1].strip() == "Lắp 2 chốt dẫn hướng" and out[2] == "page three"
+    assert (
+        out[0] == "page one"
+        and out[1].strip() == "Lắp 2 chốt dẫn hướng"
+        and out[2] == "page three"
+    )
     assert len(replace_pages("only", {3: "x"}, total=3).split(PAGE_BREAK)) == 3
 
 
@@ -47,14 +53,22 @@ def _doc(tmp_path, level: int) -> tuple[argparse.Namespace, Path]:
     scan_image().save(raw)
     doc = tmp_path / "parsed" / "scan"
     doc.mkdir(parents=True)
-    (doc / "meta.json").write_text(json.dumps({"access_level": level, "source_path": str(raw),
-                                               "source_file": "scan.png"}), encoding="utf-8")
+    (doc / "meta.json").write_text(
+        json.dumps(
+            {"access_level": level, "source_path": str(raw), "source_file": "scan.png"}
+        ),
+        encoding="utf-8",
+    )
     (doc / "docling.md").write_text("Đánh du vi trí gic ni", encoding="utf-8")
-    args = argparse.Namespace(parsed=tmp_path / "parsed", raw=tmp_path / "raw", model="m")
+    args = argparse.Namespace(
+        parsed=tmp_path / "parsed", raw=tmp_path / "raw", model="m"
+    )
     return args, doc
 
 
-def test_the_transcription_replaces_doclings_text_and_keeps_the_original(tmp_path, monkeypatch):
+def test_the_transcription_replaces_doclings_text_and_keeps_the_original(
+    tmp_path, monkeypatch
+):
     args, doc = _doc(tmp_path, 1)
 
     async def fake(pages, cache, cache_path, args, key):
@@ -62,15 +76,21 @@ def test_the_transcription_replaces_doclings_text_and_keeps_the_original(tmp_pat
 
     monkeypatch.setattr(ocr_pages, "transcribe", fake)
     assert ocr_pages.process("scan", args, "key") == 1
-    assert (doc / "docling.md").read_text(encoding="utf-8").strip() == "Đánh dấu vị trí giắc nối"
-    assert (doc / "docling_ocr.md").read_text(encoding="utf-8") == "Đánh du vi trí gic ni"
+    assert (doc / "docling.md").read_text(
+        encoding="utf-8"
+    ).strip() == "Đánh dấu vị trí giắc nối"
+    assert (doc / "docling_ocr.md").read_text(
+        encoding="utf-8"
+    ) == "Đánh du vi trí gic ni"
     # A re-upload parses again: its fresh docling.md becomes the original, not the old one.
     (doc / "docling.md").write_text("Bản mới của Docling", encoding="utf-8")
     ocr_pages.process("scan", args, "key")
     assert (doc / "docling_ocr.md").read_text(encoding="utf-8") == "Bản mới của Docling"
 
 
-def test_page_images_of_a_document_above_level_1_never_leave_the_machine(tmp_path, monkeypatch):
+def test_page_images_of_a_document_above_level_1_never_leave_the_machine(
+    tmp_path, monkeypatch
+):
     args, doc = _doc(tmp_path, 2)
 
     async def fail(*a, **k):
@@ -88,7 +108,10 @@ def test_the_models_framing_is_not_part_of_the_page():
     text = "The text in the scanned page is transcribed as follows:\n\n```\n| Oil | Code |\n```"
     assert clean_transcription(text) == "| Oil | Code |"
     assert clean_transcription("Here is the transcription:\nĐánh dấu") == "Đánh dấu"
-    assert clean_transcription("The text below says 2 pins.") == "The text below says 2 pins."  # no colon: content
+    assert (
+        clean_transcription("The text below says 2 pins.")
+        == "The text below says 2 pins."
+    )  # no colon: content
     # Seen live on a picture-only slide.
     assert clean_transcription("There is no text on the scanned page.") == ""
     assert clean_transcription("NO TEXT") == ""

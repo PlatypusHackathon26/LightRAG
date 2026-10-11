@@ -16,12 +16,18 @@ MACHINE_TYPE_VI = {
     "AOI_INSPECTION": "Máy kiểm tra quang AOI",
     "INJECTION_MOLDING": "Máy ép phun",
 }
-SHOWN_MESSAGES = 8  # each alert appends two messages; the sidebar thread keeps the recent ones
+SHOWN_MESSAGES = (
+    8  # each alert appends two messages; the sidebar thread keeps the recent ones
+)
 EPISODE_GAP_S = 600  # alerts closer than this belong to the same incident (its title lists all their metrics)
 
 
 def _number(value) -> float | None:
-    return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else None
+    return (
+        float(value)
+        if isinstance(value, (int, float)) and not isinstance(value, bool)
+        else None
+    )
 
 
 def _point(metric: dict, value: float) -> tuple[dict, bool, bool]:
@@ -30,9 +36,19 @@ def _point(metric: dict, value: float) -> tuple[dict, bool, bool]:
     clo, chi = _number(metric.get("critical_min")), _number(metric.get("critical_max"))
     warn = (hi is not None and value > hi) or (lo is not None and value < lo)
     critical = (chi is not None and value > chi) or (clo is not None and value < clo)
-    threshold = hi if hi is not None else (lo if lo is not None else (chi if chi is not None else clo))
-    point = {"key": metric["key"], "label": metric.get("label", metric["key"]), "value": value,
-             "unit": metric.get("unit", ""), "isAnomalous": warn or critical, "trend": "stable"}
+    threshold = (
+        hi
+        if hi is not None
+        else (lo if lo is not None else (chi if chi is not None else clo))
+    )
+    point = {
+        "key": metric["key"],
+        "label": metric.get("label", metric["key"]),
+        "value": value,
+        "unit": metric.get("unit", ""),
+        "isAnomalous": warn or critical,
+        "trend": "stable",
+    }
     if threshold is not None:
         point["threshold"] = threshold
     return point, warn or critical, critical
@@ -48,12 +64,29 @@ def _messages(machine_id: str, raw: list[dict]) -> list[dict]:
         if not text:
             continue
         if m.get("role") == "assistant":
-            diagnoses[text] = m.get("timestamp")  # keeps the latest time a diagnosis was given
+            diagnoses[text] = m.get(
+                "timestamp"
+            )  # keeps the latest time a diagnosis was given
         else:
-            alerts.append({"role": "system", "content": f"⚠ {text}", "timestamp": m.get("timestamp")})
+            alerts.append(
+                {
+                    "role": "system",
+                    "content": f"⚠ {text}",
+                    "timestamp": m.get("timestamp"),
+                }
+            )
     latest = max(diagnoses.items(), key=lambda kv: kv[1] or "", default=None)
-    shown = alerts[-3:] + ([{"role": "assistant", "content": f"**Chẩn đoán của agent giám sát (Long-agent):** {latest[0]}",
-                             "timestamp": latest[1]}] if latest else [])
+    shown = alerts[-3:] + (
+        [
+            {
+                "role": "assistant",
+                "content": f"**Chẩn đoán của agent giám sát (Long-agent):** {latest[0]}",
+                "timestamp": latest[1],
+            }
+        ]
+        if latest
+        else []
+    )
     shown = sorted(shown, key=lambda m: m["timestamp"] or "")[-SHOWN_MESSAGES:]
     for i, m in enumerate(shown):
         m["id"] = f"la-{machine_id}-{i}"
@@ -65,23 +98,43 @@ def _proposal(machine_id: str, incident_id: str, pending: list[dict]) -> dict | 
         if a.get("machine_id") != machine_id:
             continue
         command = a.get("command", "")
-        params = {"Lệnh": command, "Thiết bị": machine_id,
-                  **{str(k): str(v) for k, v in (a.get("params") or a.get("payload") or {}).items()}}
-        return {"id": a.get("approval_id") or a.get("action_id"), "incidentId": incident_id,
-                "titleVi": f"Đề xuất: {command}", "subtitleVi": a.get("reason", ""), "diagnosisEn": "",
-                "items": [{"type": "plc_command", "title": "Lệnh điều khiển PLC", "description": command,
-                           "params": params}],
-                "timerSeconds": 300, "createdAt": a.get("timestamp") or datetime.now().isoformat()}
+        params = {
+            "Lệnh": command,
+            "Thiết bị": machine_id,
+            **{
+                str(k): str(v)
+                for k, v in (a.get("params") or a.get("payload") or {}).items()
+            },
+        }
+        return {
+            "id": a.get("approval_id") or a.get("action_id"),
+            "incidentId": incident_id,
+            "titleVi": f"Đề xuất: {command}",
+            "subtitleVi": a.get("reason", ""),
+            "diagnosisEn": "",
+            "items": [
+                {
+                    "type": "plc_command",
+                    "title": "Lệnh điều khiển PLC",
+                    "description": command,
+                    "params": params,
+                }
+            ],
+            "timerSeconds": 300,
+            "createdAt": a.get("timestamp") or datetime.now().isoformat(),
+        }
     return None
 
 
 def _episode(alerts: list[dict]) -> list[dict]:
     """The machine's latest run of alerts: walking back, it ends at the first gap over EPISODE_GAP_S."""
+
     def seconds(a: dict) -> float:
         try:
             return datetime.fromisoformat(a.get("timestamp") or "").timestamp()
         except ValueError:
             return 0.0
+
     run = []
     for a in reversed(alerts):
         if run and seconds(run[-1]) - seconds(a) > EPISODE_GAP_S:
@@ -104,7 +157,9 @@ def incidents_from_state(state: dict) -> list[dict]:
         mid = conv["machine_id"]
         machine = machines.get(mid) or {}
         telemetry = machine.get("telemetry") or {}
-        labels = {m["key"]: m.get("label", m["key"]) for m in machine.get("metrics") or []}
+        labels = {
+            m["key"]: m.get("label", m["key"]) for m in machine.get("metrics") or []
+        }
         points, warn, critical = [], False, False
         for metric in machine.get("metrics") or []:
             value = _number(telemetry.get(metric["key"]))
@@ -117,21 +172,37 @@ def incidents_from_state(state: dict) -> list[dict]:
         # instead of jumping to whichever metric alerted last.
         episode = _episode(alerts_by_machine.get(mid) or [])
         alert = episode[-1] if episode else {}
-        params = list(dict.fromkeys(labels.get(x.get("param"), x.get("param"))
-                                    for a in episode for x in a.get("anomalies") or []))
+        params = list(
+            dict.fromkeys(
+                labels.get(x.get("param"), x.get("param"))
+                for a in episode
+                for x in a.get("anomalies") or []
+            )
+        )
         alarm = f"Bất thường: {', '.join(params)}" if params else "Cảnh báo bất thường"
         incident_id = f"LA-{mid}"
         proposal = _proposal(mid, incident_id, pending)
         active = machine.get("label") == "alert" or warn
         msgs = _messages(mid, conv.get("messages") or [])
-        timestamp = alert.get("timestamp") or (msgs[-1]["timestamp"] if msgs else datetime.now().isoformat())
+        timestamp = alert.get("timestamp") or (
+            msgs[-1]["timestamp"] if msgs else datetime.now().isoformat()
+        )
         incident = {
-            "id": incident_id, "conversationId": f"CONV-LA-{mid}", "device": mid, "alarm": alarm,
+            "id": incident_id,
+            "conversationId": f"CONV-LA-{mid}",
+            "device": mid,
+            "alarm": alarm,
             "severity": "critical" if critical else ("high" if active else "medium"),
-            "status": "awaiting_approval" if proposal else ("active" if active else "resolved"),
+            "status": "awaiting_approval"
+            if proposal
+            else ("active" if active else "resolved"),
             "timestamp": timestamp,
-            "telemetry": {"deviceId": mid, "deviceName": MACHINE_TYPE_VI.get(machine.get("machine_type"), mid),
-                          "timestamp": datetime.now().isoformat(), "points": points},
+            "telemetry": {
+                "deviceId": mid,
+                "deviceName": MACHINE_TYPE_VI.get(machine.get("machine_type"), mid),
+                "timestamp": datetime.now().isoformat(),
+                "points": points,
+            },
             "messages": msgs,
             "tags": ["long-agent", machine.get("machine_type", "").lower()],
         }
@@ -143,19 +214,42 @@ def incidents_from_state(state: dict) -> list[dict]:
 
 def incident_context(inc: dict) -> str:
     """The incident's live state, for the answer prompt of a chat held in its conversation."""
-    lines = [f"- Machine: {inc.get('device')} ({(inc.get('telemetry') or {}).get('deviceName', '')}); "
-             f"{inc.get('alarm')}; status: {inc.get('status')}"]
+    lines = [
+        f"- Machine: {inc.get('device')} ({(inc.get('telemetry') or {}).get('deviceName', '')}); "
+        f"{inc.get('alarm')}; status: {inc.get('status')}"
+    ]
     points = (inc.get("telemetry") or {}).get("points") or []
     if points:
+
         def reading(p: dict) -> str:
-            limit = f", limit {p['threshold']:g}" if isinstance(p.get("threshold"), (int, float)) else ""
-            return f"{p['label']} {p['value']:g} {p['unit']}".rstrip() + limit + (", OUT OF RANGE" if p.get("isAnomalous") else "")
+            limit = (
+                f", limit {p['threshold']:g}"
+                if isinstance(p.get("threshold"), (int, float))
+                else ""
+            )
+            return (
+                f"{p['label']} {p['value']:g} {p['unit']}".rstrip()
+                + limit
+                + (", OUT OF RANGE" if p.get("isAnomalous") else "")
+            )
+
         lines.append("- Sensor readings now: " + "; ".join(reading(p) for p in points))
-    diagnosis = next((m["content"] for m in reversed(inc.get("messages") or []) if m.get("role") == "assistant"), "")
+    diagnosis = next(
+        (
+            m["content"]
+            for m in reversed(inc.get("messages") or [])
+            if m.get("role") == "assistant"
+        ),
+        "",
+    )
     if diagnosis:
-        lines.append(f"- The monitoring agent's own guess (keyword-based, unverified): {diagnosis.split('** ', 1)[-1]}")
-    return ("The operator is asking about this live alert on a simulated factory machine (data from the monitoring "
-            "system, NOT from the documents):\n" + "\n".join(lines) + "\n"
-            "Use it to understand the question. Causes, procedures and specifications must still come from the "
-            "documents and be cited as usual; sensor values may be quoted as live readings. If the documents do "
-            "not cover the question, say so.")
+        lines.append(
+            f"- The monitoring agent's own guess (keyword-based, unverified): {diagnosis.split('** ', 1)[-1]}"
+        )
+    return (
+        "The operator is asking about this live alert on a simulated factory machine (data from the monitoring "
+        "system, NOT from the documents):\n" + "\n".join(lines) + "\n"
+        "Use it to understand the question. Causes, procedures and specifications must still come from the "
+        "documents and be cited as usual; sensor values may be quoted as live readings. If the documents do "
+        "not cover the question, say so."
+    )

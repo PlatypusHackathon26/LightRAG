@@ -37,8 +37,8 @@ class AmrVehicle(BaseMachine):
         # 3. Khai báo lỗi
         self.active_faults = {
             "BATTERY_CELL_DEGRADATION": False,  # Chai pin, nội trở cao
-            "LIDAR_OPTICAL_DIRT": False,        # Bụi bẩn che lăng kính LiDAR
-            "WHEEL_MOTOR_RESISTANCE": False,    # Kẹt cơ cấu bánh xe
+            "LIDAR_OPTICAL_DIRT": False,  # Bụi bẩn che lăng kính LiDAR
+            "WHEEL_MOTOR_RESISTANCE": False,  # Kẹt cơ cấu bánh xe
         }
 
     def generate_telemetry(self) -> Dict[str, Any]:
@@ -52,9 +52,13 @@ class AmrVehicle(BaseMachine):
                 desired = self.target_speed_m_s
                 if self.active_faults["WHEEL_MOTOR_RESISTANCE"]:
                     desired *= 0.5  # Kẹt bánh làm tốc độ tụt mạnh
-                self.current_velocity_m_s = self.approach(self.current_velocity_m_s, desired, dt, 4.0)
+                self.current_velocity_m_s = self.approach(
+                    self.current_velocity_m_s, desired, dt, 4.0
+                )
             else:
-                self.current_velocity_m_s = max(0.0, self.current_velocity_m_s - 2.5 * dt)
+                self.current_velocity_m_s = max(
+                    0.0, self.current_velocity_m_s - 2.5 * dt
+                )
 
             # --- TIÊU HAO & NHIỆT ĐỘ PIN ---
             if self.state == "NAVIGATING":
@@ -67,37 +71,56 @@ class AmrVehicle(BaseMachine):
 
                 heat_gen = drain * 5.0
                 self.battery_temp_c = self.approach(
-                    self.battery_temp_c, self.ambient_temp_c + heat_gen / 0.03, dt, 1 / 0.03
+                    self.battery_temp_c,
+                    self.ambient_temp_c + heat_gen / 0.03,
+                    dt,
+                    1 / 0.03,
                 )
             elif self.state == "CHARGING":
                 self.battery_pct = min(100.0, self.battery_pct + 0.4 * dt)
                 cooling = (self.battery_temp_c - self.ambient_temp_c) * 0.08 * dt
-                self.battery_temp_c = max(self.ambient_temp_c, self.battery_temp_c - cooling)
+                self.battery_temp_c = max(
+                    self.ambient_temp_c, self.battery_temp_c - cooling
+                )
             else:
                 self.battery_pct = max(0.0, self.battery_pct - 0.001 * dt)
                 cooling = (self.battery_temp_c - self.ambient_temp_c) * 0.05 * dt
-                self.battery_temp_c = max(self.ambient_temp_c, self.battery_temp_c - cooling)
+                self.battery_temp_c = max(
+                    self.ambient_temp_c, self.battery_temp_c - cooling
+                )
 
             # --- ĐỘ TIN CẬY LIDAR SLAM ---
             if self.active_faults["LIDAR_OPTICAL_DIRT"]:
-                self.lidar_confidence_pct = max(40.0, self.lidar_confidence_pct - 2.0 * dt)
+                self.lidar_confidence_pct = max(
+                    40.0, self.lidar_confidence_pct - 2.0 * dt
+                )
             else:
-                self.lidar_confidence_pct = min(99.5, self.lidar_confidence_pct + 2.0 * dt)
+                self.lidar_confidence_pct = min(
+                    99.5, self.lidar_confidence_pct + 2.0 * dt
+                )
 
-            noise_v = random.uniform(-0.02, 0.02) if self.current_velocity_m_s > 0.05 else 0.0
+            noise_v = (
+                random.uniform(-0.02, 0.02) if self.current_velocity_m_s > 0.05 else 0.0
+            )
             noise_lidar = random.uniform(-0.2, 0.2)
             noise_bat = random.uniform(-0.05, 0.05)
             noise_btemp = random.uniform(-0.1, 0.1)
 
             return {
                 "Controller_Execution": self.state,
-                "Battery_Pct": round(max(0.0, min(100.0, self.battery_pct + noise_bat)), 2),
+                "Battery_Pct": round(
+                    max(0.0, min(100.0, self.battery_pct + noise_bat)), 2
+                ),
                 "Battery_Temp_C": round(self.battery_temp_c + noise_btemp, 1),
-                "Current_Velocity_m_s": round(max(0.0, self.current_velocity_m_s + noise_v), 2),
+                "Current_Velocity_m_s": round(
+                    max(0.0, self.current_velocity_m_s + noise_v), 2
+                ),
                 "Payload_Weight_Kg": round(self.payload_weight_kg, 1),
                 "Current_Station": self.current_station,
                 "Target_Station": self.target_station,
-                "Lidar_Confidence_Pct": round(max(0.0, min(100.0, self.lidar_confidence_pct + noise_lidar)), 1),
+                "Lidar_Confidence_Pct": round(
+                    max(0.0, min(100.0, self.lidar_confidence_pct + noise_lidar)), 1
+                ),
                 "Simulated_Active_Faults": self.get_active_faults(),
             }
 
@@ -125,7 +148,9 @@ class AmrVehicle(BaseMachine):
 
             if command == "CLEAN_LIDAR_OPTICS":
                 self.clear_fault("LIDAR_OPTICAL_DIRT")
-                detail = "Đã làm sạch ống kính quang học LiDAR bằng khí nén; SLAM phục hồi."
+                detail = (
+                    "Đã làm sạch ống kính quang học LiDAR bằng khí nén; SLAM phục hồi."
+                )
 
             elif command == "SERVICE_DRIVE_MOTOR":
                 self.clear_fault("WHEEL_MOTOR_RESISTANCE")
@@ -149,7 +174,9 @@ class AmrVehicle(BaseMachine):
                 self.state = "NAVIGATING"
                 self.target_speed_m_s = max(
                     0.0,
-                    min(self.max_configured_speed, float(payload.get("speed_m_s", 1.2))),
+                    min(
+                        self.max_configured_speed, float(payload.get("speed_m_s", 1.2))
+                    ),
                 )
                 detail = f"Chấp thuận lệnh lộ trình VDA 5050 tới trạm {station}."
 

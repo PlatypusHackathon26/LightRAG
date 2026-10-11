@@ -61,8 +61,11 @@ def main():
     bus = EventBus(max_workers=4)
     dispatcher = ActuatorDispatcher(event_bus=bus)
     # Mọi lệnh agent đề xuất đều chờ kỹ sư duyệt; LONG_AGENT_AUTO_LOW=1 trả lại hành vi gốc (lệnh LOW chạy ngay).
-    approval = ActionApproval(dispatcher=dispatcher, event_bus=bus,
-                              require_approval_for_all=os.environ.get("LONG_AGENT_AUTO_LOW") != "1")
+    approval = ActionApproval(
+        dispatcher=dispatcher,
+        event_bus=bus,
+        require_approval_for_all=os.environ.get("LONG_AGENT_AUTO_LOW") != "1",
+    )
     receiver = TelemetryReceiver(event_hub=bus)
     state_store = StateStore()
 
@@ -71,25 +74,34 @@ def main():
     # LONG_AGENT_PROPOSE=0 tắt đề xuất lệnh (chỉ chẩn đoán, như bản trước).
     rag = RAGEngine(llm_callable=llm_callable_from_env())
     tools = AgentTools(event_bus=bus)
-    brain = AgentBrain(rag_engine=rag, tools=tools, event_bus=bus,
-                       execute_actions=os.environ.get("LONG_AGENT_PROPOSE", "1") != "0",
-                       repeat_window_s=float(os.environ.get("LONG_AGENT_REPEAT_S", "120")))
+    brain = AgentBrain(
+        rag_engine=rag,
+        tools=tools,
+        event_bus=bus,
+        execute_actions=os.environ.get("LONG_AGENT_PROPOSE", "1") != "0",
+        repeat_window_s=float(os.environ.get("LONG_AGENT_REPEAT_S", "120")),
+    )
     bus.subscribe("alert", brain.handle_alert)
     bus.subscribe("normal", brain.handle_heartbeat)
 
     def _route_action_command(event: dict) -> None:
         # Một lệnh đang chờ duyệt cho máy này thì không tạo thêm bản trùng.
-        if any(a.get("machine_id") == event.get("machine_id") and a.get("command") == event.get("command")
-               for a in approval.get_pending_actions()):
+        if any(
+            a.get("machine_id") == event.get("machine_id")
+            and a.get("command") == event.get("command")
+            for a in approval.get_pending_actions()
+        ):
             return
-        approval.process_action_request({
-            "machine_id": event.get("machine_id", "UNKNOWN"),
-            "command": event.get("command", ""),
-            "params": event.get("params", {}),
-            "payload": event.get("params", {}),
-            "risk_level": event.get("risk_level", "LOW"),
-            "reason": event.get("reason", "Agent de xuat"),
-        })
+        approval.process_action_request(
+            {
+                "machine_id": event.get("machine_id", "UNKNOWN"),
+                "command": event.get("command", ""),
+                "params": event.get("params", {}),
+                "payload": event.get("params", {}),
+                "risk_level": event.get("risk_level", "LOW"),
+                "reason": event.get("reason", "Agent de xuat"),
+            }
+        )
 
     bus.subscribe("action_command", _route_action_command)
 

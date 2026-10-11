@@ -14,81 +14,140 @@ from langdetect import DetectorFactory, LangDetectException, detect
 DetectorFactory.seed = 0
 
 # Letters only Vietnamese uses among the languages we see (not French / Portuguese accents).
-VIETNAMESE = re.compile(r"[ăđơưạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợụủứừửữựỳỵỷỹ]", re.IGNORECASE)
+VIETNAMESE = re.compile(
+    r"[ăđơưạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợụủứừửữựỳỵỷỹ]", re.IGNORECASE
+)
 KANA = re.compile(r"[぀-ヿ]")
 HAN = re.compile(r"[一-鿿]")
 HANGUL = re.compile(r"[가-힯]")
 
 NAMES = {
-    "vi": "tiếng Việt", "en": "English", "ja": "日本語", "zh-cn": "中文", "ko": "한국어",
-    "de": "Deutsch", "fr": "français", "es": "español", "ru": "русский", "th": "ภาษาไทย",
+    "vi": "tiếng Việt",
+    "en": "English",
+    "ja": "日本語",
+    "zh-cn": "中文",
+    "ko": "한국어",
+    "de": "Deutsch",
+    "fr": "français",
+    "es": "español",
+    "ru": "русский",
+    "th": "ภาษาไทย",
 }
 
 INSTRUCTION = {
-    "vi": ("Trả lời HOÀN TOÀN bằng tiếng Việt. Dịch mọi nội dung lấy từ tài liệu tiếng Anh hay tiếng khác "
-           "sang tiếng Việt; không chép nguyên câu tiếng nước ngoài. Chỉ giữ nguyên mã sản phẩm, số hiệu, "
-           "môi chất lạnh, đơn vị và tên tài liệu. Không trộn hai ngôn ngữ trong cùng một câu. "
-           # "condenser" came back as "máy lọc" / "máy lạnh", "receiver dryer" as "bộ khô" / "máy sấy".
-           "Thuật ngữ kỹ thuật: dùng từ tiếng Việt chuẩn ngành và ghi kèm từ gốc tiếng Anh trong ngoặc ở lần "
-           "nhắc đầu tiên, ví dụ \"bình ngưng (condenser)\", \"bình lọc ẩm (receiver dryer)\", \"chế độ không tải "
-           "(idle)\"; nếu không chắc nghĩa tiếng Việt thì giữ nguyên từ tiếng Anh. Bảng thuật ngữ: condenser = dàn "
-           "ngưng (không phải \"máy lạnh\"), evaporator = dàn bay hơi, receiver dryer = bình lọc ẩm, expansion valve "
-           "= van tiết lưu, refrigerant = môi chất lạnh, flushing = súc rửa, run-in = chạy rà, idle = không tải, "
-           "guide pin = chốt dẫn hướng, gasket = gioăng. "
-           # The example carries no value: a model must never copy a figure from the instruction.
-           # "nhắc lại điều câu hỏi hỏi" made answers start by copying the question ("Câu hỏi hỏi: ...").
-           "Trả lời thành câu tiếng Việt hoàn chỉnh về đúng điều được hỏi, không chép lại câu hỏi và "
-           "không chỉ ghi con số (ví dụ: \"Phần tiếng Nga ghi mô-men xoắn siết bu-lông là … Nm.\"). "
-           # Bare "DENSO Oil 9 (...)" / "6,9 - 10,8 Nm." still came back 2 runs in 10 without this line.
-           "QUAN TRỌNG: không bao giờ trả lời chỉ bằng một con số, một mã hay một tên sản phẩm; luôn viết ít "
-           "nhất một câu tiếng Việt đầy đủ có chủ ngữ và vị ngữ."),
-    "ja": ("回答はすべて日本語で書いてください。英語など他の言語の資料の内容は日本語に訳し、外国語の文をそのまま"
-           "引用しないでください。製品コード・型番・冷媒・単位・資料名だけは原文のままにしてください。"
-           # Without it a torque came back as a bare "6.9 to 10.8 [Nm]", in English 1 run in 2.
-           "数値だけで答えず、質問に答える完全な日本語の文で書いてください（例:「締め付けトルクは … Nm です。」）。"),
+    "vi": (
+        "Trả lời HOÀN TOÀN bằng tiếng Việt. Dịch mọi nội dung lấy từ tài liệu tiếng Anh hay tiếng khác "
+        "sang tiếng Việt; không chép nguyên câu tiếng nước ngoài. Chỉ giữ nguyên mã sản phẩm, số hiệu, "
+        "môi chất lạnh, đơn vị và tên tài liệu. Không trộn hai ngôn ngữ trong cùng một câu. "
+        # "condenser" came back as "máy lọc" / "máy lạnh", "receiver dryer" as "bộ khô" / "máy sấy".
+        "Thuật ngữ kỹ thuật: dùng từ tiếng Việt chuẩn ngành và ghi kèm từ gốc tiếng Anh trong ngoặc ở lần "
+        'nhắc đầu tiên, ví dụ "bình ngưng (condenser)", "bình lọc ẩm (receiver dryer)", "chế độ không tải '
+        '(idle)"; nếu không chắc nghĩa tiếng Việt thì giữ nguyên từ tiếng Anh. Bảng thuật ngữ: condenser = dàn '
+        'ngưng (không phải "máy lạnh"), evaporator = dàn bay hơi, receiver dryer = bình lọc ẩm, expansion valve '
+        "= van tiết lưu, refrigerant = môi chất lạnh, flushing = súc rửa, run-in = chạy rà, idle = không tải, "
+        "guide pin = chốt dẫn hướng, gasket = gioăng. "
+        # The example carries no value: a model must never copy a figure from the instruction.
+        # "nhắc lại điều câu hỏi hỏi" made answers start by copying the question ("Câu hỏi hỏi: ...").
+        "Trả lời thành câu tiếng Việt hoàn chỉnh về đúng điều được hỏi, không chép lại câu hỏi và "
+        'không chỉ ghi con số (ví dụ: "Phần tiếng Nga ghi mô-men xoắn siết bu-lông là … Nm."). '
+        # Bare "DENSO Oil 9 (...)" / "6,9 - 10,8 Nm." still came back 2 runs in 10 without this line.
+        "QUAN TRỌNG: không bao giờ trả lời chỉ bằng một con số, một mã hay một tên sản phẩm; luôn viết ít "
+        "nhất một câu tiếng Việt đầy đủ có chủ ngữ và vị ngữ."
+    ),
+    "ja": (
+        "回答はすべて日本語で書いてください。英語など他の言語の資料の内容は日本語に訳し、外国語の文をそのまま"
+        "引用しないでください。製品コード・型番・冷媒・単位・資料名だけは原文のままにしてください。"
+        # Without it a torque came back as a bare "6.9 to 10.8 [Nm]", in English 1 run in 2.
+        "数値だけで答えず、質問に答える完全な日本語の文で書いてください（例:「締め付けトルクは … Nm です。」）。"
+    ),
 }
 
 
 # A whole message that is only a greeting or thanks. Sent to LightRAG, "xin chào" came back as
 # "Xin chào! Bạn có thể giúp tôi gì hôm nay?" with two catalogues cited.
-GREETING = re.compile(r"^\s*(xin chào|chào( bạn| em| anh| chị)?|hello|hi|hey|good (morning|afternoon|evening)|"
-                      r"こんにちは|おはよう(ございます)?|こんばんは|"
-                      # "Who are you?" cited two catalogues through the model's References block.
-                      r"(bạn|em) là ai|(bạn|em) (làm|giúp) được gì|who are you|what can you do|あなたは誰)"
-                      r"[\s!.?。！~]*$", re.IGNORECASE)
-THANKS = re.compile(r"^\s*(cảm ơn|cám ơn|thanks|thank you|ok|oke|okay|ありがとう(ございます)?)"
-                    r"( bạn| nhé| nha| nhiều)*[\s!.?。！~]*$", re.IGNORECASE)
+GREETING = re.compile(
+    r"^\s*(xin chào|chào( bạn| em| anh| chị)?|hello|hi|hey|good (morning|afternoon|evening)|"
+    r"こんにちは|おはよう(ございます)?|こんばんは|"
+    # "Who are you?" cited two catalogues through the model's References block.
+    r"(bạn|em) là ai|(bạn|em) (làm|giúp) được gì|who are you|what can you do|あなたは誰)"
+    r"[\s!.?。！~]*$",
+    re.IGNORECASE,
+)
+THANKS = re.compile(
+    r"^\s*(cảm ơn|cám ơn|thanks|thank you|ok|oke|okay|ありがとう(ございます)?)"
+    r"( bạn| nhé| nha| nhiều)*[\s!.?。！~]*$",
+    re.IGNORECASE,
+)
 SMALL_TALK = {
-    "greet": {"vi": "Xin chào! Tôi là trợ lý tra cứu tài liệu kỹ thuật DENSO. Bạn cần tìm thông tin gì "
-                    "(mô-men xoắn, mã sản phẩm, quy trình lắp đặt, xử lý sự cố...)?",
-              "ja": "こんにちは。DENSOの技術資料アシスタントです。締め付けトルク、品番、取付手順など、何をお調べしますか?",
-              "en": "Hello! I answer questions about DENSO technical documents - torques, part numbers, "
-                    "installation procedures, troubleshooting. What would you like to look up?"},
-    "thanks": {"vi": "Không có gì! Bạn cần tra cứu thêm gì cứ hỏi nhé.",
-               "ja": "どういたしまして。ほかにお調べすることがあればどうぞ。",
-               "en": "You're welcome! Ask me anything else about the documents."},
+    "greet": {
+        "vi": "Xin chào! Tôi là trợ lý tra cứu tài liệu kỹ thuật DENSO. Bạn cần tìm thông tin gì "
+        "(mô-men xoắn, mã sản phẩm, quy trình lắp đặt, xử lý sự cố...)?",
+        "ja": "こんにちは。DENSOの技術資料アシスタントです。締め付けトルク、品番、取付手順など、何をお調べしますか?",
+        "en": "Hello! I answer questions about DENSO technical documents - torques, part numbers, "
+        "installation procedures, troubleshooting. What would you like to look up?",
+    },
+    "thanks": {
+        "vi": "Không có gì! Bạn cần tra cứu thêm gì cứ hỏi nhé.",
+        "ja": "どういたしまして。ほかにお調べすることがあればどうぞ。",
+        "en": "You're welcome! Ask me anything else about the documents.",
+    },
 }
 
 
 def small_talk_reply(message: str) -> str | None:
     """A canned reply when the whole message is a greeting or thanks; None for a real question."""
-    kind = "greet" if GREETING.match(message) else "thanks" if THANKS.match(message) else None
+    kind = (
+        "greet"
+        if GREETING.match(message)
+        else "thanks"
+        if THANKS.match(message)
+        else None
+    )
     if not kind:
         return None
     lang = question_language(message)
     if lang not in SMALL_TALK[kind]:
-        lang = "vi" if re.search(r"[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]",
-                                 message, re.IGNORECASE) else "en"
+        lang = (
+            "vi"
+            if re.search(
+                r"[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]",
+                message,
+                re.IGNORECASE,
+            )
+            else "en"
+        )
     return SMALL_TALK[kind][lang]
 
 
 # Language sections a question can ask about ("the Russian section", "phần tiếng Đức").
 NAMED = {
-    "english": "en", "russian": "ru", "german": "de", "french": "fr", "spanish": "es", "italian": "it",
-    "polish": "pl", "portuguese": "pt", "romanian": "ro", "japanese": "ja", "vietnamese": "vi",
-    "tiếng anh": "en", "tiếng nga": "ru", "tiếng đức": "de", "tiếng pháp": "fr", "tiếng tây ban nha": "es",
-    "tiếng ý": "it", "tiếng ba lan": "pl", "tiếng bồ đào nha": "pt", "tiếng rumani": "ro", "tiếng romania": "ro",
-    "tiếng nhật": "ja", "tiếng việt": "vi", "英語": "en", "ロシア語": "ru", "ドイツ語": "de", "フランス語": "fr",
+    "english": "en",
+    "russian": "ru",
+    "german": "de",
+    "french": "fr",
+    "spanish": "es",
+    "italian": "it",
+    "polish": "pl",
+    "portuguese": "pt",
+    "romanian": "ro",
+    "japanese": "ja",
+    "vietnamese": "vi",
+    "tiếng anh": "en",
+    "tiếng nga": "ru",
+    "tiếng đức": "de",
+    "tiếng pháp": "fr",
+    "tiếng tây ban nha": "es",
+    "tiếng ý": "it",
+    "tiếng ba lan": "pl",
+    "tiếng bồ đào nha": "pt",
+    "tiếng rumani": "ro",
+    "tiếng romania": "ro",
+    "tiếng nhật": "ja",
+    "tiếng việt": "vi",
+    "英語": "en",
+    "ロシア語": "ru",
+    "ドイツ語": "de",
+    "フランス語": "fr",
 }
 
 
@@ -131,6 +190,8 @@ def language_instruction(question: str) -> str:
     if lang in INSTRUCTION:
         return INSTRUCTION[lang]
     name = NAMES.get(lang, lang)
-    return (f"Write the whole answer in {name} (the language of the question). Translate any content taken "
-            f"from documents in other languages; do not copy foreign-language sentences. Keep only part "
-            f"numbers, codes, refrigerants, units and document names verbatim. Never mix languages in a sentence.")
+    return (
+        f"Write the whole answer in {name} (the language of the question). Translate any content taken "
+        f"from documents in other languages; do not copy foreign-language sentences. Keep only part "
+        f"numbers, codes, refrigerants, units and document names verbatim. Never mix languages in a sentence."
+    )

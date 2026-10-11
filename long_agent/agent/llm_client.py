@@ -7,6 +7,7 @@ Bật bằng biến môi trường (denso/scripts/serve_chat.ps1 -WithIoT tự �
   LONG_AGENT_LLM_KEY         khóa API nếu gọi thẳng nhà cung cấp (proxy tự chèn khóa thì bỏ trống)
   LONG_AGENT_LLM_EXTRA_BODY  JSON thêm vào request, ví dụ {"chat_template_kwargs": {"enable_thinking": false}}
 """
+
 from __future__ import annotations
 
 import json
@@ -40,7 +41,9 @@ def make_llm_callable(
         }
         r = httpx.post(url, json=body, headers=headers, timeout=timeout)
         r.raise_for_status()
-        content = (r.json().get("choices") or [{}])[0].get("message", {}).get("content") or ""
+        content = (r.json().get("choices") or [{}])[0].get("message", {}).get(
+            "content"
+        ) or ""
         if not content.strip():
             raise ValueError("LLM trả về rỗng")
         return content
@@ -52,8 +55,12 @@ def llm_callable_from_env() -> Optional[Callable[[str], str]]:
     base = os.environ.get("LONG_AGENT_LLM_BASE", "").strip()
     model = os.environ.get("LONG_AGENT_LLM_MODEL", "").strip()
     if not base or not model:
-        logger.info("[LLMClient] Chưa cấu hình LONG_AGENT_LLM_BASE/MODEL: dùng chẩn đoán giả lập.")
+        logger.info(
+            "[LLMClient] Chưa cấu hình LONG_AGENT_LLM_BASE/MODEL: dùng chẩn đoán giả lập."
+        )
         return None
     extra = json.loads(os.environ.get("LONG_AGENT_LLM_EXTRA_BODY") or "{}")
     logger.info(f"[LLMClient] Chẩn đoán bằng LLM {model} tại {base}")
-    return make_llm_callable(base, model, os.environ.get("LONG_AGENT_LLM_KEY", ""), extra)
+    return make_llm_callable(
+        base, model, os.environ.get("LONG_AGENT_LLM_KEY", ""), extra
+    )

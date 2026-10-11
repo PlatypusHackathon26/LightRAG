@@ -14,22 +14,29 @@ class StateStoreTests(unittest.TestCase):
 
     def test_alert_creates_system_conversation_and_rag_reply_appends(self) -> None:
         state = DashboardState()
-        state.handle_event({
-            "event_type": "telemetry",
-            "label": "alert",
-            "machine_id": "MC-MILL-01",
-            "payload": {"Spindle_Temp_C": 91.5},
-            "anomalies": [
-                {"param": "Spindle_Temp_C", "value": 91.5,
-                 "reason": "Vượt ngưỡng trần 85.0"},
-            ],
-        })
-        state.handle_event({
-            "event_type": "chat_notification",
-            "machine_id": "MC-MILL-01",
-            "text": "Khuyến nghị bật làm mát và giảm tải.",
-            "source": "AI_RAG",
-        })
+        state.handle_event(
+            {
+                "event_type": "telemetry",
+                "label": "alert",
+                "machine_id": "MC-MILL-01",
+                "payload": {"Spindle_Temp_C": 91.5},
+                "anomalies": [
+                    {
+                        "param": "Spindle_Temp_C",
+                        "value": 91.5,
+                        "reason": "Vượt ngưỡng trần 85.0",
+                    },
+                ],
+            }
+        )
+        state.handle_event(
+            {
+                "event_type": "chat_notification",
+                "machine_id": "MC-MILL-01",
+                "text": "Khuyến nghị bật làm mát và giảm tải.",
+                "source": "AI_RAG",
+            }
+        )
 
         snap = state.get_snapshot()
         convs = snap["conversations"]
@@ -48,8 +55,14 @@ class StateStoreTests(unittest.TestCase):
         self.assertTrue(state.add_message(sid, "assistant", "Đây là lỗi quá dòng J3."))
 
         snap = state.get_snapshot()
-        for key in ("server_time", "machines", "conversations",
-                    "pending_approvals", "alerts", "uploads"):
+        for key in (
+            "server_time",
+            "machines",
+            "conversations",
+            "pending_approvals",
+            "alerts",
+            "uploads",
+        ):
             self.assertIn(key, snap)
         conv = snap["conversations"][0]
         self.assertEqual(conv["category"], "user")
@@ -60,39 +73,58 @@ class StateStoreTests(unittest.TestCase):
         state = DashboardState()
         self.assertFalse(state.add_message("nope", "user", "x"))
 
+
 class ApiEndpointTests(unittest.TestCase):
     """Chat, upload, state and decision routes, through FastAPI's test client."""
 
     def setUp(self) -> None:
         self.state = DashboardState()
-        self.client = TestClient(create_app(
-            self.state,
-            on_decision=lambda aid, d: {
-                "action_id": aid,
-                "status": "APPROVED" if d.strip().upper() in ("APPROVE", "APPROVED", "YES") else "REJECTED",
-            },
-            on_chat=lambda text: f"Phản hồi RAG cho: {text}",
-        ))
+        self.client = TestClient(
+            create_app(
+                self.state,
+                on_decision=lambda aid, d: {
+                    "action_id": aid,
+                    "status": "APPROVED"
+                    if d.strip().upper() in ("APPROVE", "APPROVED", "YES")
+                    else "REJECTED",
+                },
+                on_chat=lambda text: f"Phản hồi RAG cho: {text}",
+            )
+        )
 
     def test_chat_endpoint_creates_user_thread_and_replies(self) -> None:
-        data = self.client.post("/api/chat", json={"session_id": "", "text": "Cách xử lý rung CNC?"}).json()
+        data = self.client.post(
+            "/api/chat", json={"session_id": "", "text": "Cách xử lý rung CNC?"}
+        ).json()
         self.assertTrue(data["session_id"])
         self.assertIn("Phản hồi RAG", data["reply"])
-        conv = next(c for c in self.state.get_snapshot()["conversations"] if c["session_id"] == data["session_id"])
+        conv = next(
+            c
+            for c in self.state.get_snapshot()["conversations"]
+            if c["session_id"] == data["session_id"]
+        )
         self.assertEqual(conv["category"], "user")
         self.assertEqual([m["role"] for m in conv["messages"]], ["user", "assistant"])
 
         # Gửi tiếp vào cùng thread
-        data2 = self.client.post("/api/chat", json={"session_id": data["session_id"], "text": "Giảm còn 50%?"}).json()
+        data2 = self.client.post(
+            "/api/chat",
+            json={"session_id": data["session_id"], "text": "Giảm còn 50%?"},
+        ).json()
         self.assertEqual(data2["session_id"], data["session_id"])
         self.assertEqual(len(conv["messages"]), 4)
 
     def test_chat_empty_text_rejected(self) -> None:
-        self.assertEqual(self.client.post("/api/chat", json={"text": "   "}).status_code, 400)
+        self.assertEqual(
+            self.client.post("/api/chat", json={"text": "   "}).status_code, 400
+        )
 
     def test_upload_multipart_saves_file_and_registers(self) -> None:
         filename, content = "_test_rag_upload.txt", "quy trình bảo trì CNC test"
-        r = self.client.post("/api/upload", files={"file": (filename, content.encode("utf-8"), "text/plain")})
+        r = self.client.post(
+            "/api/upload",
+            files={"file": (filename, content.encode("utf-8"), "text/plain")},
+        )
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.json()["status"], "ok")
         self.assertEqual(r.json()["files"][0]["filename"], filename)
@@ -100,7 +132,12 @@ class ApiEndpointTests(unittest.TestCase):
         try:
             with open(saved_path, "r", encoding="utf-8") as f:
                 self.assertEqual(f.read(), content)
-            self.assertTrue(any(u["filename"] == filename for u in self.state.get_snapshot()["uploads"]))
+            self.assertTrue(
+                any(
+                    u["filename"] == filename
+                    for u in self.state.get_snapshot()["uploads"]
+                )
+            )
         finally:
             os.remove(saved_path)
 
@@ -111,16 +148,29 @@ class ApiEndpointTests(unittest.TestCase):
 
     def test_decision_endpoint_flows_into_chat(self) -> None:
         """POST /api/decision phải cập nhật luôn thẻ HITL trong khung chat."""
-        self.state.handle_event({
-            "event_type": "approval_required",
-            "approval_id": "deadbeef",
-            "command": {"machine_id": "MC-TEST-01", "command": "PAUSE_MOTION",
-                        "reason": "quá dòng", "risk_level": "HIGH"},
-        })
-        r = self.client.post("/api/decision", json={"action_id": "deadbeef", "decision": "APPROVE"})
+        self.state.handle_event(
+            {
+                "event_type": "approval_required",
+                "approval_id": "deadbeef",
+                "command": {
+                    "machine_id": "MC-TEST-01",
+                    "command": "PAUSE_MOTION",
+                    "reason": "quá dòng",
+                    "risk_level": "HIGH",
+                },
+            }
+        )
+        r = self.client.post(
+            "/api/decision", json={"action_id": "deadbeef", "decision": "APPROVE"}
+        )
         self.assertEqual(r.json()["status"], "APPROVED")
-        cards = [m for conv in self.state.get_snapshot()["conversations"] if conv["machine_id"] == "MC-TEST-01"
-                 for m in conv["messages"] if m.get("approval_id") == "deadbeef"]
+        cards = [
+            m
+            for conv in self.state.get_snapshot()["conversations"]
+            if conv["machine_id"] == "MC-TEST-01"
+            for m in conv["messages"]
+            if m.get("approval_id") == "deadbeef"
+        ]
         self.assertEqual([c["status"] for c in cards], ["approved"])
 
 
@@ -129,13 +179,19 @@ class ApprovalInChatTests(unittest.TestCase):
 
     def _make_state_with_approval(self) -> tuple[DashboardState, str]:
         state = DashboardState()
-        state.handle_event({
-            "event_type": "approval_required",
-            "approval_id": "ab12cd34",
-            "command": {"machine_id": "MC-MILL-01", "command": "SAFE_STOP",
-                        "params": {"graceful": True},
-                        "reason": "Nhiệt độ vượt ngưỡng", "risk_level": "HIGH"},
-        })
+        state.handle_event(
+            {
+                "event_type": "approval_required",
+                "approval_id": "ab12cd34",
+                "command": {
+                    "machine_id": "MC-MILL-01",
+                    "command": "SAFE_STOP",
+                    "params": {"graceful": True},
+                    "reason": "Nhiệt độ vượt ngưỡng",
+                    "risk_level": "HIGH",
+                },
+            }
+        )
         return state, "ab12cd34"
 
     @staticmethod
@@ -160,8 +216,9 @@ class ApprovalInChatTests(unittest.TestCase):
 
         snap = state.get_snapshot()
         self.assertNotIn(app_id, self._pending_ids(snap))
-        card = [m for m in snap["conversations"][0]["messages"]
-                if m["role"] == "approval"][0]
+        card = [
+            m for m in snap["conversations"][0]["messages"] if m["role"] == "approval"
+        ][0]
         self.assertEqual(card["status"], "approved")
 
     def test_reject_updates_card_status(self) -> None:
@@ -170,12 +227,11 @@ class ApprovalInChatTests(unittest.TestCase):
 
         snap = state.get_snapshot()
         self.assertNotIn(app_id, self._pending_ids(snap))
-        card = [m for m in snap["conversations"][0]["messages"]
-                if m["role"] == "approval"][0]
+        card = [
+            m for m in snap["conversations"][0]["messages"] if m["role"] == "approval"
+        ][0]
         self.assertEqual(card["status"], "rejected")
-
 
 
 if __name__ == "__main__":
     unittest.main()
-

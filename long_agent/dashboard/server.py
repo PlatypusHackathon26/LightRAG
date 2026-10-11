@@ -1,5 +1,6 @@
 # dashboard/server.py
 """FastAPI dashboard: SSE telemetry + manual faults + chat + upload + HITL."""
+
 from __future__ import annotations
 
 import asyncio
@@ -22,7 +23,10 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 def _save_multipart(body: bytes, content_type: str) -> list[Dict[str, Any]]:
     """Parse multipart/form-data bang email.parser (stdlib)."""
     msg = BytesParser(policy=policy.default).parsebytes(
-        b"Content-Type: " + content_type.encode() + b"\r\nMIME-Version: 1.0\r\n\r\n" + body
+        b"Content-Type: "
+        + content_type.encode()
+        + b"\r\nMIME-Version: 1.0\r\n\r\n"
+        + body
     )
     saved: list[Dict[str, Any]] = []
     if msg.is_multipart():
@@ -47,13 +51,19 @@ def create_app(
 ) -> FastAPI:
     app = FastAPI(title="Industrial Fleet Monitor")
     app.add_middleware(
-        CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
     html_file = Path(__file__).parent / "index.html"
 
     def machine_snapshot():
         return {
-            mid: {**machine, "metrics": MACHINE_METRICS.get(machine.get("machine_type"), [])}
+            mid: {
+                **machine,
+                "metrics": MACHINE_METRICS.get(machine.get("machine_type"), []),
+            }
             for mid, machine in state_store.get_all_machines().items()
         }
 
@@ -63,12 +73,17 @@ def create_app(
 
     @app.get("/api/state")
     def api_state():
-        snap = state_store.get_snapshot() if hasattr(state_store, "get_snapshot") else {}
+        snap = (
+            state_store.get_snapshot() if hasattr(state_store, "get_snapshot") else {}
+        )
         snap["machines"] = machine_snapshot()
         if approval is not None and hasattr(approval, "get_pending_actions"):
             snap["actions"] = [
-                {"action_id": a.get("approval_id", a.get("action_id")),
-                 "status": "pending", **a}
+                {
+                    "action_id": a.get("approval_id", a.get("action_id")),
+                    "status": "pending",
+                    **a,
+                }
                 for a in approval.get_pending_actions()
             ]
             snap["pending_approvals"] = approval.get_pending_actions()
@@ -105,6 +120,7 @@ def create_app(
                 data = json.dumps(machine_snapshot())
                 yield f"data: {data}\n\n"
                 await asyncio.sleep(1.0)
+
         return StreamingResponse(event_generator(), media_type="text/event-stream")
 
     @app.post("/api/chat")
@@ -150,8 +166,11 @@ def create_app(
         if on_decision is not None:
             result = on_decision(action_id, decision)
             status = result.get("status", "")
-            mapped = "approved" if status == "APPROVED" else (
-                "rejected" if status == "REJECTED" else status.lower())
+            mapped = (
+                "approved"
+                if status == "APPROVED"
+                else ("rejected" if status == "REJECTED" else status.lower())
+            )
             if hasattr(state_store, "remove_approval"):
                 state_store.remove_approval(action_id, status=decision)
             return {"status": status, "action_id": action_id}
@@ -164,10 +183,16 @@ def create_app(
         if hasattr(state_store, "remove_approval"):
             state_store.remove_approval(action_id, status=decision)
         st = result.get("status", "")
-        mapped = "approved" if st in ("approved", "EXECUTED") else (
-            "rejected" if st in ("rejected", "REJECTED") else st)
-        return {"status": mapped.upper() if mapped in ("approved", "rejected") else st,
-                "action_id": action_id, "detail": result}
+        mapped = (
+            "approved"
+            if st in ("approved", "EXECUTED")
+            else ("rejected" if st in ("rejected", "REJECTED") else st)
+        )
+        return {
+            "status": mapped.upper() if mapped in ("approved", "rejected") else st,
+            "action_id": action_id,
+            "detail": result,
+        }
 
     @app.post("/api/actions/{action_id}/approve")
     def api_approve_action(action_id: str, request: Request):
@@ -183,8 +208,10 @@ def create_app(
             return JSONResponse({"error": str(exc)}, status_code=404)
         if hasattr(state_store, "remove_approval"):
             state_store.remove_approval(action_id, status="APPROVE")
-        return {"action": {"action_id": action_id, "status": "approved"},
-                "detail": result}
+        return {
+            "action": {"action_id": action_id, "status": "approved"},
+            "detail": result,
+        }
 
     @app.post("/api/plc/fix")
     async def api_plc_fix(request: Request):
@@ -197,12 +224,16 @@ def create_app(
         params = body.get("params") or body.get("payload") or {}
         if approval is None:
             return JSONResponse({"error": "Khong co Approval service"}, status_code=500)
-        result = approval.process_action_request({
-            "machine_id": machine_id, "command": command,
-            "params": params, "payload": params,
-            "risk_level": body.get("risk_level", ""),
-            "reason": body.get("reason", "Ky su bam nut sua loi tren Dashboard"),
-        })
+        result = approval.process_action_request(
+            {
+                "machine_id": machine_id,
+                "command": command,
+                "params": params,
+                "payload": params,
+                "risk_level": body.get("risk_level", ""),
+                "reason": body.get("reason", "Ky su bam nut sua loi tren Dashboard"),
+            }
+        )
         return result
 
     return app

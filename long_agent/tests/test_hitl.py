@@ -1,4 +1,5 @@
 """Human-in-the-loop: what runs at once, what waits for an engineer, and what never runs."""
+
 from __future__ import annotations
 
 import time
@@ -30,12 +31,16 @@ class HitlTests(unittest.TestCase):
         self.approvals = ActionApproval(dispatcher=self.dispatcher)
 
     def test_a_low_risk_command_runs_at_once_by_default(self) -> None:
-        result = self.approvals.process_action_request({"machine_id": "MC-MILL-01", "command": "FEED_HOLD"})
+        result = self.approvals.process_action_request(
+            {"machine_id": "MC-MILL-01", "command": "FEED_HOLD"}
+        )
         self.assertEqual(result["status"], "SUCCESS")
         self.assertEqual([c["command"] for c in self.dispatcher.calls], ["FEED_HOLD"])
 
     def test_a_high_risk_command_waits_and_runs_once_after_approval(self) -> None:
-        ticket = self.approvals.process_action_request({"machine_id": "MC-MILL-01", "command": "REPLACE_TOOL"})
+        ticket = self.approvals.process_action_request(
+            {"machine_id": "MC-MILL-01", "command": "REPLACE_TOOL"}
+        )
         self.assertEqual(ticket["status"], "PENDING_APPROVAL")
         self.assertEqual(self.dispatcher.calls, [])
         approved = self.approvals.decide(ticket["approval_id"], "approve")
@@ -46,12 +51,18 @@ class HitlTests(unittest.TestCase):
         self.assertEqual(len(self.dispatcher.calls), 1)
 
     def test_an_unknown_command_is_treated_as_high_risk(self) -> None:
-        ticket = self.approvals.process_action_request({"machine_id": "MC-MILL-01", "command": "SELF_DESTRUCT"})
+        ticket = self.approvals.process_action_request(
+            {"machine_id": "MC-MILL-01", "command": "SELF_DESTRUCT"}
+        )
         self.assertEqual(ticket["status"], "PENDING_APPROVAL")
 
     def test_a_rejected_command_never_runs(self) -> None:
-        ticket = self.approvals.propose("MC-MILL-01", "REPLACE_TOOL", {"reason": "mòn dao"})
-        self.assertEqual(self.approvals.decide(ticket["action_id"], "reject")["status"], "rejected")
+        ticket = self.approvals.propose(
+            "MC-MILL-01", "REPLACE_TOOL", {"reason": "mòn dao"}
+        )
+        self.assertEqual(
+            self.approvals.decide(ticket["action_id"], "reject")["status"], "rejected"
+        )
         with self.assertRaises(KeyError):
             self.approvals.decide(ticket["action_id"], "approve")
         self.assertEqual(self.dispatcher.calls, [])
@@ -84,19 +95,37 @@ class HitlTests(unittest.TestCase):
         result = dispatcher.dispatch("MC-MILL-01", "FEED_HOLD", {"reason": "nóng"})
         self.assertEqual(result["plc_command"], "FEED_HOLD")
         self.assertTrue(machine.receive_plc_command.called)
-        self.assertNotEqual(dispatcher.dispatch("MC-NONE", "FEED_HOLD")["status"], "dispatched")
+        self.assertNotEqual(
+            dispatcher.dispatch("MC-NONE", "FEED_HOLD")["status"], "dispatched"
+        )
 
     def test_with_proposals_off_the_brain_only_announces_them(self) -> None:
         bus = MagicMock()
         rag = MagicMock()
         rag.query_with_schema.return_value = {
             "diagnosis": "Quá nhiệt trục chính",
-            "actions": [{"command": "FEED_HOLD", "params": {}, "risk_level": "LOW", "reason": "giảm nhiệt"}],
+            "actions": [
+                {
+                    "command": "FEED_HOLD",
+                    "params": {},
+                    "risk_level": "LOW",
+                    "reason": "giảm nhiệt",
+                }
+            ],
         }
-        AgentBrain(rag_engine=rag, tools=MagicMock(), event_bus=bus, execute_actions=False).handle_alert(
-            {"machine_id": "MC-MILL-01", "machine_type": "CNC_MILLING", "payload": {"Spindle_Temp_C": 91}})
+        AgentBrain(
+            rag_engine=rag, tools=MagicMock(), event_bus=bus, execute_actions=False
+        ).handle_alert(
+            {
+                "machine_id": "MC-MILL-01",
+                "machine_type": "CNC_MILLING",
+                "payload": {"Spindle_Temp_C": 91},
+            }
+        )
         types = [call.args[0]["event_type"] for call in bus.publish.call_args_list]
-        self.assertEqual(types, ["chat_notification", "action_proposed"])  # never "action_command"
+        self.assertEqual(
+            types, ["chat_notification", "action_proposed"]
+        )  # never "action_command"
 
 
 class ApprovalEndpointTests(unittest.TestCase):
@@ -107,13 +136,21 @@ class ApprovalEndpointTests(unittest.TestCase):
         client = TestClient(create_app(StateStore(), approval=approvals))
 
         state = client.get("/api/state").json()
-        self.assertEqual([a["action_id"] for a in state["actions"]], [ticket["action_id"]])
+        self.assertEqual(
+            [a["action_id"] for a in state["actions"]], [ticket["action_id"]]
+        )
 
-        refused = client.post(f"/api/actions/{ticket['action_id']}/approve", headers={"Origin": "http://evil.example"})
+        refused = client.post(
+            f"/api/actions/{ticket['action_id']}/approve",
+            headers={"Origin": "http://evil.example"},
+        )
         self.assertEqual(refused.status_code, 403)
         self.assertEqual(dispatcher.calls, [])
 
-        ok = client.post(f"/api/actions/{ticket['action_id']}/approve", headers={"Origin": "http://testserver"})
+        ok = client.post(
+            f"/api/actions/{ticket['action_id']}/approve",
+            headers={"Origin": "http://testserver"},
+        )
         self.assertEqual(ok.status_code, 200)
         self.assertEqual(ok.json()["action"]["status"], "approved")
         self.assertEqual(len(dispatcher.calls), 1)

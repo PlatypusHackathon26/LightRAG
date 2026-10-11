@@ -12,7 +12,10 @@ from parse import access_level_for, align_segments, page_ranges, write_atomic  #
 
 def _doc(body_pages, furniture_pages=()):
     texts = [{"content_layer": "body", "prov": [{"page_no": p}]} for p in body_pages]
-    texts += [{"content_layer": "furniture", "prov": [{"page_no": p}]} for p in furniture_pages]
+    texts += [
+        {"content_layer": "furniture", "prov": [{"page_no": p}]}
+        for p in furniture_pages
+    ]
     return {"texts": texts, "tables": [], "pictures": []}
 
 
@@ -20,7 +23,9 @@ def test_blank_pages_do_not_shift_later_pages():
     # Real case: Spark Plug pp.444-450 are blank "MEMO" pages; Docling's Markdown
     # had 5 segments for 12 pages, and padding at the end put p.451 on p.444.
     segs = ["p441", "p442", "p443", "p451", "p452"]
-    pages, warning = align_segments(segs, 441, 452, _doc([441, 442, 443, 451, 452], furniture_pages=range(441, 453)))
+    pages, warning = align_segments(
+        segs, 441, 452, _doc([441, 442, 443, 451, 452], furniture_pages=range(441, 453))
+    )
     assert pages[0] == "p441" and pages[10] == "p451" and pages[11] == "p452"
     assert pages[3:10] == [""] * 7
     assert "aligned by page" in warning
@@ -61,11 +66,14 @@ def test_access_level_from_folder_or_flag():
     assert access_level_for(Path("data/raw/level_3/sop.pdf"), 2) == 2
 
 
-@pytest.mark.parametrize("data", [
-    "Mô-men xoắn 6,9-10,8 Nm\r\n".encode("utf-8"),
-    "Mô-men xoắn 6,9-10,8 Nm\r\n".encode("utf-8-sig"),
-    "Mô-men xoắn 6,9-10,8 Nm\r\n".encode("utf-16"),
-])
+@pytest.mark.parametrize(
+    "data",
+    [
+        "Mô-men xoắn 6,9-10,8 Nm\r\n".encode("utf-8"),
+        "Mô-men xoắn 6,9-10,8 Nm\r\n".encode("utf-8-sig"),
+        "Mô-men xoắn 6,9-10,8 Nm\r\n".encode("utf-16"),
+    ],
+)
 def test_a_text_upload_is_read_in_any_common_encoding(tmp_path, data):
     from parse import read_text_file
 
@@ -79,13 +87,40 @@ def test_a_workbook_becomes_one_page_per_named_sheet():
     from parse import PAGE_BREAK, sheets_markdown
 
     cell = lambda t: {"text": t}  # noqa: E731
-    doc = {"groups": [{"label": "sheet", "name": "Dầu", "children": [{"$ref": "#/tables/0"}]},
-                      {"label": "sheet", "name": "Mô-men", "children": [{"$ref": "#/texts/0"}, {"$ref": "#/tables/1"}]}],
-           "texts": [{"text": "Ghi chú"}],
-           "tables": [{"data": {"grid": [[cell("Tên"), cell("Mã")], [cell("ND-oil 8"), cell("DND08250")]]}},
-                      {"data": {"grid": [[cell("Chi tiết"), cell("Nm")], [cell("SCV | bu-lông"), cell("6,9 – 10,8")]]}}]}
+    doc = {
+        "groups": [
+            {"label": "sheet", "name": "Dầu", "children": [{"$ref": "#/tables/0"}]},
+            {
+                "label": "sheet",
+                "name": "Mô-men",
+                "children": [{"$ref": "#/texts/0"}, {"$ref": "#/tables/1"}],
+            },
+        ],
+        "texts": [{"text": "Ghi chú"}],
+        "tables": [
+            {
+                "data": {
+                    "grid": [
+                        [cell("Tên"), cell("Mã")],
+                        [cell("ND-oil 8"), cell("DND08250")],
+                    ]
+                }
+            },
+            {
+                "data": {
+                    "grid": [
+                        [cell("Chi tiết"), cell("Nm")],
+                        [cell("SCV | bu-lông"), cell("6,9 – 10,8")],
+                    ]
+                }
+            },
+        ],
+    }
     pages = sheets_markdown(doc).split(PAGE_BREAK)
     assert len(pages) == 2
-    assert pages[0].strip().startswith("## Sheet: Dầu") and "| ND-oil 8 | DND08250 |" in pages[0]
+    assert (
+        pages[0].strip().startswith("## Sheet: Dầu")
+        and "| ND-oil 8 | DND08250 |" in pages[0]
+    )
     assert "Ghi chú" in pages[1] and r"SCV \| bu-lông" in pages[1]
     assert sheets_markdown({"groups": []}) is None

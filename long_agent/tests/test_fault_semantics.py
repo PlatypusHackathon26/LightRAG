@@ -7,6 +7,7 @@ Each documented fault in machines_description.md is checked for two things:
   pressure, reduced throughput, higher discharge) match what a real machine
   would show, and unrelated metrics stay essentially untouched.
 """
+
 from __future__ import annotations
 
 import unittest
@@ -112,15 +113,20 @@ class FaultCatalogTests(unittest.TestCase):
     def test_enabling_faults_never_forces_a_control_state_change(self):
         # A sensor/mechanical fault is a condition, not an operator command, so
         # it must not stop, pause or e-stop the machine by itself.
-        expected_state = {CncMilling: "RUNNING", RobotArm: "RUNNING",
-                          AmrVehicle: "NAVIGATING", AoiInspection: "RUNNING",
-                          InjectionMolding: "RUNNING"}
+        expected_state = {
+            CncMilling: "RUNNING",
+            RobotArm: "RUNNING",
+            AmrVehicle: "NAVIGATING",
+            AoiInspection: "RUNNING",
+            InjectionMolding: "RUNNING",
+        }
         for factory, faults in DOCUMENTED_FAULTS.items():
             with self.subTest(machine=factory.__name__):
                 machine = factory()
                 machine.set_active_faults(sorted(faults))
                 simulate(machine, 30)
                 self.assertEqual(machine.state, expected_state[factory])
+
 
 class CncFaultTests(unittest.TestCase):
     def test_bearing_lack_of_lube_raises_load_heat_and_vibration(self):
@@ -216,25 +222,26 @@ class RobotFaultTests(unittest.TestCase):
 
     def test_payload_overload_raises_current_heat_weight_and_grip(self):
         machine = RobotArm()
-        machine.set_active_faults(['PAYLOAD_OVERLOAD'])
+        machine.set_active_faults(["PAYLOAD_OVERLOAD"])
         telemetry = simulate(machine, 300)
         # A heavier payload needs more holding torque (current ~14.75 A) and the
         # motor heats to roughly 78 C, between the 65 and 80 C thresholds.
-        self.assertGreater(telemetry['Joint_3_Current_A'], 12.5)
-        self.assertAlmostEqual(telemetry['Joint_3_Current_A'], 14.75, delta=0.2)
-        self.assertGreater(telemetry['Motor_Temp_C'], 65)
+        self.assertGreater(telemetry["Joint_3_Current_A"], 12.5)
+        self.assertAlmostEqual(telemetry["Joint_3_Current_A"], 14.75, delta=0.2)
+        self.assertGreater(telemetry["Motor_Temp_C"], 65)
         # The measured load and the gripper clamp force must rise as well: the
         # scale reads the overweight part and the gripper squeezes harder.
-        self.assertGreater(telemetry['Payload_Kg'], 3.5)
-        self.assertAlmostEqual(telemetry['Payload_Kg'], 12.0, delta=0.2)
-        self.assertGreater(telemetry['Gripper_Pressure_Bar'], 6.0)
-        self.assertAlmostEqual(telemetry['Gripper_Pressure_Bar'], 8.0, delta=0.2)
-        machine.receive_plc_command('RESET_PAYLOAD')
+        self.assertGreater(telemetry["Payload_Kg"], 3.5)
+        self.assertAlmostEqual(telemetry["Payload_Kg"], 12.0, delta=0.2)
+        self.assertGreater(telemetry["Gripper_Pressure_Bar"], 6.0)
+        self.assertAlmostEqual(telemetry["Gripper_Pressure_Bar"], 8.0, delta=0.2)
+        machine.receive_plc_command("RESET_PAYLOAD")
         self.assertEqual(machine.payload_kg, 3.5)
-        self.assertNotIn('PAYLOAD_OVERLOAD', machine.get_active_faults())
+        self.assertNotIn("PAYLOAD_OVERLOAD", machine.get_active_faults())
         recovered = simulate(machine, 60)
-        self.assertAlmostEqual(recovered['Payload_Kg'], 3.5, delta=0.1)
-        self.assertAlmostEqual(recovered['Gripper_Pressure_Bar'], 6.0, delta=0.2)
+        self.assertAlmostEqual(recovered["Payload_Kg"], 3.5, delta=0.1)
+        self.assertAlmostEqual(recovered["Gripper_Pressure_Bar"], 6.0, delta=0.2)
+
 
 class AmrFaultTests(unittest.TestCase):
     NOMINAL_DRAIN = 0.04 + 25.0 / 90.0 * 0.02
@@ -245,7 +252,9 @@ class AmrFaultTests(unittest.TestCase):
         telemetry = simulate(machine, 120)
         # High internal resistance both drains the pack ~4x faster and turns
         # more energy into heat; the pack climbs past the 55 C limit.
-        self.assertAlmostEqual(machine.battery_pct, 85 - self.NOMINAL_DRAIN * 4 * 120, delta=0.1)
+        self.assertAlmostEqual(
+            machine.battery_pct, 85 - self.NOMINAL_DRAIN * 4 * 120, delta=0.1
+        )
         self.assertGreater(telemetry["Battery_Temp_C"], 55)
         machine.receive_plc_command("REPLACE_BATTERY_MODULE")
         self.assertEqual(machine.battery_pct, 95.0)
@@ -271,7 +280,9 @@ class AmrFaultTests(unittest.TestCase):
         # A dragging drivetrain halves ground speed and needs more torque, so
         # the pack discharges 1.8x faster.
         self.assertAlmostEqual(telemetry["Current_Velocity_m_s"], 0.6, delta=0.05)
-        self.assertAlmostEqual(machine.battery_pct, 85 - self.NOMINAL_DRAIN * 1.8 * 120, delta=0.1)
+        self.assertAlmostEqual(
+            machine.battery_pct, 85 - self.NOMINAL_DRAIN * 1.8 * 120, delta=0.1
+        )
         machine.receive_plc_command("SERVICE_DRIVE_MOTOR")
         recovered = simulate(machine, 60)
         self.assertAlmostEqual(recovered["Current_Velocity_m_s"], 1.2, delta=0.05)
@@ -297,7 +308,9 @@ class AoiFaultTests(unittest.TestCase):
         telemetry = simulate(machine, 180)
         # The dimmer light box bottoms out near 9000 Lux (below the 14000 Lux
         # bound) and low contrast drives false rejects to ~8%.
-        self.assertAlmostEqual(telemetry["Illumination_Intensity_Lux"], 9000.0, delta=50.0)
+        self.assertAlmostEqual(
+            telemetry["Illumination_Intensity_Lux"], 9000.0, delta=50.0
+        )
         self.assertGreater(telemetry["False_Reject_Rate_Pct"], 6.0)
         machine.receive_plc_command("REPLACE_LED_MODULE")
         recovered = simulate(machine, 60)
@@ -306,7 +319,10 @@ class AoiFaultTests(unittest.TestCase):
     def test_conveyor_jam_stops_throughput_without_touching_optics(self):
         machine = AoiInspection()
         simulate(machine, 10)
-        inspected, flagged = machine.boards_inspected_total, machine.boards_flagged_defect
+        inspected, flagged = (
+            machine.boards_inspected_total,
+            machine.boards_flagged_defect,
+        )
         machine.set_active_faults(["SMEMA_CONVEYOR_JAM"])
         telemetry = simulate(machine, 60)
         # A jammed conveyor stops boards: speed goes to zero and the counters

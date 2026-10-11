@@ -33,7 +33,9 @@ class BaseMachine:
         self.active_faults: Dict[str, bool] = {}
 
     def nominal(self, key: str) -> float:
-        return next(m["nominal"] for m in MACHINE_METRICS[self.machine_type] if m["key"] == key)
+        return next(
+            m["nominal"] for m in MACHINE_METRICS[self.machine_type] if m["key"] == key
+        )
 
     @staticmethod
     def approach(current: float, target: float, dt: float, tau: float) -> float:
@@ -65,7 +67,9 @@ class BaseMachine:
     def set_active_faults(self, faults: List[str]) -> Dict[str, Any]:
         """Replace the fault selection atomically; preserve physical state for recovery."""
         with self._lock:
-            if not isinstance(faults, list) or any(not isinstance(f, str) for f in faults):
+            if not isinstance(faults, list) or any(
+                not isinstance(f, str) for f in faults
+            ):
                 raise ValueError("faults must be a list of fault codes")
             unknown = set(faults) - self.active_faults.keys()
             if unknown:
@@ -104,7 +108,9 @@ class BaseMachine:
             self._stop_event.set()
             return self._build_event("connection", {"status": "disconnected"})
 
-    def receive_plc_command(self, command: str, payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def receive_plc_command(
+        self, command: str, payload: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         with self._lock:
             self.state = "command_received"
             return self._build_event(
@@ -113,7 +119,9 @@ class BaseMachine:
                 priority="info",
             )
 
-    def _build_event(self, event_type: str, payload: Dict[str, Any], priority: str = "info") -> Dict[str, Any]:
+    def _build_event(
+        self, event_type: str, payload: Dict[str, Any], priority: str = "info"
+    ) -> Dict[str, Any]:
         return {
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "event_type": event_type,
@@ -125,7 +133,9 @@ class BaseMachine:
             "payload": payload,
         }
 
-    def emit_event(self, event_type: str, payload: Dict[str, Any], priority: str = "info") -> Dict[str, Any]:
+    def emit_event(
+        self, event_type: str, payload: Dict[str, Any], priority: str = "info"
+    ) -> Dict[str, Any]:
         event = self._build_event(event_type, payload, priority)
         if self.event_hub is not None:
             self.event_hub.publish(event)
@@ -145,4 +155,6 @@ class BaseMachine:
         return json.dumps(data, ensure_ascii=False, sort_keys=True)
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(id={self.machine_id}, type={self.machine_type})"
+        return (
+            f"{self.__class__.__name__}(id={self.machine_id}, type={self.machine_type})"
+        )

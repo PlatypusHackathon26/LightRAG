@@ -13,7 +13,9 @@ GOOGLE_PER_MINUTE = """[{"error": {"code": 429, "status": "RESOURCE_EXHAUSTED", 
     {"quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",
      "quotaId": "GenerateRequestsPerMinutePerProjectPerModel-FreeTier"}]},
   {"@type": "type.googleapis.com/google.rpc.RetryInfo", "retryDelay": "39s"}]}}]"""
-GOOGLE_PER_DAY = GOOGLE_PER_MINUTE.replace("PerMinute", "PerDay").replace('"39s"', '"12s"')
+GOOGLE_PER_DAY = GOOGLE_PER_MINUTE.replace("PerMinute", "PerDay").replace(
+    '"39s"', '"12s"'
+)
 
 
 def test_cerebras_header_wins():

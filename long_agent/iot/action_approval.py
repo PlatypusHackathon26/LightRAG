@@ -99,13 +99,17 @@ class ActionApproval:
         ]
         for aid in expired_ids:
             rec = self.pending_actions.pop(aid, None)
-            logger.warning(f"[Approval] Ticket {aid} ({rec.get('command')}) ĐÃ HẾT HẠN (Expired TTL).")
+            logger.warning(
+                f"[Approval] Ticket {aid} ({rec.get('command')}) ĐÃ HẾT HẠN (Expired TTL)."
+            )
             if self.event_bus:
-                self.event_bus.publish({
-                    "event_type": "approval_expired",
-                    "approval_id": aid,
-                    "command": rec,
-                })
+                self.event_bus.publish(
+                    {
+                        "event_type": "approval_expired",
+                        "approval_id": aid,
+                        "command": rec,
+                    }
+                )
 
     def process_action_request(self, command: Dict[str, Any]) -> Dict[str, Any]:
         """Phân loại mức độ rủi ro và xử lý luồng thực thi / chờ phê duyệt."""
@@ -150,24 +154,30 @@ class ActionApproval:
 
             # Bắn event thông báo lên EventBus cho Dashboard / Webhook
             if self.event_bus:
-                self.event_bus.publish({
-                    "event_type": "approval_required",
-                    "approval_id": approval_id,
-                    "command": command_record,
-                })
+                self.event_bus.publish(
+                    {
+                        "event_type": "approval_required",
+                        "approval_id": approval_id,
+                        "command": command_record,
+                    }
+                )
 
             return command_record
 
     # --- API tương thích bản cũ (test_hitl dùng propose/decide/snapshot) ---
-    def propose(self, machine_id: str, action: str, payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def propose(
+        self, machine_id: str, action: str, payload: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """Tạo đề xuất hành động (alias của process_action_request cho API cũ)."""
-        return self.process_action_request({
-            "machine_id": machine_id,
-            "command": action,
-            "action": action,
-            "payload": payload or {},
-            "params": payload or {},
-        })
+        return self.process_action_request(
+            {
+                "machine_id": machine_id,
+                "command": action,
+                "action": action,
+                "payload": payload or {},
+                "params": payload or {},
+            }
+        )
 
     def snapshot(self) -> List[Dict[str, Any]]:
         """Danh sách ticket đang chờ (API cũ)."""
@@ -182,10 +192,14 @@ class ActionApproval:
             command = self.pending_actions.pop(action_id, None)
 
         if not command:
-            logger.warning(f"[Approval] Không thể duyệt: Ticket {action_id} không tồn tại hoặc đã hết hạn.")
+            logger.warning(
+                f"[Approval] Không thể duyệt: Ticket {action_id} không tồn tại hoặc đã hết hạn."
+            )
             raise KeyError(action_id)
 
-        logger.info(f"[Approval] Kỹ sư ĐÃ DUYỆT lệnh {action_id} ({command.get('command')}) -> Chuyển thi hành.")
+        logger.info(
+            f"[Approval] Kỹ sư ĐÃ DUYỆT lệnh {action_id} ({command.get('command')}) -> Chuyển thi hành."
+        )
         if self.dispatcher_callback:
             try:
                 exec_res = self.dispatcher_callback(command)
@@ -194,10 +208,16 @@ class ActionApproval:
             status = exec_res.get("status") if isinstance(exec_res, dict) else None
             if status not in ("SUCCESS", "dispatched", "EXECUTED"):
                 raise ActionDispatchError(f"Dispatcher trả về trạng thái lỗi: {status}")
-            return {"status": "approved", "action_id": action_id, "dispatch_result": exec_res}
+            return {
+                "status": "approved",
+                "action_id": action_id,
+                "dispatch_result": exec_res,
+            }
         return {"status": "DISPATCHER_UNAVAILABLE", "action_id": action_id}
 
-    def reject(self, action_id: str, reason: str = "Rejected by operator") -> Dict[str, Any]:
+    def reject(
+        self, action_id: str, reason: str = "Rejected by operator"
+    ) -> Dict[str, Any]:
         """Kỹ sư bấm [Từ Chối] trên giao diện."""
         with self._lock:
             command = self.pending_actions.pop(action_id, None)
@@ -205,12 +225,14 @@ class ActionApproval:
         if command:
             logger.info(f"[Approval] Đã TỪ CHỐI lệnh {action_id}. Lý do: {reason}")
             if self.event_bus:
-                self.event_bus.publish({
-                    "event_type": "approval_rejected",
-                    "approval_id": action_id,
-                    "command": command,
-                    "reason": reason,
-                })
+                self.event_bus.publish(
+                    {
+                        "event_type": "approval_rejected",
+                        "approval_id": action_id,
+                        "command": command,
+                        "reason": reason,
+                    }
+                )
             return {"status": "rejected", "action_id": action_id}
         raise KeyError(action_id)
 
