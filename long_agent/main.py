@@ -1,4 +1,5 @@
 # main.py
+import os
 import threading
 import time
 import uvicorn
@@ -112,8 +113,12 @@ def main():
         on_chat=brain.handle_user_query,
         on_decision=approval.decide,
     )
-    print("🌐 Tester Fleet Dashboard running at: http://localhost:8085")
-    uvicorn.run(app, host="0.0.0.0", port=8085)
+    # Localhost by default: the fault, decision and PLC routes have no authentication. The DENSO
+    # Agent Gateway (denso/gateway) relays the dashboard; LONG_AGENT_HOST=0.0.0.0 opens it to the LAN.
+    host = os.environ.get("LONG_AGENT_HOST", "127.0.0.1")
+    port = int(os.environ.get("LONG_AGENT_PORT", "8085"))
+    print(f"🌐 Tester Fleet Dashboard running at: http://{host}:{port}")
+    uvicorn.run(app, host=host, port=port)
 
 
 if __name__ == "__main__":

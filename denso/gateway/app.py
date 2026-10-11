@@ -22,11 +22,12 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import quote
 
 import httpx
-from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
 import lookup as catalogue  # noqa: E402  (sibling module; app.py runs as a script)
@@ -584,6 +585,9 @@ class Settings:
     docling_url: str = "http://127.0.0.1:5001"
     # Extra request fields, e.g. {"chat_template_kwargs": {"enable_thinking": false}} for Nemotron.
     lookup_llm_extra_body: dict = field(default_factory=dict)
+    # Long-agent (long_agent/, e.g. http://127.0.0.1:8085): its tester dashboard is relayed at
+    # /dashboard/ so the UI's Dashboard button opens it, also through the tunnel. None = off.
+    iot_url: str | None = None
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -610,6 +614,7 @@ class Settings:
             lookup_llm_extra_body=json.loads(os.environ.get("DENSO_LOOKUP_LLM_EXTRA_BODY") or "{}"),
             upload_pipeline=os.environ.get("DENSO_UPLOAD_PIPELINE", "1") != "0",
             docling_url=os.environ.get("DENSO_DOCLING_URL", "http://127.0.0.1:5001"),
+            iot_url=(os.environ.get("DENSO_IOT_URL") or "").rstrip("/") or None,
         )
 
 
@@ -725,6 +730,12 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
         backends = {f"level_{i + 1}": await probe(u) for i, u in enumerate(settings.level_servers)}
         if settings.lookup_server:
             backends["lookup"] = await probe(settings.lookup_server)
+        if settings.iot_url:
+            try:
+                r = await client.get(f"{settings.iot_url}/api/machines", timeout=5)
+                backends["iot"] = {"url": settings.iot_url, "ok": r.status_code == 200}
+            except httpx.HTTPError:
+                backends["iot"] = {"url": settings.iot_url, "ok": False}
         return {"status": "ok", "backends": backends}
 
     @app.post("/agent/chat")
@@ -993,6 +1004,75 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
         history.clear()
         return {"status": "deleted", "levels": deleted, "notChecked": unreachable,
                 "removedFiles": remove_local_files(doc.get("file_path") or "")}
+
+    # ------------------------------------------------ Long-agent tester dashboard (relay)
+    # Only what that page uses: the page, the machine list, the fault picker and the event stream.
+    # Long-agent's decision / PLC / approve / upload routes stay unreachable from outside.
+
+    async def iot_relay(method: str, path: str, request: Request, body: bytes | None = None) -> Response:
+        if not settings.iot_url:
+            raise HTTPException(status_code=404, detail="Long-agent is not enabled (serve_chat.ps1 -WithIoT)")
+        headers = {"Content-Type": request.headers["content-type"]} if body is not None and "content-type" in request.headers else {}
+        try:
+            r = await client.request(method, f"{settings.iot_url}{path}", params=request.query_params,
+                                     content=body, headers=headers, timeout=15)
+        except httpx.HTTPError:
+            raise HTTPException(status_code=503, detail="Long-agent is not reachable") from None
+        return Response(r.content, status_code=r.status_code, media_type=r.headers.get("content-type"))
+
+    @app.get("/dashboard", include_in_schema=False)
+    async def dashboard_root() -> RedirectResponse:
+        return RedirectResponse("/dashboard/")
+
+    @app.get("/dashboard/", include_in_schema=False)
+    async def dashboard_page(request: Request) -> Response:
+        return await iot_relay("GET", "/", request)
+
+    @app.get("/api/machines", include_in_schema=False)
+    async def iot_machines(request: Request) -> Response:
+        return await iot_relay("GET", "/api/machines", request)
+
+    @app.get("/api/machines/{machine_id}/faults", include_in_schema=False)
+    async def iot_faults(machine_id: str, request: Request) -> Response:
+        return await iot_relay("GET", f"/api/machines/{quote(machine_id, safe='')}/faults", request)
+
+    @app.post("/api/machines/{machine_id}/faults", include_in_schema=False)
+    async def iot_set_faults(machine_id: str, request: Request) -> Response:
+        """Tester fault injection on the simulator (the page's "Áp dụng" button)."""
+        return await iot_relay("POST", f"/api/machines/{quote(machine_id, safe='')}/faults", request,
+                               body=await request.body())
+
+    @app.get("/api/stream", include_in_schema=False)
+    async def iot_stream(request: Request) -> Response:
+        """The page's server-sent events, relayed as they arrive (no read timeout)."""
+        if not settings.iot_url:
+            raise HTTPException(status_code=404, detail="Long-agent is not enabled (serve_chat.ps1 -WithIoT)")
+        if "cf-ray" in request.headers:
+            # A Cloudflare quick tunnel holds the event stream back (headers arrive, events never
+            # do). Refused, the page's EventSource errors and it polls /api/machines instead.
+            raise HTTPException(status_code=503, detail="live events are not relayed through the tunnel; poll instead")
+        upstream = client.build_request("GET", f"{settings.iot_url}/api/stream", timeout=httpx.Timeout(10, read=None))
+        try:
+            r = await client.send(upstream, stream=True)
+        except httpx.HTTPError:
+            raise HTTPException(status_code=503, detail="Long-agent is not reachable") from None
+        if r.status_code != 200:
+            body = await r.aread()
+            await r.aclose()
+            return Response(body, status_code=r.status_code, media_type=r.headers.get("content-type"))
+
+        async def relay():
+            try:
+                async for chunk in r.aiter_bytes():
+                    yield chunk
+            except httpx.HTTPError:
+                pass  # Long-agent restarted: the page reconnects or polls by itself
+            finally:
+                await r.aclose()
+
+        # Exactly "text/event-stream" (media_type= would append a charset).
+        return StreamingResponse(relay(), headers={"Content-Type": "text/event-stream",
+                                                   "Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
     @app.get("/agent/incidents")
     async def incidents(user: User = Depends(current_user)) -> list[dict]:

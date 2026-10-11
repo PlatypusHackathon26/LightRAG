@@ -513,3 +513,89 @@ def test_document_file_is_served_only_at_the_callers_level(tmp_path):
     assert tc.get("/agent/documents/doc-high/file").status_code == 404  # a guest is level 1
     # Level 3 sees the document, but its original was never uploaded here.
     assert tc.get("/agent/documents/doc-high/file", headers={"Authorization": "Bearer tok-admin"}).status_code == 404
+
+
+# ---------------------------------------------------------------- Long-agent dashboard relay
+
+
+def _long_agent(tmp_path, handler=None):
+    seen = []
+
+    def default(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if path == "/":
+            return httpx.Response(200, text="<html>tester board</html>", headers={"content-type": "text/html"})
+        if path == "/api/machines":
+            return httpx.Response(200, json={"MC-MILL-01": {"machine_id": "MC-MILL-01"}})
+        if path == "/api/machines/MC-MILL-01/faults":
+            if request.method == "POST":
+                return httpx.Response(200, json={"active_faults": json.loads(request.content)["active_faults"]})
+            return httpx.Response(200, json={"available_faults": ["TOOL_WEAR"], "active_faults": []})
+        if path == "/api/stream":
+            return httpx.Response(200, content=b"data: {}\n\n", headers={"content-type": "text/event-stream"})
+        return httpx.Response(404, json={"detail": "Not Found"})
+
+    def handler_all(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        if request.url.host == "long":
+            return (handler or default)(request)
+        return httpx.Response(404)
+
+    settings = Settings(level_servers=SERVERS, actions_log=tmp_path / "a.jsonl", ops_file=tmp_path / "m.json",
+                        upload_pipeline=False, iot_url="http://long")
+    return seen, TestClient(create_app(settings, transport=httpx.MockTransport(handler_all)))
+
+
+def test_the_long_agent_dashboard_opens_through_the_gateway(tmp_path):
+    seen, tc = _long_agent(tmp_path)
+    r = tc.get("/dashboard", follow_redirects=False)
+    assert r.status_code in (302, 307) and r.headers["location"] == "/dashboard/"
+    r = tc.get("/dashboard/")
+    assert r.text == "<html>tester board</html>" and r.headers["content-type"].startswith("text/html")
+    assert [x.url.path for x in seen] == ["/"]  # the page is Long-agent's own root
+    assert tc.get("/api/machines").json() == {"MC-MILL-01": {"machine_id": "MC-MILL-01"}}
+    assert tc.get("/api/machines/MC-MILL-01/faults").json()["available_faults"] == ["TOOL_WEAR"]
+
+
+def test_tester_fault_injection_is_passed_on(tmp_path):
+    seen, tc = _long_agent(tmp_path)
+    r = tc.post("/api/machines/MC-MILL-01/faults", json={"active_faults": ["TOOL_WEAR"]})
+    assert r.json() == {"active_faults": ["TOOL_WEAR"]}
+    post = [x for x in seen if x.method == "POST"][0]
+    assert post.headers["content-type"] == "application/json"
+
+
+def test_long_agent_write_routes_are_not_exposed(tmp_path):
+    # Decisions, PLC commands, approvals and uploads stay on Long-agent's localhost port.
+    seen, tc = _long_agent(tmp_path)
+    for path in ("/api/decision", "/api/plc/fix", "/api/actions/A1/approve", "/api/upload", "/api/chat"):
+        assert tc.post(path, json={}).status_code in (404, 405), path
+    assert tc.get("/api/state").status_code == 404
+    assert not [x for x in seen if x.url.host == "long"]
+
+
+def test_the_event_stream_is_relayed_locally_and_refused_through_the_tunnel(tmp_path):
+    seen, tc = _long_agent(tmp_path)
+    r = tc.get("/api/stream")
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "text/event-stream"  # no charset: cloudflared buffers otherwise
+    assert r.content == b"data: {}\n\n"
+    r = tc.get("/api/stream", headers={"CF-Ray": "a488d6069b4385c1-HKG"})
+    assert r.status_code == 503  # the page then polls /api/machines
+    assert len([x for x in seen if x.url.path == "/api/stream"]) == 1
+
+
+def test_an_unreachable_long_agent_is_a_503(tmp_path):
+    def down(request):
+        raise httpx.ConnectError("refused")
+    _, tc = _long_agent(tmp_path, handler=down)
+    assert tc.get("/dashboard/").status_code == 503
+    assert tc.get("/api/machines").status_code == 503
+
+
+def test_no_dashboard_without_long_agent(tmp_path):
+    settings = Settings(level_servers=SERVERS, actions_log=tmp_path / "a.jsonl", ops_file=tmp_path / "m.json",
+                        upload_pipeline=False)
+    tc = TestClient(create_app(settings, transport=httpx.MockTransport(lambda r: httpx.Response(500))))
+    for path in ("/dashboard/", "/api/machines", "/api/stream"):
+        assert tc.get(path).status_code == 404, path

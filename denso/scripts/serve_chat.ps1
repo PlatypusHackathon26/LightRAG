@@ -1,8 +1,8 @@
 # Start the chat backend: LLM proxy :8899, reranker :7998, LightRAG :9621 / lookup :9631,
-# gateway :9700 (+ Vite UI :5173 with -WithUI, Cloudflare tunnel with -Tunnel).
-# Running services are kept; -Restart restarts LightRAG and the gateway (after a .env change).
+# gateway :9700 (+ Vite UI :5173 with -WithUI, Long-agent :8085 with -WithIoT, Cloudflare tunnel with -Tunnel).
+# Running services are kept; -Restart restarts LightRAG, the gateway and Long-agent (after a .env change).
 #
-#   powershell -ExecutionPolicy Bypass -File denso\scripts\serve_chat.ps1 [-Restart] [-WithUI] [-Tunnel]
+#   powershell -ExecutionPolicy Bypass -File denso\scripts\serve_chat.ps1 [-Restart] [-WithUI] [-WithIoT] [-Tunnel]
 param(
     [string]$Upstream = "https://integrate.api.nvidia.com/v1",
     [string]$KeyVar = "NVIDIA_API_KEY",
@@ -25,6 +25,9 @@ param(
     # Visitors without a token (the hosted demo) may upload and delete documents. For team testing only.
     [switch]$GuestUpload,
     [switch]$WithUI,
+    # Long-agent (long_agent/: 5 simulated factory machines, edge gateway, agent) on 127.0.0.1:8085;
+    # the gateway relays its tester dashboard at /dashboard/ (the UI's Dashboard button).
+    [switch]$WithIoT,
     # Expose the gateway through a Cloudflare quick tunnel (public URL, guest = level 1) for the hosted demo.
     [switch]$Tunnel
 )
@@ -47,8 +50,8 @@ function Wait-Url([string]$Url, [int]$Tries = 60) {
     foreach ($i in 1..$Tries) { try { return Invoke-RestMethod $Url -TimeoutSec 15 } catch { Start-Sleep 3 } }
     throw "not reachable: $Url"
 }
-function Start-Bg([string]$Exe, [string[]]$ArgList, [string]$Log) {
-    $p = @{ FilePath = $Exe; WorkingDirectory = $repo; WindowStyle = "Hidden"
+function Start-Bg([string]$Exe, [string[]]$ArgList, [string]$Log, [string]$Dir = $repo) {
+    $p = @{ FilePath = $Exe; WorkingDirectory = $Dir; WindowStyle = "Hidden"
             RedirectStandardOutput = "$logs\$Log.out.log"; RedirectStandardError = "$logs\$Log.err.log" }
     if ($ArgList) { $p.ArgumentList = $ArgList }
     Start-Process @p
@@ -68,7 +71,7 @@ if (-not (Test-Port 8899)) {
 if (-not (Test-Port 7998)) { Start-Bg $py @("denso\tools\lang_rerank.py") "lang_rerank"; Wait-Url "http://127.0.0.1:7998/health" | Out-Null }
 "reranker   :7998"
 
-if ($Restart) { Stop-Port 9621; Stop-Port 9631; Stop-Port 9700; Start-Sleep 3 }
+if ($Restart) { Stop-Port 9621; Stop-Port 9631; Stop-Port 9700; if ($WithIoT) { Stop-Port 8085 }; Start-Sleep 3 }
 if (-not $ExtraBody -and $Upstream -match 'nvidia') { $ExtraBody = '{"chat_template_kwargs": {"enable_thinking": false}}' }
 if ($ExtraBody -eq 'none') { $ExtraBody = '' }
 # EXTRACT too: a (re-)ingest through this server must not ask the proxy for a model its upstream lacks.
@@ -97,11 +100,22 @@ if (-not (Test-Port 9700)) {
     $env:DENSO_LOOKUP_LLM_MODEL = $Model           # keyword-matched catalogue rows are answered by the same model
     $env:DENSO_LOOKUP_LLM_EXTRA_BODY = $ExtraBody
     $env:DENSO_GUEST_CAN_UPLOAD = $(if ($GuestUpload) { '1' } else { '0' })
+    $env:DENSO_IOT_URL = $(if ($WithIoT) { 'http://127.0.0.1:8085' } else { '' })   # relays Long-agent's dashboard
     Start-Bg $py @("denso\gateway\app.py") "gateway"
     Wait-Url "http://127.0.0.1:9700/agent/health" 20 | Out-Null
 }
 if ($GuestUpload) { "WARNING    guests may upload and DELETE documents (-GuestUpload); restart without it after testing" }
 "gateway    :9700 knowledge mode=$(if ($env:DENSO_KNOWLEDGE_MODE) { $env:DENSO_KNOWLEDGE_MODE } else { 'naive' })"
+
+if ($WithIoT) {
+    if (-not (Test-Port 8085)) {
+        $env:LONG_AGENT_HOST = "127.0.0.1"; $env:LONG_AGENT_PORT = "8085"   # no auth on its write routes
+        Start-Bg $py @("main.py") "long_agent" "$repo\long_agent"
+        Wait-Url "http://127.0.0.1:8085/api/machines" 20 | Out-Null
+    }
+    "long-agent :8085  dashboard http://localhost:9700/dashboard/ (also <tunnel>/dashboard/)"
+    if (-not $env:DENSO_IOT_URL) { "NOTE       the gateway was already running without Long-agent: add -Restart" }
+}
 
 if ($WithUI -and -not (Test-Port 5173)) {
     $bun = Get-Command bun -ErrorAction SilentlyContinue

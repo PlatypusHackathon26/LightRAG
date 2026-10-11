@@ -1,5 +1,6 @@
 import { useAgenticStore } from '../stores/agenticStore'
-import { DatabaseIcon, CpuIcon, BookOpenIcon } from 'lucide-react'
+import { agentClient } from '../../../api/agent'
+import { DatabaseIcon, CpuIcon, BookOpenIcon, ActivityIcon } from 'lucide-react'
 
 export default function AgentTopBar() {
   const { knowledgeDrawerOpen, setKnowledgeDrawerOpen, documents } = useAgenticStore()
@@ -37,8 +38,24 @@ export default function AgentTopBar() {
         <StatusPill label="OPC-UA" sublabel="Connected" color="#10B981" />
       </div>
 
-      {/* Right: Knowledge Hub + User */}
+      {/* Right: IoT dashboard + Knowledge Hub + User */}
       <div className="flex items-center gap-3">
+        {/* Always shown with a live gateway: without Long-agent the gateway answers with its own message. */}
+        {agentClient.live && (
+          <a
+            id="iot-dashboard-link"
+            href={agentClient.dashboardUrl()}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Mở dashboard giám sát nhà xưởng trong tab mới"
+            title="Dashboard giám sát nhà xưởng (Long-agent, tab mới)"
+            className="flex items-center gap-2 rounded px-3 py-1.5 font-medium transition-all hover:bg-[#475569] focus-visible:outline-2 focus-visible:outline-[#00A896]"
+            style={{ fontSize: 13, background: '#334155', color: '#CBD5E1', border: '1px solid #475569', fontFamily: 'Inter, sans-serif' }}
+          >
+            <ActivityIcon size={14} />
+            <span>Dashboard</span>
+          </a>
+        )}
         <button
           id="knowledge-hub-button"
           aria-label={`Knowledge Hub, ${vectorizedCount} documents`}

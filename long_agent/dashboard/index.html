@@ -244,6 +244,22 @@
             container.innerHTML = html;
         };
 
+        // Dự phòng khi SSE không dùng được (ví dụ mở qua Cloudflare tunnel, nơi luồng sự kiện bị giữ
+        // lại): hỏi /api/machines mỗi 1,5 giây và vẽ bằng cùng hàm ở trên.
+        let pollTimer = null;
+        evtSource.onerror = function() {
+            evtSource.close();
+            if (pollTimer) return;
+            const poll = async () => {
+                try {
+                    const response = await fetch('/api/machines');
+                    if (response.ok) evtSource.onmessage({ data: await response.text() });
+                } catch (error) { /* thử lại ở chu kỳ sau */ }
+            };
+            poll();
+            pollTimer = setInterval(poll, 1500);
+        };
+
         function renderTelemetryRows(metrics, tele) {
             if (!metrics.length) return '<div class="text-xs text-slate-400">Đang nhận dữ liệu...</div>';
             return metrics.map(metric => {
