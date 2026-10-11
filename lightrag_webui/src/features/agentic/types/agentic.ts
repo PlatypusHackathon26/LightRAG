@@ -178,6 +178,7 @@ export type DocumentIndexStatus =
   | 'embedding'
   | 'vectorized'
   | 'error'
+  | 'cancelled'
 
 export interface KnowledgeDocument {
   id: string
@@ -192,6 +193,8 @@ export interface KnowledgeDocument {
   progress?: number
   /** Live uploads: the pipeline step in progress, shown under the row. */
   statusNote?: string
+  /** Live uploads: the gateway job behind a browser placeholder row, so it can be cancelled. */
+  jobId?: string
 }
 
 // ─── Sidebar Filter ───────────────────────────────────────────────────────────

@@ -134,14 +134,14 @@ def test_a_busy_knowledge_base_is_reported_and_nothing_is_removed(tmp_path):
     assert (data / "cleaned_md" / "BHT-M60_Manual_demo_40p.md").exists()
 
 
-def test_an_upload_still_in_the_pipeline_cannot_be_deleted_yet(tmp_path):
+def test_an_unknown_upload_cannot_be_deleted(tmp_path):
     _, transport = fake_lightrag({"l1"})
     tc, _ = client(tmp_path, transport)
     assert (
         tc.delete(
             "/agent/documents/job-abc123", headers={"Authorization": "Bearer tok-admin"}
         ).status_code
-        == 409
+        == 404
     )
 
 

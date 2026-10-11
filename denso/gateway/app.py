@@ -1518,33 +1518,9 @@ def create_app(
             removed.append(f"parsed/{stem}/")
         return removed
 
-    @app.delete("/agent/documents/{doc_id}")
-    async def delete_document(doc_id: str, user: User = Depends(current_user)) -> dict:
-        """Remove a document from every level server holding it: chunks, vectors, its knowledge-
-        graph contributions and cache (LightRAG delete_document), then its local pipeline files."""
-        if not user.can_upload:
-            raise HTTPException(
-                status_code=403, detail="this user may not delete documents"
-            )
-        if doc_id.startswith("job-"):
-            raise HTTPException(
-                status_code=409,
-                detail="this upload is still being processed; delete it when it is ready",
-            )
-        doc = None
-        # The servers this user can see (levels 1..user.level), skipping any that is not running.
-        for url in settings.level_servers[: user.level]:
-            doc = await find_document(url, doc_id)
-            if doc:
-                break
-        if doc is None:
-            raise HTTPException(
-                status_code=404, detail="document not found at your access level"
-            )
-        names = {
-            Path(doc.get("file_path") or "").name,
-            (doc.get("metadata") or {}).get("source_file") or "",
-        } - {""}
+    async def delete_named(names: set[str], user: User) -> tuple[list[str], list[str]]:
+        """Delete the documents named `names` from every level server holding them; return the
+        levels deleted from and the levels that could not be checked. Raises 403 / 409 / 502."""
         holders, unreachable = {}, []
         for lv, url in enumerate(settings.level_servers, 1):
             ids = await named_documents(url, names)
@@ -1586,6 +1562,34 @@ def create_app(
             if not remaining:
                 break
             await asyncio.sleep(2)
+        return deleted, unreachable
+
+    @app.delete("/agent/documents/{doc_id}")
+    async def delete_document(doc_id: str, user: User = Depends(current_user)) -> dict:
+        """Remove a document from every level server holding it: chunks, vectors, its knowledge-
+        graph contributions and cache (LightRAG delete_document), then its local pipeline files.
+        An upload still in the pipeline (job-...) is cancelled first, then removed the same way."""
+        if not user.can_upload:
+            raise HTTPException(
+                status_code=403, detail="this user may not delete documents"
+            )
+        if doc_id.startswith("job-"):
+            return await cancel_upload(doc_id.removeprefix("job-"), user)
+        doc = None
+        # The servers this user can see (levels 1..user.level), skipping any that is not running.
+        for url in settings.level_servers[: user.level]:
+            doc = await find_document(url, doc_id)
+            if doc:
+                break
+        if doc is None:
+            raise HTTPException(
+                status_code=404, detail="document not found at your access level"
+            )
+        names = {
+            Path(doc.get("file_path") or "").name,
+            (doc.get("metadata") or {}).get("source_file") or "",
+        } - {""}
+        deleted, unreachable = await delete_named(names, user)
         # Earlier answers quoting the document sit in the conversation history the LLM is given; left
         # there, the next question was answered from them (seen live, right after a delete).
         history.clear()
@@ -1594,6 +1598,34 @@ def create_app(
             "levels": deleted,
             "notChecked": unreachable,
             "removedFiles": remove_local_files(doc.get("file_path") or ""),
+        }
+
+    async def cancel_upload(job_id: str, user: User) -> dict:
+        """An upload made by mistake: stop its pipeline, then remove whatever it already wrote -
+        its knowledge-base copy if it got that far, its pipeline files and the uploaded file."""
+        job = runner.get(job_id) if runner else None
+        if job is None or job.level > user.level or job.status == "cancelled":
+            raise HTTPException(
+                status_code=404, detail="upload not found at your access level"
+            )
+        reached_servers = job.status in ("embedding", "vectorized")
+        await runner.cancel(job_id)
+        deleted, unreachable = [], []
+        if reached_servers:
+            # ingest.py uploads "<stem>.[native-P!].md"; with --replace, that name is this upload's.
+            names = {f"{job.stem}.[native-P!].md", f"{job.stem}.md"}
+            deleted, unreachable = await delete_named(names, user)
+            history.clear()
+        removed = remove_local_files(job.name)
+        raw = settings.data_dir / "raw" / job.name
+        if raw.is_file() and raw.parent == (settings.data_dir / "raw"):
+            raw.unlink()
+            removed.append(f"raw/{job.name}")
+        return {
+            "status": "cancelled",
+            "levels": deleted,
+            "notChecked": unreachable,
+            "removedFiles": removed,
         }
 
     # ------------------------------------------------ Long-agent tester dashboard (relay)

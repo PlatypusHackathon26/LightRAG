@@ -207,3 +207,163 @@ def test_a_failed_scan_reading_keeps_doclings_text_and_says_so(tmp_path):
     r = FakeRunner(tmp_path, up={"http://docling", "http://l1"}, fail="read scanned")
     job = run(r, name="photo.jpg")
     assert job.status == "vectorized" and "dùng OCR của Docling" in job.stage
+
+
+# ---------------------------------------------------------------- cancelling an upload
+
+
+class HangingRunner(FakeRunner):
+    """Like FakeRunner, but the step named `hang` runs until the job is cancelled."""
+
+    def __init__(self, repo: Path, hang: str):
+        super().__init__(repo, up={"http://docling", "http://l1"})
+        self.hang = hang
+
+    async def _step(self, job, args, log_name):
+        await super()._step(job, args, log_name)
+        if log_name.startswith(self.hang):
+            while not job.cancelled:
+                await asyncio.sleep(0.01)
+
+
+def test_a_running_upload_stops_at_the_step_it_is_in(tmp_path):
+    r = HangingRunner(tmp_path, hang="parse")
+
+    async def go():
+        job = r.submit("Manual E5.pdf", b"%PDF", 1)
+        while job.status != "parsing":
+            await asyncio.sleep(0.01)
+        await r.cancel(job.id)
+        await r.worker
+        return job
+
+    job = asyncio.run(go())
+    assert job.status == "cancelled" and [s[0] for s in r.steps] == ["parse"]
+    assert r.active() == []  # gone from the Knowledge Hub listing
+
+
+def test_a_queued_upload_never_starts(tmp_path):
+    r = HangingRunner(tmp_path, hang="parse")
+
+    async def go():
+        first = r.submit("a.pdf", b"%PDF", 1)
+        second = r.submit("b.pdf", b"%PDF", 1)
+        while first.status != "parsing":
+            await asyncio.sleep(0.01)
+        await r.cancel(second.id)
+        await r.cancel(first.id)
+        await r.worker
+        return first, second
+
+    first, second = asyncio.run(go())
+    assert first.status == second.status == "cancelled"
+    assert all(
+        args[-1].endswith("a.pdf") for _, args in r.steps
+    )  # b.pdf was never parsed
+
+
+def test_cancelling_kills_the_running_subprocess(tmp_path):
+    """The real _step: a long subprocess is killed, not waited for."""
+
+    class SleepRunner(JobRunner):
+        async def _run(self, job):
+            await self._go(job, ["-c", "import time; time.sleep(60)"], "sleep")
+
+    r = SleepRunner(tmp_path, SERVERS)
+
+    async def go():
+        job = r.submit("a.txt", b"x", 1)
+        while not r._procs:
+            await asyncio.sleep(0.05)
+        started = asyncio.get_running_loop().time()
+        await r.cancel(job.id)
+        return job, asyncio.get_running_loop().time() - started
+
+    job, took = asyncio.run(go())
+    assert job.status == "cancelled" and took < 10
+
+
+def _upload_gateway(tmp_path, monkeypatch, runner, docs):
+    """A gateway around `runner`; the level-1 server lists `docs` until they are deleted."""
+    from app import Settings, create_app
+    import app as gateway
+
+    monkeypatch.setattr(gateway, "JobRunner", lambda repo, servers, docling: runner)
+    deletes = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/documents/delete_document":
+            deletes.append((request.url.host, request.content))
+            docs.clear()
+            return httpx.Response(200, json={"status": "deletion_started"})
+        listed = docs if request.url.host == "l1" else []
+        return httpx.Response(
+            200, json={"documents": listed, "pagination": {"has_next": False}}
+        )
+
+    settings = Settings(
+        level_servers=SERVERS,
+        users={"tok-admin": {"name": "admin", "level": 3, "can_upload": True}},
+        actions_log=tmp_path / "a.jsonl",
+        ops_file=tmp_path / "n.json",
+        data_dir=runner.data,
+    )
+    tc = TestClient(create_app(settings, transport=httpx.MockTransport(handler)))
+    return tc, deletes
+
+
+def _upload(tc, name="manual.pdf"):
+    h = {"Authorization": "Bearer tok-admin"}
+    job_id = tc.post(
+        "/agent/documents",
+        files={"file": (name, b"%PDF")},
+        data={"level": "1"},
+        headers=h,
+    ).json()["jobId"]
+    return job_id, h
+
+
+def _wait(tc, job_id, h, status):
+    for _ in range(200):
+        if (
+            tc.get(f"/agent/documents/jobs/{job_id}", headers=h).json()["status"]
+            == status
+        ):
+            return
+        import time
+
+        time.sleep(0.01)
+    raise AssertionError(f"job never reached {status}")
+
+
+def test_deleting_an_upload_being_parsed_cancels_it_and_removes_its_files(
+    tmp_path, monkeypatch
+):
+    runner = HangingRunner(tmp_path, hang="parse")
+    tc, deletes = _upload_gateway(tmp_path, monkeypatch, runner, docs=[])
+    job_id, h = _upload(tc)
+    _wait(tc, job_id, h, "parsing")
+    r = tc.delete(f"/agent/documents/job-{job_id}", headers=h)
+    assert r.status_code == 200 and r.json()["status"] == "cancelled"
+    assert "raw/manual.pdf" in r.json()["removedFiles"]
+    assert not (runner.data / "raw" / "manual.pdf").exists()
+    assert deletes == []  # it never reached the knowledge base
+    assert all(
+        d["id"] != f"job-{job_id}" for d in tc.get("/agent/documents", headers=h).json()
+    )
+    # deleting it again: it is gone
+    assert tc.delete(f"/agent/documents/job-{job_id}", headers=h).status_code == 404
+
+
+def test_deleting_an_upload_already_being_ingested_also_removes_it_from_the_servers(
+    tmp_path, monkeypatch
+):
+    runner = HangingRunner(tmp_path, hang="ingest")
+    docs = [{"id": "doc-m", "file_path": "manual.[native-P!].md", "metadata": {}}]
+    tc, deletes = _upload_gateway(tmp_path, monkeypatch, runner, docs)
+    job_id, h = _upload(tc)
+    _wait(tc, job_id, h, "embedding")
+    r = tc.delete(f"/agent/documents/job-{job_id}", headers=h)
+    assert r.status_code == 200 and r.json()["levels"] == ["level_1"]
+    assert [host for host, _ in deletes] == ["l1"] and b"doc-m" in deletes[0][1]
+    assert not (runner.data / "cleaned_md" / "manual.md").exists()

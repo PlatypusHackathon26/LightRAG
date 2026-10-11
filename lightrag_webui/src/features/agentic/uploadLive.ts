@@ -37,6 +37,7 @@ export async function uploadLive(
   })
   try {
     let job = await client.uploadDocument(file)
+    updateDocument(id, { jobId: job.id })
     for (;;) {
       updateDocument(id, { indexStatus: job.status, progress: job.progress, statusNote: jobNote(job) })
       if (!uploadJobActive(job)) {
@@ -63,16 +64,24 @@ export async function deleteLive(
   id: string,
   removeDocument: (id: string) => void,
   updateDocument: (id: string, patch: Partial<KnowledgeDocument>) => void,
-  client: Pick<typeof agentClient, 'deleteDocument'> = agentClient
+  client: Pick<typeof agentClient, 'deleteDocument'> = agentClient,
+  /** The gateway job behind a browser placeholder row (KnowledgeDocument.jobId). */
+  jobId?: string
 ): Promise<void> {
+  // A row still being processed is cancelled: the gateway stops its pipeline, then removes what it wrote.
+  const processing = id.startsWith(UPLOAD_ROW_PREFIX) || id.startsWith('job-')
+  let target = id
   if (id.startsWith(UPLOAD_ROW_PREFIX)) {
-    // Still the browser's placeholder: the gateway does not know this id until the upload is done.
-    updateDocument(id, { statusNote: 'Tài liệu đang được xử lý – đợi xong rồi mới xóa được' })
-    return
+    // The browser's placeholder: cancellable once the gateway has answered with its job id.
+    if (!jobId) {
+      updateDocument(id, { statusNote: 'File đang được gửi lên – bấm xoá lại khi gửi xong để huỷ' })
+      return
+    }
+    target = `job-${jobId}`
   }
-  updateDocument(id, { statusNote: 'Đang xóa khỏi kho tri thức…' })
+  updateDocument(id, { statusNote: processing ? 'Đang dừng xử lý và xoá…' : 'Đang xóa khỏi kho tri thức…' })
   try {
-    await client.deleteDocument(id)
+    await client.deleteDocument(target)
     removeDocument(id)
   } catch (e) {
     const message = e instanceof AgentApiError && e.status === 403

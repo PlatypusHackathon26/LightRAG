@@ -1,7 +1,8 @@
 """Upload jobs: parse -> clean -> ingest -> (images), one job at a time.
 
 Each step is a subprocess logged to denso/logs/upload_<job>.log. The document is answerable
-after ingest; the image pass only adds to it.
+after ingest; the image pass only adds to it. A job can be cancelled at any point (an upload made
+by mistake): a queued one never starts, a running one has its current step killed.
 """
 
 from __future__ import annotations
@@ -43,21 +44,24 @@ SCANNABLE = {
 SAFE_NAME = re.compile(r"[^\w\s().,+-]", re.UNICODE)
 
 
+class Cancelled(Exception):
+    """The job was cancelled; not a RuntimeError, so the steps that tolerate a failure stop too."""
+
+
 @dataclass
 class Job:
     id: str
     name: str  # file name as saved under raw/
     level: int
     size: int
-    status: str = (
-        "uploading"  # uploading | parsing | chunking | embedding | vectorized | error
-    )
+    status: str = "uploading"  # uploading | parsing | chunking | embedding | vectorized | error | cancelled
     progress: int = 0
     stage: str = "queued"  # human-readable step
     images: str = "pending"  # pending | running | done | skipped | error
     error: str | None = None
     created: float = field(default_factory=time.time)
     finished: float | None = None
+    cancelled: bool = False
 
     @property
     def stem(self) -> str:
@@ -96,6 +100,8 @@ class JobRunner:
         self.jobs: dict[str, Job] = {}
         self.queue: asyncio.Queue[str] = asyncio.Queue()
         self.worker: asyncio.Task | None = None
+        self.current: str | None = None  # id of the job the worker is running
+        self._procs: dict[str, asyncio.subprocess.Process] = {}
 
     # ------------------------------------------------------------------ API
     def submit(self, filename: str, content: bytes, level: int) -> Job:
@@ -119,21 +125,59 @@ class JobRunner:
         return [
             j
             for j in self.jobs.values()
-            if j.status != "vectorized" or j.images == "running"
+            if j.status != "cancelled"
+            and (j.status != "vectorized" or j.images == "running")
         ]
+
+    async def cancel(self, job_id: str, timeout: float = 30) -> Job | None:
+        """Stop a job: a queued one never starts, a running one has its step killed.
+
+        Returns once the job has stopped (or after `timeout`), with the status it reached before
+        the cancel, so the caller knows whether it already got to the knowledge base.
+        """
+        job = self.jobs.get(job_id)
+        if job is None:
+            return None
+        job.cancelled = True
+        if self.current != job_id:
+            if job.finished is None:  # still queued: _work skips it
+                job.status, job.stage, job.finished = "cancelled", "Đã huỷ", time.time()
+            return job
+        proc = self._procs.get(job_id)
+        if proc is not None and proc.returncode is None:
+            proc.kill()
+        deadline = time.monotonic() + timeout
+        while self.current == job_id and time.monotonic() < deadline:
+            await asyncio.sleep(0.1)
+        return job
 
     # ------------------------------------------------------------------ worker
     async def _work(self) -> None:
         while not self.queue.empty():
             job = self.jobs[self.queue.get_nowait()]
+            if job.cancelled:
+                continue
+            self.current = job.id
             try:
                 await self._run(job)
+            except Cancelled:
+                job.status, job.stage, job.finished = "cancelled", "Đã huỷ", time.time()
             except Exception as exc:  # noqa: BLE001 - reported on the job, never kills the worker
                 job.status, job.error, job.finished = (
                     "error",
                     str(exc)[:500],
                     time.time(),
                 )
+            finally:
+                self.current = None
+
+    async def _go(self, job: Job, args: list[str], log_name: str) -> None:
+        """Run one step unless the job was cancelled before or during it."""
+        if job.cancelled:
+            raise Cancelled
+        await self._step(job, args, log_name)
+        if job.cancelled:
+            raise Cancelled
 
     async def _step(self, job: Job, args: list[str], log_name: str) -> None:
         log = self.logs / f"upload_{job.id}.log"
@@ -149,7 +193,13 @@ class JobRunner:
                 stderr=asyncio.subprocess.STDOUT,
                 env={**os.environ, "PYTHONIOENCODING": "utf-8"},
             )
-            code = await proc.wait()
+            self._procs[job.id] = proc
+            try:
+                code = await proc.wait()
+            finally:
+                self._procs.pop(job.id, None)
+        if job.cancelled:
+            raise Cancelled
         if code != 0:
             tail = (
                 log.read_text(encoding="utf-8", errors="replace")
@@ -172,7 +222,7 @@ class JobRunner:
             if not await self._healthy(url):
                 skipped.append(f"level_{lv}")
                 continue
-            await self._step(
+            await self._go(
                 job,
                 [
                     "denso/scripts/ingest.py",
@@ -224,7 +274,7 @@ class JobRunner:
         )
         # --force: an upload replacing a file of the same name must be read again, not served from
         # the previous parse (parse.py skips files whose meta.json exists).
-        await self._step(
+        await self._go(
             job,
             [
                 "denso/pipeline/parse.py",
@@ -245,7 +295,7 @@ class JobRunner:
             # Level 1 only (the page images leave the machine); on failure Docling's text stays.
             job.stage, job.progress = "Đọc trang scan bằng mô hình thị giác", 40
             try:
-                await self._step(
+                await self._go(
                     job,
                     ["denso/pipeline/ocr_pages.py", "--docs", job.stem],
                     "read scanned pages",
@@ -259,7 +309,7 @@ class JobRunner:
             "Làm sạch, gắn dấu trang và ngôn ngữ",
             60,
         )
-        await self._step(job, ["denso/pipeline/clean.py", job.stem], "clean")
+        await self._go(job, ["denso/pipeline/clean.py", job.stem], "clean")
         job.status, job.stage, job.progress = (
             "embedding",
             "Tạo vector và nạp vào kho tri thức",
@@ -287,10 +337,10 @@ class JobRunner:
             "Sẵn sàng hỏi đáp; đang đọc chữ trong ảnh để bổ sung",
         )
         try:
-            await self._step(
+            await self._go(
                 job, ["denso/pipeline/ocr_images.py", "--docs", job.stem], "read images"
             )
-            await self._step(
+            await self._go(
                 job, ["denso/pipeline/clean.py", job.stem], "clean with images"
             )
             await self._ingest(job, self._ingest_copy(job.stem), "ingest with images")

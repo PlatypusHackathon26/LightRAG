@@ -62,7 +62,7 @@ export interface UploadJob {
 
 /** True while the job still has work to do (the image pass runs after the document is searchable). */
 export const uploadJobActive = (job: UploadJob) =>
-  job.status !== 'error' && (job.status !== 'vectorized' || job.images === 'running' || job.images === 'pending')
+  job.status !== 'error' && job.status !== 'cancelled' && (job.status !== 'vectorized' || job.images === 'running' || job.images === 'pending')
 
 export class AgentApiError extends Error {
   constructor(

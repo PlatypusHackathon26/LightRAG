@@ -97,12 +97,37 @@ describe('upload row ids (seen live: deleting a fresh upload sent its placeholde
     expect(reloaded).toBe(0)
   })
 
-  test('deleting a placeholder row never reaches the gateway', async () => {
+  test('a placeholder row still being sent cannot be cancelled yet, and says so', async () => {
     let called = false
     const notes: string[] = []
     const client = { deleteDocument: async () => { called = true; return { status: 'deleted', levels: [] } } }
     await deleteLive('doc-upload-123-abc', () => {}, (_id, p) => notes.push(p.statusNote ?? ''), client)
     expect(called).toBe(false)
-    expect(notes[0].startsWith('Tài liệu đang được xử lý')).toBe(true)
+    expect(notes[0].startsWith('File đang được gửi lên')).toBe(true)
+  })
+
+  test('deleting an upload being processed cancels its job, then drops the row', async () => {
+    const order: string[] = []
+    const client = { deleteDocument: async (id: string) => { order.push(`server:${id}`); return { status: 'cancelled', levels: [] } } }
+    await deleteLive('doc-upload-123-abc', (id) => order.push(`row:${id}`), () => {}, client, 'a3f86dcd3907')
+    expect(order).toEqual(['server:job-a3f86dcd3907', 'row:doc-upload-123-abc'])
+  })
+
+  test('the upload remembers its job id on the row', async () => {
+    const h = harness()
+    const client = { uploadDocument: async () => job({ id: 'j1', status: 'vectorized', progress: 100, images: 'done' }), fetchUploadJob: async () => job({}) }
+    await uploadLive(new File(['%PDF'], 'manual.pdf'), h.add, h.update, client, async () => {})
+    expect(h.docs[0].jobId).toBe('j1')
+  })
+
+  test('a cancelled job stops the polling', async () => {
+    let polls = 0
+    const client = {
+      uploadDocument: async () => job({ id: 'j1', status: 'parsing', progress: 10 }),
+      fetchUploadJob: async () => { polls++; return job({ id: 'j1', status: 'cancelled', progress: 10 }) },
+    }
+    const h = harness()
+    await uploadLive(new File(['%PDF'], 'manual.pdf'), h.add, h.update, client, async () => {})
+    expect(polls).toBe(1)
   })
 })

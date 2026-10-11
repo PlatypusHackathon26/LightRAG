@@ -24,6 +24,7 @@ const STATUS_COLOR: Record<KnowledgeDocument['indexStatus'], string> = {
   embedding: '#06B6D4',
   vectorized: '#10B981',
   error: '#EF4444',
+  cancelled: '#64748B',
 }
 
 const STATUS_LABEL: Record<KnowledgeDocument['indexStatus'], string> = {
@@ -33,6 +34,7 @@ const STATUS_LABEL: Record<KnowledgeDocument['indexStatus'], string> = {
   embedding: 'Embedding',
   vectorized: 'Vectorized',
   error: 'Error',
+  cancelled: 'Cancelled',
 }
 
 const PIPELINE_STAGES: KnowledgeDocument['indexStatus'][] = [
@@ -76,7 +78,7 @@ function DocumentRow({
 }) {
   const statusColor = STATUS_COLOR[doc.indexStatus]
   const imported = formatImportedAt(doc.importedAt)
-  const isProcessing = doc.indexStatus !== 'vectorized' && doc.indexStatus !== 'error'
+  const isProcessing = doc.indexStatus !== 'vectorized' && doc.indexStatus !== 'error' && doc.indexStatus !== 'cancelled'
 
   return (
     <tr
@@ -360,7 +362,7 @@ export default function KnowledgeHubDrawer() {
                   key={doc.id}
                   doc={doc}
                   onPreview={(id) => setPreviewDocumentId(id)}
-                  onDelete={(id) => (agentClient.live ? deleteLive(id, deleteDocument, updateDocument) : deleteDocument(id))}
+                  onDelete={(id) => (agentClient.live ? deleteLive(id, deleteDocument, updateDocument, agentClient, doc.jobId) : deleteDocument(id))}
                 />
               ))}
             </tbody>
