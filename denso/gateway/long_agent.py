@@ -16,10 +16,10 @@ MACHINE_TYPE_VI = {
     "AOI_INSPECTION": "Máy kiểm tra quang AOI",
     "INJECTION_MOLDING": "Máy ép phun",
 }
-SHOWN_MESSAGES = (
-    8  # each alert appends two messages; the sidebar thread keeps the recent ones
+SHOWN_MESSAGES = 12  # one line per metric plus the episode's diagnoses
+EPISODE_GAP_S = (
+    600  # without Long-agent's episode marks: alerts closer than this are one incident
 )
-EPISODE_GAP_S = 600  # alerts closer than this belong to the same incident (its title lists all their metrics)
 
 
 def _number(value) -> float | None:
@@ -54,43 +54,65 @@ def _point(metric: dict, value: float) -> tuple[dict, bool, bool]:
     return point, warn or critical, critical
 
 
-def _messages(machine_id: str, raw: list[dict]) -> list[dict]:
-    """The latest alerts and the latest diagnosis, oldest first. Long-agent appends an alert on each
-    edge-filter trigger and a diagnosis each time it diagnoses; an older diagnosis was written on
-    earlier readings, so only the newest is shown."""
-    alerts, diagnoses = [], {}
-    for m in raw:
-        text = (m.get("text") or "").strip()
-        if not text:
-            continue
-        if m.get("role") == "assistant":
-            diagnoses[text] = m.get(
-                "timestamp"
-            )  # keeps the latest time a diagnosis was given
-        else:
-            alerts.append(
-                {
-                    "role": "system",
-                    "content": f"⚠ {text}",
-                    "timestamp": m.get("timestamp"),
-                }
+def _messages(
+    machine_id: str,
+    raw: list[dict],
+    episode: list[dict],
+    labels: dict[str, str],
+    since: str,
+) -> list[dict]:
+    """The current episode's thread, oldest first, with ids that never change meaning.
+
+    Long-agent's edge filter repeats an alert for a metric every minute while it stays out of range;
+    that is one line per metric here, carrying its latest reading and how often it was raised.
+    Earlier episodes are left out, and of this one's diagnoses only the newest is shown.
+    """
+    lines: dict[str, dict] = {}
+    for a in episode:
+        for x in a.get("anomalies") or []:
+            param = x.get("param")
+            if not param:
+                continue
+            line = lines.setdefault(
+                param, {"first": a.get("timestamp") or "", "count": 0}
             )
-    latest = max(diagnoses.items(), key=lambda kv: kv[1] or "", default=None)
-    shown = alerts[-3:] + (
-        [
+            line.update(last=x, count=line["count"] + 1)
+    shown = []
+    for param, line in lines.items():
+        x = line["last"]
+        repeated = f" · báo {line['count']} lần" if line["count"] > 1 else ""
+        shown.append(
             {
-                "role": "assistant",
-                "content": f"**Chẩn đoán của agent giám sát (Long-agent):** {latest[0]}",
-                "timestamp": latest[1],
+                "id": f"la-{machine_id}-{since}-{param}",
+                "role": "system",
+                "content": f"⚠ [{machine_id}] {labels.get(param, param)} = {x.get('value')}"
+                f" – {x.get('reason', 'ngoài ngưỡng')}{repeated}",
+                "timestamp": line["first"],
             }
-        ]
-        if latest
-        else []
+        )
+    # Only the newest diagnosis of the episode: an earlier one was written on fewer, earlier readings.
+    latest = max(
+        (
+            m
+            for m in raw
+            if m.get("role") == "assistant"
+            and (m.get("text") or "").strip()
+            and (m.get("timestamp") or "") >= since
+        ),
+        key=lambda m: m.get("timestamp") or "",
+        default=None,
     )
-    shown = sorted(shown, key=lambda m: m["timestamp"] or "")[-SHOWN_MESSAGES:]
-    for i, m in enumerate(shown):
-        m["id"] = f"la-{machine_id}-{i}"
-    return shown
+    if latest:
+        shown.append(
+            {
+                "id": f"la-{machine_id}-{since}-diagnosis",
+                "role": "assistant",
+                "content": "**Chẩn đoán của agent giám sát (Long-agent):** "
+                + latest["text"].strip(),
+                "timestamp": latest.get("timestamp") or "",
+            }
+        )
+    return sorted(shown, key=lambda m: m["timestamp"])[-SHOWN_MESSAGES:]
 
 
 def _proposal(machine_id: str, incident_id: str, pending: list[dict]) -> dict | None:
@@ -126,8 +148,12 @@ def _proposal(machine_id: str, incident_id: str, pending: list[dict]) -> dict | 
     return None
 
 
-def _episode(alerts: list[dict]) -> list[dict]:
-    """The machine's latest run of alerts: walking back, it ends at the first gap over EPISODE_GAP_S."""
+def _episode(alerts: list[dict], started: str | None = None) -> list[dict]:
+    """The machine's current episode of alerts. Long-agent marks when it began (``episode_started``,
+    reset once the machine has recovered); without that mark, walking back from the newest alert,
+    it ends at the first gap over EPISODE_GAP_S."""
+    if started:
+        return [a for a in alerts if (a.get("timestamp") or "") >= started]
 
     def seconds(a: dict) -> float:
         try:
@@ -170,7 +196,9 @@ def incidents_from_state(state: dict) -> list[dict]:
             warn, critical = warn or w, critical or c
         # Every metric of the current episode, in the order they tripped: the title grows with the fault
         # instead of jumping to whichever metric alerted last.
-        episode = _episode(alerts_by_machine.get(mid) or [])
+        episode = _episode(
+            alerts_by_machine.get(mid) or [], machine.get("episode_started")
+        )
         alert = episode[-1] if episode else {}
         params = list(
             dict.fromkeys(
@@ -182,8 +210,16 @@ def incidents_from_state(state: dict) -> list[dict]:
         alarm = f"Bất thường: {', '.join(params)}" if params else "Cảnh báo bất thường"
         incident_id = f"LA-{mid}"
         proposal = _proposal(mid, incident_id, pending)
-        active = machine.get("label") == "alert" or warn
-        msgs = _messages(mid, conv.get("messages") or [])
+        since = (
+            machine.get("episode_started")
+            or (episode[0].get("timestamp") if episode else "")
+            or ""
+        )
+        in_episode = bool(machine.get("episode_started")) and not machine.get(
+            "episode_ended"
+        )
+        active = in_episode or machine.get("label") == "alert" or warn
+        msgs = _messages(mid, conv.get("messages") or [], episode, labels, since)
         timestamp = alert.get("timestamp") or (
             msgs[-1]["timestamp"] if msgs else datetime.now().isoformat()
         )

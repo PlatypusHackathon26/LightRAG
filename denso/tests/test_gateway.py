@@ -1115,6 +1115,87 @@ def test_a_pending_long_agent_action_becomes_a_hitl_proposal():
     )
 
 
+def _episode_state(started, alerts, messages):
+    machine = {
+        **LA_STATE["machines"]["MC-MILL-01"],
+        "episode_started": started,
+        "episode_ended": None,
+    }
+    return {
+        **LA_STATE,
+        "machines": {"MC-MILL-01": machine},
+        "alerts": [{"machine_id": "MC-MILL-01", **a} for a in alerts],
+        "conversations": [
+            {
+                "category": "system_alert",
+                "machine_id": "MC-MILL-01",
+                "messages": messages,
+            }
+        ],
+    }
+
+
+def _low(ts, value):
+    return {
+        "timestamp": ts,
+        "anomalies": [
+            {"param": "Coolant_Pressure_Bar", "value": value, "reason": "low"}
+        ],
+    }
+
+
+def test_a_metric_repeated_every_minute_is_one_line_with_its_latest_reading():
+    from long_agent import incidents_from_state
+
+    alerts = [
+        _low("2026-10-12T00:19:52", 0.0),
+        _low("2026-10-12T00:20:52", 0.2),
+        _low("2026-10-12T00:21:52", 0.1),
+    ]
+    (inc,) = incidents_from_state(_episode_state("2026-10-12T00:19:50", alerts, []))
+    (line,) = [m for m in inc["messages"] if m["role"] == "system"]
+    assert (
+        "Áp suất tưới nguội = 0.1" in line["content"] and "báo 3 lần" in line["content"]
+    )
+    # a new alert keeps the line's id: the UI updates it in place instead of reshuffling the thread
+    (again,) = incidents_from_state(
+        _episode_state(
+            "2026-10-12T00:19:50", alerts + [_low("2026-10-12T00:22:52", 0.0)], []
+        )
+    )
+    assert [m["id"] for m in again["messages"]] == [line["id"]]
+
+
+def test_an_earlier_episode_never_leaks_into_the_current_one():
+    from long_agent import incidents_from_state
+
+    old = [_low("2026-10-12T00:15:00", 4.1)]
+    messages = [
+        {
+            "role": "system",
+            "text": "[MC-MILL-01] Canh bao: Coolant_Pressure_Bar=4.1 (low)",
+            "timestamp": "2026-10-12T00:15:00",
+        },
+        {
+            "role": "assistant",
+            "text": "Old diagnosis",
+            "timestamp": "2026-10-12T00:15:05",
+        },
+        {
+            "role": "assistant",
+            "text": "New diagnosis",
+            "timestamp": "2026-10-12T00:20:00",
+        },
+    ]
+    state = _episode_state(
+        "2026-10-12T00:19:50", old + [_low("2026-10-12T00:19:52", 0.0)], messages
+    )
+    (inc,) = incidents_from_state(state)
+    text = " ".join(m["content"] for m in inc["messages"])
+    assert "4.1" not in text and "Old diagnosis" not in text and "New diagnosis" in text
+    assert inc["status"] == "active"  # the episode is open even between two alerts
+
+
 def _la_gateway(tmp_path, state=None):
     seen = []
 

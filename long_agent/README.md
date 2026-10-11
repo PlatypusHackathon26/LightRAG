@@ -63,7 +63,7 @@ TelemetryReceiver — ngưỡng tĩnh + ROC + cooldown 60 s/chỉ số
         │  "alert" (kèm danh sách anomaly)
         ▼
 AgentBrain.handle_alert
-        │  • mỗi máy chỉ chẩn đoán lại khi có chỉ số MỚI vượt ngưỡng (LONG_AGENT_REPEAT_S)
+        │  • trong một đợt sự cố, máy chỉ được chẩn đoán lại khi có chỉ số MỚI vượt ngưỡng
         │  • RAGEngine.query_with_schema: prompt gồm giới hạn, mục "CHỈ SỐ ĐANG VƯỢT NGƯỠNG",
         │    danh mục lệnh của loại máy; lệnh đầu tiên phải sửa nguyên nhân gốc
         │    (REPAIR_*, REPLACE_*, REFILL_*...), tối đa 2 lệnh; lệnh ngoài whitelist bị loại
@@ -152,7 +152,8 @@ python main.py          # bảng tester tại http://127.0.0.1:8085
 | `LONG_AGENT_LLM_EXTRA_BODY` | `{}` | JSON thêm vào request (ví dụ tắt thinking) |
 | `LONG_AGENT_PROPOSE` | `1` | `0` = chỉ chẩn đoán, không đề xuất lệnh |
 | `LONG_AGENT_AUTO_LOW` | — | `1` = lệnh rủi ro thấp chạy ngay (hành vi gốc); mặc định mọi lệnh chờ duyệt |
-| `LONG_AGENT_REPEAT_S` | `120` | Cửa sổ chặn chẩn đoán lặp cho cùng một máy (giây) |
+| `LONG_AGENT_REPEAT_S` | `120` | Khác 0: trong một đợt sự cố chỉ chẩn đoán lại khi có chỉ số mới; 0 = chẩn đoán mọi cảnh báo |
+| `LONG_AGENT_RECOVERY_S` | `30` | Máy bình thường liên tục bấy nhiêu giây thì đợt sự cố đóng: các lệnh còn chờ của máy được rút, lần cảnh báo sau là sự cố mới |
 
 ## 🔌 9. API (`dashboard/server.py`)
 

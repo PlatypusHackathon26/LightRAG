@@ -8,6 +8,7 @@ from iot.event_bus import EventBus
 from iot.telemetry_receiver import TelemetryReceiver
 from iot.actuator_dispatcher import ActuatorDispatcher
 from iot.action_approval import ActionApproval
+from iot.recovery import RecoveryTracker, is_repair, withdraw_mitigations
 
 from agent.brain import AgentBrain
 from agent.tools import AgentTools
@@ -84,6 +85,53 @@ def main():
     bus.subscribe("alert", brain.handle_alert)
     bus.subscribe("normal", brain.handle_heartbeat)
 
+    # Đợt sự cố: mở ở cảnh báo đầu, đóng khi máy bình thường liên tục 30 s -> 'machine_recovered'.
+    recovery = RecoveryTracker(
+        hold_s=float(os.environ.get("LONG_AGENT_RECOVERY_S", "30"))
+    )
+    bus.subscribe("alert", lambda e: recovery.alert(e.get("machine_id", "UNKNOWN")))
+
+    def _on_normal(event: dict) -> None:
+        mid = event.get("machine_id", "UNKNOWN")
+        if recovery.normal(mid):
+            bus.publish({"event_type": "machine_recovered", "machine_id": mid})
+
+    bus.subscribe("normal", _on_normal)
+
+    def _withdraw_mitigations(
+        machine_id: str, why: str, everything: bool = False
+    ) -> None:
+        withdraw_mitigations(approval, machine_id, why, include_repairs=everything)
+
+    bus.subscribe("machine_recovered", brain.handle_recovered)
+    bus.subscribe(
+        "machine_recovered",
+        lambda e: _withdraw_mitigations(
+            e.get("machine_id", "UNKNOWN"), "Máy đã bình thường trở lại", True
+        ),
+    )
+
+    def _decide(action_id: str, decision: str) -> dict:
+        ticket = next(
+            (
+                a
+                for a in approval.get_pending_actions()
+                if a.get("approval_id") == action_id
+            ),
+            None,
+        )
+        result = approval.decide(action_id, decision)
+        if (
+            ticket
+            and result.get("status") == "approved"
+            and is_repair(ticket.get("command", ""))
+        ):
+            _withdraw_mitigations(
+                ticket.get("machine_id", "UNKNOWN"),
+                f"Đã sửa tận gốc bằng {ticket.get('command')}",
+            )
+        return result
+
     def _route_action_command(event: dict) -> None:
         # Một lệnh đang chờ duyệt cho máy này thì không tạo thêm bản trùng.
         if any(
@@ -134,7 +182,7 @@ def main():
         machines_dict=machines_dict,
         approval=approval,
         on_chat=brain.handle_user_query,
-        on_decision=approval.decide,
+        on_decision=_decide,
     )
     # Localhost by default: the fault, decision and PLC routes have no authentication. The DENSO
     # Agent Gateway (denso/gateway) relays the dashboard; LONG_AGENT_HOST=0.0.0.0 opens it to the LAN.

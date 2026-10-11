@@ -2,8 +2,7 @@
 from __future__ import annotations
 
 import logging
-import time
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 
 logger = logging.getLogger("AgentBrain")
 
@@ -23,13 +22,13 @@ class AgentBrain:
         self.execute_actions = execute_actions
         # Bộ nhớ lưu trạng thái gần nhất của các máy
         self.machine_states: Dict[str, Dict[str, Any]] = {}
-        # Trong cửa sổ này, một máy chỉ được chẩn đoán lại khi có THÊM chỉ số bất thường mới: với LLM thật,
-        # mỗi cảnh báo lặp (kể cả từng chỉ số của cùng một sự cố đến lệch nhau vài giây) là một lượt gọi API
-        # và một chẩn đoán trùng. 0 = luôn chẩn đoán (như bản gốc).
+        # Khác 0: trong một đợt sự cố, máy chỉ được chẩn đoán lại khi có THÊM chỉ số bất thường mới -
+        # bộ lọc biên báo lại cùng chỉ số mỗi phút, và mỗi lần là một lượt gọi LLM và một chẩn đoán trùng.
+        # Đợt kết thúc ở handle_recovered (máy bình thường trở lại). 0 = luôn chẩn đoán (như bản gốc).
         self.repeat_window_s = repeat_window_s
         self._diagnosed: Dict[
-            str, Tuple[float, set]
-        ] = {}  # máy -> (thời điểm, các chỉ số đã chẩn đoán)
+            str, set
+        ] = {}  # máy -> các chỉ số đã chẩn đoán trong đợt này
 
     def handle_heartbeat(self, event: Dict[str, Any]) -> None:
         """Gói tin 'normal' (chu kỳ định kỳ): chỉ cập nhật trạng thái sống, không gọi RAG."""
@@ -39,6 +38,10 @@ class AgentBrain:
             "machine_type": event.get("machine_type", ""),
             "payload": event.get("payload", {}),
         }
+
+    def handle_recovered(self, event: Dict[str, Any]) -> None:
+        """Gói tin 'machine_recovered': đợt sự cố đã đóng, lần cảnh báo sau là sự cố mới."""
+        self._diagnosed.pop(event.get("machine_id", "UNKNOWN"), None)
 
     def handle_alert(self, event: Dict[str, Any]) -> None:
         """Gói tin 'alert': Quy trình xử lý sự cố chuẩn hóa với LLM/RAG."""
@@ -51,19 +54,15 @@ class AgentBrain:
             for a in event.get("anomalies") or []
             if isinstance(a, dict)
         }
-        now = time.monotonic()
         if self.repeat_window_s:
-            since, seen = self._diagnosed.get(machine_id, (float("-inf"), set()))
-            if now - since < self.repeat_window_s and params <= seen:
+            seen = self._diagnosed.get(machine_id, set())
+            if params <= seen:
                 logger.info(
-                    f"[Brain] Bỏ qua cảnh báo lặp {machine_id} {sorted(params)} (đã chẩn đoán gần đây)"
+                    f"[Brain] Bỏ qua cảnh báo lặp {machine_id} {sorted(params)} (đã chẩn đoán trong đợt này)"
                 )
                 return
             # Chỉ số mới tham gia: chẩn đoán lại với toàn bộ telemetry hiện tại.
-            self._diagnosed[machine_id] = (
-                now,
-                (seen | params) if now - since < self.repeat_window_s else params,
-            )
+            self._diagnosed[machine_id] = seen | params
 
         logger.info(
             f"[Brain] Bắt đầu xử lý cảnh báo cho máy {machine_id} ({machine_type})"

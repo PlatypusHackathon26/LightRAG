@@ -33,13 +33,16 @@ class StateStore:
         active_faults: Optional[List[str]] = None,
     ) -> None:
         with self._lock:
-            self._states[machine_id] = {
-                "machine_id": machine_id,
-                "machine_type": machine_type,
-                "label": label,
-                "telemetry": payload,
-                "active_faults": active_faults or [],
-            }
+            # Cập nhật tại chỗ: giữ các trường do sự kiện ghi (mốc đợt sự cố, history...).
+            st = self._states.setdefault(machine_id, {"machine_id": machine_id})
+            st.update(
+                {
+                    "machine_type": machine_type,
+                    "label": label,
+                    "telemetry": payload,
+                    "active_faults": active_faults or [],
+                }
+            )
 
     def get_all_machines(self) -> Dict[str, Dict[str, Any]]:
         with self._lock:
@@ -91,6 +94,10 @@ class StateStore:
                         hist.setdefault(k, []).append(v)
                 if label == "alert":
                     st["status"] = "alert"
+                    # Đợt sự cố: mở ở cảnh báo đầu tiên sau khi máy đã hồi phục (machine_recovered).
+                    if not st.get("episode_started") or st.get("episode_ended"):
+                        st["episode_started"] = _now()
+                        st["episode_ended"] = None
                     anomalies = event.get("anomalies", [])
                     detail = (
                         "; ".join(
@@ -154,6 +161,11 @@ class StateStore:
                         "agent_result": None,
                     }
                 )
+            elif etype == "machine_recovered":
+                st = self._states.get(mid)
+                if st is not None and st.get("episode_started"):
+                    st["episode_ended"] = _now()
+                    st["status"] = "normal"
             elif etype == "chat_notification":
                 conv = self._find_or_create_conv(mid, "system_alert")
                 conv["messages"].append(
