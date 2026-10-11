@@ -723,3 +723,29 @@ def test_only_the_latest_long_agent_diagnosis_is_shown():
     (inc,) = incidents_from_state({**LA_STATE, "conversations": [conv]})
     diagnoses = [m["content"] for m in inc["messages"] if m["role"] == "assistant"]
     assert diagnoses == ["**Chẩn đoán của agent giám sát (Long-agent):** Coolant pump failure: pressure 0 bar, spindle 139.9 °C."]
+
+
+def test_the_incident_title_lists_every_metric_of_the_episode():
+    from long_agent import incidents_from_state
+    alerts = [
+        {"machine_id": "MC-MILL-01", "timestamp": "2026-10-11T11:00:00", "anomalies": [{"param": "Spindle_Load_Pct"}]},
+        {"machine_id": "MC-MILL-01", "timestamp": "2026-10-11T12:40:00", "anomalies": [{"param": "Spindle_Load_Pct"}]},
+        {"machine_id": "MC-MILL-01", "timestamp": "2026-10-11T12:40:02", "anomalies": [{"param": "Coolant_Pressure_Bar"}]},
+        {"machine_id": "MC-MILL-01", "timestamp": "2026-10-11T12:41:30", "anomalies": [{"param": "Spindle_Temp_C"}]},
+    ]
+    (inc,) = incidents_from_state({**LA_STATE, "alerts": alerts})
+    # The 11:00 alert is a previous episode (over 10 min before): not part of this title.
+    assert inc["alarm"] == "Bất thường: Tải động cơ, Áp suất tưới nguội, Nhiệt độ trục chính"
+    assert inc["timestamp"] == "2026-10-11T12:41:30"
+
+
+def test_page_one_of_a_markdown_upload_is_not_cited_as_a_page(tmp_path):
+    from app import without_page_one
+    (tmp_path / "raw").mkdir()
+    (tmp_path / "raw" / "machines_description.md").write_text("# x", encoding="utf-8")
+    (tmp_path / "raw" / "Manual.pdf").write_bytes(b"%PDF")
+    content = "Áp suất giảm 1.2 Bar/s (machines_description.md, trang 1). Siết 6.9 Nm (Manual, p. 1)."
+    citations = [{"documentName": "machines_description", "pages": "1"}, {"documentName": "Manual", "pages": "1"}]
+    content, citations = without_page_one(content, citations, tmp_path)
+    assert content == "Áp suất giảm 1.2 Bar/s (machines_description.md). Siết 6.9 Nm (Manual, p. 1)."
+    assert [c["pages"] for c in citations] == [None, "1"]  # a PDF's page 1 is a real page

@@ -1,7 +1,8 @@
 /**
  * Live mode: turn the gateway's incidents (Long-agent alerts) into sidebar conversations.
  * Messages that came from the gateway (ids "la-…") are replaced on every refresh; what the
- * operator typed in the thread, and the answers to it, are kept after them.
+ * operator typed in the thread, and the answers to it, are kept. The thread is in the order
+ * things happened, so an alert raised after a question appears below it.
  */
 import type { AgentState, ChatMessage, Conversation, Incident } from './types/agentic'
 
@@ -9,6 +10,11 @@ export const GATEWAY_MESSAGE_PREFIX = 'la-'
 
 const clock = (iso?: string): string =>
   (iso ? new Date(iso) : new Date()).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+
+const instant = (m: ChatMessage): number => {
+  const t = m.at ? Date.parse(m.at) : NaN
+  return Number.isNaN(t) ? Number.POSITIVE_INFINITY : t  // undated: keep it at the end
+}
 
 function stateFor(incident: Incident): AgentState {
   if (incident.status === 'awaiting_approval') return 'waiting_hitl'
@@ -26,6 +32,7 @@ export function mergeLiveIncidents(conversations: Conversation[], incidents: Inc
       role: m.role,
       content: m.content,
       timestamp: clock(m.timestamp),
+      at: m.timestamp,
     }))
     const local = (existing?.messages ?? []).filter((m) => !m.id.startsWith(GATEWAY_MESSAGE_PREFIX))
     const busy = existing?.agentState === 'investigating'  // a question in this thread is being answered
@@ -35,7 +42,7 @@ export function mergeLiveIncidents(conversations: Conversation[], incidents: Inc
       title: `${incident.device}: ${incident.alarm}`,
       timestamp: incident.timestamp,
       incidentId: incident.id,
-      messages: [...fromGateway, ...local],
+      messages: [...fromGateway, ...local].sort((a, b) => instant(a) - instant(b)),  // stable
       agentState: busy ? 'investigating' : stateFor(incident),
       agentEvents: existing?.agentEvents ?? [],
     }

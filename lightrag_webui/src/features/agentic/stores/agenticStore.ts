@@ -147,6 +147,7 @@ export const useAgenticStore = create<AgenticStore>((set, get) => ({
       role: 'user',
       content,
       timestamp: now,
+      at: new Date().toISOString(),
     }
     set((s) => ({
       conversations: s.conversations.map((c) =>
@@ -161,6 +162,7 @@ export const useAgenticStore = create<AgenticStore>((set, get) => ({
       role: 'assistant',
       content,
       timestamp: now,
+      at: new Date().toISOString(),
       citations,
     }
     set((s) => ({

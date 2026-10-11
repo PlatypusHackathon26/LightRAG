@@ -532,6 +532,24 @@ def raw_file(file_path: str, data_dir: Path, max_level: int = MAX_LEVEL) -> Path
     return None
 
 
+PAGELESS = {".md", ".txt"}  # an upload with no pages: its single "--- [Trang 1 ...]" marker is not a page
+
+
+def without_page_one(content: str, citations: list[dict], data_dir: Path) -> tuple[str, list[dict]]:
+    """Drop "page 1" from citations of documents uploaded as Markdown or text, and from the answer's
+    "(name.md, trang 1)" references to them: a page number there says nothing."""
+    out = []
+    for c in citations:
+        raw = raw_file(f"{c.get('documentName', '')}.md", data_dir)
+        if raw is not None and raw.suffix.lower() in PAGELESS and c.get("pages") == "1":
+            c = {**c, "pages": None}
+            name = re.escape(c["documentName"])
+            content = re.sub(rf"(\(\s*{name}(?:\.md|\.txt)?)\s*,\s*(?:trang|tr\.|p\.|page|ページ)\s*1\s*\)", r"\1)",
+                             content, flags=re.IGNORECASE)
+        out.append(c)
+    return content, out
+
+
 def incident_query(message: str, inc: dict) -> str:
     """Retrieval text for a chat in an alert: a short question ("what do I check next?") retrieves nothing
     on its own, so the alarm is added - in Vietnamese questions only, as the alarms are Vietnamese
@@ -847,6 +865,7 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
         listed = listed_reference_ids(strip_reasoning(body.get("response", "")))
         citations = [] if refused else to_citations(only_cited(body.get("references") or [], content, named, listed),
                                                     content, named)
+        content, citations = without_page_one(content, citations, settings.data_dir)
         grounded = refused or bool(citations)
         history[conversation].extend(
             [{"role": "user", "content": req.message}, {"role": "assistant", "content": content}]

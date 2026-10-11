@@ -113,3 +113,9 @@ def test_the_prompt_names_the_metrics_out_of_their_limits():
     assert "Coolant_Pressure_Bar (Áp suất tưới nguội) = 0.0 Bar < tối thiểu 5" in section
     assert "Spindle_Temp_C (Nhiệt độ trục chính) = 139.9 °C > tối đa 75" in section
     assert "RPM" not in section  # within noise: not a deviation
+
+
+def test_the_prompt_asks_for_the_root_cause_fix_first():
+    prompt = RAGEngine().build_format_prompt("MC-MILL-01", "CNC_MILLING", {"Coolant_Pressure_Bar": 0.0})
+    assert "action ĐẦU TIÊN phải là lệnh khắc phục tận gốc" in prompt
+    assert "REPAIR_COOLANT_SYSTEM" in prompt  # the catalogue it must choose from

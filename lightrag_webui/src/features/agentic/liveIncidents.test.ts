@@ -39,6 +39,22 @@ describe('live incidents in the sidebar', () => {
     expect(convs[0].messages.map((m) => m.content)).toEqual(['new alert', 'Cần kiểm tra gì?'])
   })
 
+  test('an alert raised after a question appears below it', () => {
+    let convs = mergeLiveIncidents([qa], [incident('active', [
+      { id: 'la-MC-MILL-01-0', role: 'system', content: 'first alert', timestamp: '2026-10-11T12:04:03' },
+    ])])
+    convs = convs.map((c) => c.id === 'CONV-LA-MC-MILL-01'
+      ? { ...c, messages: [...c.messages,
+        { id: 'msg-1', role: 'user' as const, content: 'Cần kiểm tra gì?', timestamp: '12:05:00', at: new Date(2026, 9, 11, 12, 5).toISOString() },
+        { id: 'msg-2', role: 'assistant' as const, content: 'Kiểm tra bơm.', timestamp: '12:05:10', at: new Date(2026, 9, 11, 12, 5, 10).toISOString() }] }
+      : c)
+    convs = mergeLiveIncidents(convs, [incident('active', [
+      { id: 'la-MC-MILL-01-0', role: 'system', content: 'first alert', timestamp: '2026-10-11T12:04:03' },
+      { id: 'la-MC-MILL-01-1', role: 'system', content: 'second alert', timestamp: '2026-10-11T12:06:00' },
+    ])])
+    expect(convs[0].messages.map((m) => m.content)).toEqual(['first alert', 'Cần kiểm tra gì?', 'Kiểm tra bơm.', 'second alert'])
+  })
+
   test('a thread being answered keeps its state; a cleared alert goes idle; a gone one disappears', () => {
     let convs = mergeLiveIncidents([qa], [incident('active', [])])
     convs = convs.map((c) => (c.type === 'incident' ? { ...c, agentState: 'investigating' as const } : c))

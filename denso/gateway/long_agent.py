@@ -17,6 +17,7 @@ MACHINE_TYPE_VI = {
     "INJECTION_MOLDING": "Máy ép phun",
 }
 SHOWN_MESSAGES = 8  # each alert appends two messages; the sidebar thread keeps the recent ones
+EPISODE_GAP_S = 600  # alerts closer than this belong to the same incident (its title lists all their metrics)
 
 
 def _number(value) -> float | None:
@@ -74,13 +75,28 @@ def _proposal(machine_id: str, incident_id: str, pending: list[dict]) -> dict | 
     return None
 
 
+def _episode(alerts: list[dict]) -> list[dict]:
+    """The machine's latest run of alerts: walking back, it ends at the first gap over EPISODE_GAP_S."""
+    def seconds(a: dict) -> float:
+        try:
+            return datetime.fromisoformat(a.get("timestamp") or "").timestamp()
+        except ValueError:
+            return 0.0
+    run = []
+    for a in reversed(alerts):
+        if run and seconds(run[-1]) - seconds(a) > EPISODE_GAP_S:
+            break
+        run.append(a)
+    return list(reversed(run))
+
+
 def incidents_from_state(state: dict) -> list[dict]:
     """Long-agent's GET /api/state -> the UI's Incident list (newest first)."""
     machines = state.get("machines") or {}
     pending = state.get("pending_approvals") or []
-    latest_alert = {}
+    alerts_by_machine: dict[str, list[dict]] = {}
     for a in state.get("alerts") or []:
-        latest_alert[a.get("machine_id")] = a
+        alerts_by_machine.setdefault(a.get("machine_id"), []).append(a)
     out = []
     for conv in state.get("conversations") or []:
         if conv.get("category") != "system_alert" or not conv.get("machine_id"):
@@ -97,8 +113,12 @@ def incidents_from_state(state: dict) -> list[dict]:
             point, w, c = _point(metric, value)
             points.append(point)
             warn, critical = warn or w, critical or c
-        alert = latest_alert.get(mid) or {}
-        params = list(dict.fromkeys(labels.get(x.get("param"), x.get("param")) for x in alert.get("anomalies") or []))
+        # Every metric of the current episode, in the order they tripped: the title grows with the fault
+        # instead of jumping to whichever metric alerted last.
+        episode = _episode(alerts_by_machine.get(mid) or [])
+        alert = episode[-1] if episode else {}
+        params = list(dict.fromkeys(labels.get(x.get("param"), x.get("param"))
+                                    for a in episode for x in a.get("anomalies") or []))
         alarm = f"Bất thường: {', '.join(params)}" if params else "Cảnh báo bất thường"
         incident_id = f"LA-{mid}"
         proposal = _proposal(mid, incident_id, pending)

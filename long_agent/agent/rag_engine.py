@@ -310,6 +310,10 @@ class RAGEngine:
             "1. CHỈ ĐƯỢC CHỌN các 'command' có trong danh mục lệnh hợp lệ ở trên. Tuyệt đối không tự đặt tên lệnh mới.\n"
             "2. 'params' phải đúng kiểu dữ liệu và giá trị quy định.\n"
             "3. 'risk_level' phải đúng giá trị đã định nghĩa cho lệnh đó ('LOW' hoặc 'HIGH').\n"
+            "3b. Khi nguyên nhân là một hỏng hóc phần cứng (bơm, ổ bi, khí nén, dao, pin, van…), action ĐẦU TIÊN phải là "
+            "lệnh khắc phục tận gốc trong danh mục (REPAIR_*, REPLACE_*, REFILL_*, SERVICE_*, LUBRICATE_*, RECALIBRATE_*, "
+            "CLEAN_*, RETURN_TO_CHARGER…); lệnh giảm nhẹ tạm thời (giảm tốc, tăng làm mát, tạm dừng) chỉ được đi kèm "
+            "phía sau, không thay thế. Tối đa 2 action.\n"
             "4. Phải trả về DUY NHẤT một đối tượng JSON hợp lệ, không có lời mở đầu hay kết thúc, theo định dạng:\n"
             "{\n"
             '  "diagnosis": "<2-3 câu tiếng Việt: chỉ số nào lệch khỏi ngưỡng (kèm giá trị), nguyên nhân khả dĩ nhất, '

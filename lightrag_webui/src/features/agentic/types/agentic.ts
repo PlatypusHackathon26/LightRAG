@@ -127,6 +127,8 @@ export interface ChatMessage {
   role: MessageRole
   content: string
   timestamp: string
+  /** When it was said (ISO). Live incident threads are ordered by it. */
+  at?: string
   citations?: Citation[]
   isStreaming?: boolean
 }
