@@ -1,9 +1,9 @@
 # iot/recovery.py
 """Đợt sự cố (episode) của từng máy: mở khi có cảnh báo, đóng khi máy đã bình thường đủ lâu.
 
-Bộ lọc biên chỉ gửi nhãn 'normal' khi KHÔNG còn chỉ số nào bất thường; một lần 'normal' đơn lẻ
-có thể chỉ là số đo dao động quanh ngưỡng, nên đợt chỉ đóng khi máy bình thường liên tục
-`hold_s` giây kể từ cảnh báo cuối.
+Vòng mô phỏng báo từng mẫu (mỗi giây) máy còn chỉ số bất thường hay không; một mẫu bình thường
+đơn lẻ có thể chỉ là số đo dao động quanh ngưỡng, nên đợt chỉ đóng khi máy bình thường liên tục
+`hold_s` giây.
 """
 
 from __future__ import annotations
@@ -44,7 +44,7 @@ class RecoveryTracker:
     """alert(machine) mở / giữ đợt; normal(machine) trả True đúng một lần khi đợt đóng."""
 
     def __init__(
-        self, hold_s: float = 20.0, clock: Optional[Callable[[], float]] = None
+        self, hold_s: float = 8.0, clock: Optional[Callable[[], float]] = None
     ) -> None:
         self.hold_s = hold_s
         self._clock = clock or time.monotonic

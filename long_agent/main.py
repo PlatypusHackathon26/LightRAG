@@ -25,7 +25,7 @@ from dashboard.state_store import StateStore
 from dashboard.server import create_app
 
 
-def start_iot_simulation(machines, receiver, state_store):
+def start_iot_simulation(machines, receiver, state_store, on_tick=None):
     """Vòng lặp IoT nền: bóc tách lỗi ngầm khỏi telemetry gửi cho AI."""
     while True:
         for m in machines:
@@ -45,6 +45,8 @@ def start_iot_simulation(machines, receiver, state_store):
             }
             result = receiver.process(clean_iot_event)
             label = result.get("label", "normal") if result else "normal"
+            if on_tick is not None:
+                on_tick(m.machine_id, receiver.is_abnormal(m.machine_id))
 
             # 4. Gửi dữ liệu lên StateStore: Gồm telemetry sạch + nhãn lỗi ngầm cho Tester đối chiếu
             state_store.update_machine_telemetry(
@@ -85,18 +87,20 @@ def main():
     bus.subscribe("alert", brain.handle_alert)
     bus.subscribe("normal", brain.handle_heartbeat)
 
-    # Đợt sự cố: mở ở cảnh báo đầu, đóng khi máy bình thường liên tục 20 s -> 'machine_recovered'.
+    # Đợt sự cố: mở ở cảnh báo đầu, đóng khi mọi chỉ số đã bình thường liên tục 8 s -> 'machine_recovered'.
+    # Đọc từng mẫu (mỗi giây) chứ không chờ heartbeat 'normal' 10 s một lần của bộ lọc biên.
     recovery = RecoveryTracker(
-        hold_s=float(os.environ.get("LONG_AGENT_RECOVERY_S", "20"))
+        hold_s=float(os.environ.get("LONG_AGENT_RECOVERY_S", "8"))
     )
     bus.subscribe("alert", lambda e: recovery.alert(e.get("machine_id", "UNKNOWN")))
 
-    def _on_normal(event: dict) -> None:
-        mid = event.get("machine_id", "UNKNOWN")
-        if recovery.normal(mid):
-            bus.publish({"event_type": "machine_recovered", "machine_id": mid})
-
-    bus.subscribe("normal", _on_normal)
+    def _on_tick(machine_id: str, abnormal: bool) -> None:
+        if abnormal:
+            recovery.alert(
+                machine_id
+            )  # còn ngoài ngưỡng (kể cả khi cảnh báo bị cooldown chặn)
+        elif recovery.normal(machine_id):
+            bus.publish({"event_type": "machine_recovered", "machine_id": machine_id})
 
     def _withdraw_mitigations(
         machine_id: str, why: str, everything: bool = False
@@ -170,7 +174,7 @@ def main():
     # 3. Khởi chạy luồng giả lập IoT
     sim_thread = threading.Thread(
         target=start_iot_simulation,
-        args=(machines, receiver, state_store),
+        args=(machines, receiver, state_store, _on_tick),
         daemon=True,
     )
     sim_thread.start()

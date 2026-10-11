@@ -105,3 +105,29 @@ def test_a_root_cause_fix_withdraws_temporary_measures_and_recovery_withdraws_al
 def test_repairs_are_the_commands_that_clear_a_fault():
     assert is_repair("REPAIR_COOLANT_SYSTEM") and is_repair("replace_tool")
     assert not is_repair("COOLANT_BOOST") and not is_repair("RETURN_TO_CHARGER")
+
+
+def test_the_receiver_says_per_sample_whether_a_machine_is_still_out_of_range():
+    from iot.telemetry_receiver import TelemetryReceiver
+
+    receiver = TelemetryReceiver()
+
+    def sample(pressure):
+        receiver.process(
+            {
+                "event_type": "telemetry",
+                "machine_id": "MC-MILL-01",
+                "machine_type": "CNC_MILLING",
+                "payload": {
+                    "Controller_Execution": "RUNNING",
+                    "Coolant_Pressure_Bar": pressure,
+                },
+            }
+        )
+        return receiver.is_abnormal("MC-MILL-01")
+
+    assert sample(0.0) is True
+    assert (
+        sample(0.0) is True
+    )  # the alert is in cooldown, the machine is still abnormal
+    assert sample(20.0) is False

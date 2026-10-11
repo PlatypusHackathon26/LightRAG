@@ -62,6 +62,13 @@ class TelemetryReceiver:
         # Sổ ghi cooldown theo từng thông số: {machine_id: {param_name: float (monotonic)}}
         self._last_alert_time: Dict[str, Dict[str, float]] = {}
 
+        # Mẫu gần nhất của máy có chỉ số bất thường không (kể cả khi cảnh báo đang bị cooldown chặn)
+        self._abnormal: Dict[str, bool] = {}
+
+    def is_abnormal(self, machine_id: str) -> bool:
+        """Mẫu telemetry gần nhất của máy còn chỉ số ngoài ngưỡng / tăng quá nhanh hay không."""
+        return self._abnormal.get(machine_id, False)
+
     def process(self, event: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         if not event or event.get("event_type") != "telemetry":
             return None
@@ -76,6 +83,7 @@ class TelemetryReceiver:
         raw_anomalies = self._detect_anomalies(
             machine_id, machine_type, payload, now_mono
         )
+        self._abnormal[machine_id] = bool(raw_anomalies)
 
         # 2. Bộ lọc chống spam (Cooldown)
         active_anomalies: List[Dict[str, Any]] = []
