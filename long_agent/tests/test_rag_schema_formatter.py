@@ -1,243 +1,241 @@
-"""From an LLM answer, however it is worded, to exactly one command the machine declares."""
-
+# tests/test_rag_schema_formatter.py
 from __future__ import annotations
 
 import json
 import unittest
 from typing import Any, Dict, List
 
+from agent.rag_engine import COMMAND_CATALOG, RAGEngine
 from agent.brain import AgentBrain
-from agent.rag_engine import COMMAND_CATALOG, RAGEngine, command_specs
+from agent.tools import AgentTools
 from iot.event_bus import EventBus
 
-CNC_COOLANT_LOSS = {
-    "Controller_Execution": "RUNNING",
-    "Coolant_Pressure_Bar": 0.0,
-    "Spindle_Temp_C": 64.0,
-    "Spindle_Load_Pct": 46.0,
-    "Vibration_RMS_mm_s": 1.3,
-}
 
+class RagSchemaFormatterTests(unittest.TestCase):
+    """Kiểm tra khả năng chuẩn hóa văn phong khác nhau về format cố định của IoT."""
 
-class ScriptedLLM:
-    """Returns the given answers in order and records every prompt."""
+    def setUp(self) -> None:
+        self.rag = RAGEngine()
 
-    def __init__(self, *answers: Any) -> None:
-        self.answers = [
-            a if isinstance(a, str) else json.dumps(a, ensure_ascii=False)
-            for a in answers
-        ]
-        self.prompts: List[str] = []
+    def test_command_catalog_contains_all_five_machines(self) -> None:
+        expected_machines = {
+            "CNC_MILLING",
+            "ROBOT_ARM",
+            "AMR_VEHICLE",
+            "AOI_INSPECTION",
+            "INJECTION_MOLDING",
+        }
+        self.assertTrue(expected_machines.issubset(set(COMMAND_CATALOG.keys())))
+        for m_type in expected_machines:
+            cmds = COMMAND_CATALOG[m_type]
+            self.assertGreater(len(cmds), 0)
+            for c in cmds:
+                self.assertIn("command", c)
+                self.assertIn("risk_level", c)
+                self.assertIn(c["risk_level"], ("LOW", "HIGH"))
 
-    def __call__(self, prompt: str) -> str:
-        self.prompts.append(prompt)
-        return self.answers[min(len(self.prompts), len(self.answers)) - 1]
+    def test_mock_query_with_schema_returns_valid_structure(self) -> None:
+        telemetry = {
+            "Spindle_Temp_C": 88.5,
+            "Spindle_Load_Pct": 75.0,
+            "Vibration_RMS_mm_s": 5.2,
+        }
+        res = self.rag.query_with_schema(
+            machine_id="MC-MILL-01",
+            machine_type="CNC_MILLING",
+            telemetry=telemetry,
+        )
+        self.assertIn("diagnosis", res)
+        self.assertIn("actions", res)
+        self.assertIsInstance(res["actions"], list)
+        self.assertGreater(len(res["actions"]), 0)
 
+        for act in res["actions"]:
+            self.assertIn("command", act)
+            self.assertIn("params", act)
+            self.assertIn("risk_level", act)
+            self.assertIn(act["risk_level"], ("LOW", "HIGH"))
 
-def diagnose(
-    llm, telemetry=CNC_COOLANT_LOSS, attempts=None, retriever=None
-) -> Dict[str, Any]:
-    return RAGEngine(llm_callable=llm, retriever=retriever).query_with_schema(
-        "MC-MILL-01", "CNC_MILLING", telemetry, attempts=attempts
-    )
+    def test_safe_parse_json_handles_markdown_and_surrounding_text(self) -> None:
+        raw_llm_output = (
+            "Chào bạn, dưới đây là chẩn đoán của hệ thống:\n"
+            "```json\n"
+            "{\n"
+            '  "diagnosis": "Áp suất kẹp khuôn tụt dưới ngưỡng.",\n'
+            '  "actions": [\n'
+            "    {\n"
+            '      "command": "REPAIR_HYDRAULIC_VALVE",\n'
+            '      "params": {},\n'
+            '      "risk_level": "HIGH",\n'
+            '      "reason": "Rò van thủy lực"\n'
+            "    }\n"
+            "  ]\n"
+            "}\n"
+            "```\n"
+            "Vui lòng kiểm tra ngay."
+        )
+        parsed = self.rag._safe_parse_json(raw_llm_output)
+        self.assertEqual(parsed["diagnosis"], "Áp suất kẹp khuôn tụt dưới ngưỡng.")
+        self.assertEqual(len(parsed["actions"]), 1)
+        self.assertEqual(parsed["actions"][0]["command"], "REPAIR_HYDRAULIC_VALVE")
 
+    def test_whitelisting_filters_out_invented_commands(self) -> None:
+        # Giả lập trường hợp LLM tự bịa ra lệnh không có trong whitelist
+        def fake_llm_callable(prompt):
+            return json.dumps(FAKE_ANSWER)
 
-class CatalogTests(unittest.TestCase):
-    def test_the_catalog_is_exactly_what_each_machine_declares(self) -> None:
-        self.assertEqual(
-            set(COMMAND_CATALOG),
+        FAKE_ANSWER = {
+            "diagnosis": "Lỗi động cơ",
+            "actions": [
+                {
+                    "command": "FAKE_NONEXISTENT_COMMAND",
+                    "params": {},
+                    "risk_level": "LOW",
+                    "reason": "Lệnh không hợp lệ",
+                },
+                {
+                    "command": "SET_FEED_OVERRIDE",
+                    "params": {"override_pct": 40.0},
+                    "risk_level": "LOW",
+                    "reason": "Giảm tốc độ ăn dao",
+                },
+            ],
+        }
+
+        rag_with_llm = RAGEngine(llm_callable=fake_llm_callable)
+        res = rag_with_llm.query_with_schema(
+            machine_id="MC-MILL-01",
+            machine_type="CNC_MILLING",
+            telemetry={"Spindle_Load_Pct": 85.0},
+        )
+        # Chỉ lệnh SET_FEED_OVERRIDE được giữ lại
+        commands = [a["command"] for a in res["actions"]]
+        self.assertNotIn("FAKE_NONEXISTENT_COMMAND", commands)
+        self.assertIn("SET_FEED_OVERRIDE", commands)
+        self.assertEqual(len(res["actions"]), 1)
+
+    def test_different_writing_styles_mapped_to_same_canonical_output(self) -> None:
+        """
+        Kiểm tra 3 văn phong khác nhau (formal, vắn tắt, tiếng Anh)
+        nhưng cùng mang 1 ý nghĩa: đều được format về cùng lệnh IoT.
+        """
+        # Cùng một ý đồ can thiệp: Giảm feedrate 50% + Bơm bôi trơn trục chính
+        style_formal_json = json.dumps(
             {
-                "CNC_MILLING",
-                "ROBOT_ARM",
-                "AMR_VEHICLE",
-                "AOI_INSPECTION",
-                "INJECTION_MOLDING",
-            },
-        )
-        for machine_type, entries in COMMAND_CATALOG.items():
-            with self.subTest(machine_type=machine_type):
-                self.assertEqual(
-                    {e["command"] for e in entries}, set(command_specs(machine_type))
-                )
-                for e in entries:
-                    self.assertIn(e["risk_level"], ("LOW", "HIGH"))
-        self.assertNotIn(
-            "TOGGLE_COOLANT", {e["command"] for e in COMMAND_CATALOG["CNC_MILLING"]}
-        )
-
-
-class WordingTests(unittest.TestCase):
-    def test_different_wordings_of_the_same_repair_map_to_one_command(self) -> None:
-        for wording in (
-            "REPAIR_COOLANT_SYSTEM",
-            "repair coolant system",
-            "Repair-Coolant-System",
-            "REPAIR_COOLANT_PUMP",
-            "replace coolant pump",
-        ):
-            with self.subTest(wording=wording):
-                result = diagnose(
-                    ScriptedLLM({"diagnosis": "Bơm tưới nguội hỏng", "repair": wording})
-                )
-                self.assertEqual(result["repair"], "REPAIR_COOLANT_SYSTEM")
-                self.assertEqual(
-                    [a["command"] for a in result["actions"]], ["REPAIR_COOLANT_SYSTEM"]
-                )
-
-    def test_an_invented_command_is_reasked_once_with_the_reason(self) -> None:
-        llm = ScriptedLLM(
-            {"diagnosis": "x", "repair": "FIX_EVERYTHING"},
-            {"diagnosis": "Bơm hỏng", "repair": "REPAIR_COOLANT_SYSTEM"},
-        )
-        result = diagnose(llm)
-        self.assertEqual(len(llm.prompts), 2)
-        self.assertIn("FIX_EVERYTHING", llm.prompts[1])
-        self.assertEqual(result["repair"], "REPAIR_COOLANT_SYSTEM")
-
-    def test_free_text_is_never_turned_into_a_command(self) -> None:
-        llm = ScriptedLLM(
-            "Cần làm mát và giảm tốc chạy dao ngay.", "Vẫn là văn bản tự do."
-        )
-        result = diagnose(llm)
-        self.assertEqual(result["actions"], [])
-        self.assertEqual(len(llm.prompts), 1)  # nothing named, so nothing to correct
-
-    def test_still_invalid_after_the_reask_proposes_nothing_and_says_so(self) -> None:
-        result = diagnose(
-            ScriptedLLM({"repair": "TOGGLE_COOLANT"}, {"repair": "TOGGLE_COOLANT"})
-        )
-        self.assertEqual(result["actions"], [])
-        self.assertTrue(
-            any("không chọn được lệnh hợp lệ" in n for n in result["notes"])
-        )
-
-    def test_a_control_command_is_not_accepted_as_a_repair(self) -> None:
-        result = diagnose(ScriptedLLM({"repair": "SAFE_STOP"}, {"repair": "SAFE_STOP"}))
-        self.assertIsNone(result["repair"])
-
-    def test_a_repair_that_already_failed_is_not_proposed_again(self) -> None:
-        llm = ScriptedLLM(
-            {"repair": "REFILL_SPINDLE_LUBRICANT"}, {"repair": "REPAIR_COOLANT_SYSTEM"}
-        )
-        result = diagnose(
-            llm, attempts=[{"repair": "REFILL_SPINDLE_LUBRICANT", "outcome": "failed"}]
-        )
-        self.assertIn("REFILL_SPINDLE_LUBRICANT", llm.prompts[0])  # told what was tried
-        self.assertEqual(result["repair"], "REPAIR_COOLANT_SYSTEM")
-
-    def test_mitigation_params_are_validated_against_the_declaration(self) -> None:
-        result = diagnose(
-            ScriptedLLM(
-                {
-                    "repair": None,
-                    "mitigation": {
-                        "command": "set feed override",
-                        "params": {"override_pct": 999},
-                    },
-                }
-            )
-        )
-        self.assertIsNone(result["mitigation"])
-        self.assertTrue(result["notes"])
-        ok = diagnose(
-            ScriptedLLM(
-                {
-                    "repair": None,
-                    "mitigation": {
+                "diagnosis": "Kính gửi quý kỹ sư, hệ thống ghi nhận nhiệt độ tăng cao vượt mức cho phép.",
+                "actions": [
+                    {
                         "command": "SET_FEED_OVERRIDE",
-                        "params": {"override_pct": "40"},
+                        "params": {"override_pct": 50.0},
+                        "risk_level": "LOW",
+                        "reason": "Giảm tải",
                     },
-                }
-            )
-        )
-        self.assertEqual(
-            ok["mitigation"],
-            {"command": "SET_FEED_OVERRIDE", "params": {"override_pct": 40.0}},
-        )
-        self.assertEqual(ok["actions"][0]["kind"], "setpoint")
-
-    def test_json_inside_fences_and_chatter_is_read(self) -> None:
-        raw = 'Đây là kết quả:\n```json\n{"diagnosis": "Bơm hỏng", "repair": "REPAIR_COOLANT_SYSTEM"}\n```\nXong.'
-        self.assertEqual(diagnose(ScriptedLLM(raw))["repair"], "REPAIR_COOLANT_SYSTEM")
-
-
-class DocumentTests(unittest.TestCase):
-    def test_retrieved_documents_are_put_in_the_prompt(self) -> None:
-        queries: List[str] = []
-
-        def retriever(q: str) -> str:
-            queries.append(q)
-            return "SOP-CNC-02: áp suất tưới nguội < 5 Bar -> REPAIR_COOLANT_SYSTEM"
-
-        llm = ScriptedLLM(
-            {
-                "diagnosis": "Theo SOP-CNC-02",
-                "repair": "REPAIR_COOLANT_SYSTEM",
-                "sources": ["maintenance_sop.md"],
+                    {
+                        "command": "REFILL_SPINDLE_LUBRICANT",
+                        "params": {},
+                        "risk_level": "HIGH",
+                        "reason": "Bôi trơn",
+                    },
+                ],
             }
         )
-        result = diagnose(llm, retriever=retriever)
-        self.assertIn("Áp suất tưới nguội", queries[0])
-        self.assertIn("SOP-CNC-02", llm.prompts[0])
-        self.assertTrue(result["documents_used"])
-        self.assertEqual(result["sources"], ["maintenance_sop.md"])
 
-    def test_a_failing_knowledge_base_does_not_stop_the_diagnosis(self) -> None:
-        def broken(q: str) -> str:
-            raise ConnectionError("LightRAG down")
-
-        result = diagnose(
-            ScriptedLLM({"repair": "REPAIR_COOLANT_SYSTEM"}), retriever=broken
+        style_brief_json = json.dumps(
+            {
+                "diagnosis": "Nóng trục chính. Hạ tải dao ngay.",
+                "actions": [
+                    {
+                        "command": "SET_FEED_OVERRIDE",
+                        "params": {"override_pct": 50.0},
+                        "risk_level": "LOW",
+                        "reason": "Hạ tốc 50%",
+                    },
+                    {
+                        "command": "REFILL_SPINDLE_LUBRICANT",
+                        "params": {},
+                        "risk_level": "HIGH",
+                        "reason": "Thêm dầu",
+                    },
+                ],
+            }
         )
-        self.assertEqual(result["repair"], "REPAIR_COOLANT_SYSTEM")
-        self.assertFalse(result["documents_used"])
 
-
-class OfflineTests(unittest.TestCase):
-    def test_without_an_llm_the_symptom_table_picks_the_repair(self) -> None:
-        result = RAGEngine().query_with_schema(
-            "MC-MILL-01", "CNC_MILLING", CNC_COOLANT_LOSS
+        style_english_json = json.dumps(
+            {
+                "diagnosis": "Critical spindle overheat detected on MC-MILL-01.",
+                "actions": [
+                    {
+                        "command": "SET_FEED_OVERRIDE",
+                        "params": {"override_pct": 50.0},
+                        "risk_level": "LOW",
+                        "reason": "Reduce feed to 50%",
+                    },
+                    {
+                        "command": "REFILL_SPINDLE_LUBRICANT",
+                        "params": {},
+                        "risk_level": "HIGH",
+                        "reason": "Refill lube",
+                    },
+                ],
+            }
         )
-        self.assertEqual(result["repair"], "REPAIR_COOLANT_SYSTEM")
 
-    def test_ordinary_battery_drain_means_charging_not_a_new_battery(self) -> None:
-        result = RAGEngine().query_with_schema(
-            "MC-AMR-01", "AMR_VEHICLE", {"Battery_Pct": 20.0, "Battery_Temp_C": 33.0}
-        )
-        self.assertIsNone(result["repair"])
-        self.assertEqual(result["mitigation"]["command"], "RETURN_TO_CHARGER")
-        hot = RAGEngine().query_with_schema(
-            "MC-AMR-01", "AMR_VEHICLE", {"Battery_Pct": 20.0, "Battery_Temp_C": 58.0}
-        )
-        self.assertEqual(hot["repair"], "REPLACE_BATTERY_MODULE")
+        for mock_output in (style_formal_json, style_brief_json, style_english_json):
+            rag_engine = RAGEngine(llm_callable=lambda p: mock_output)
+            res = rag_engine.query_with_schema(
+                "MC-MILL-01", "CNC_MILLING", {"Spindle_Temp_C": 92.0}
+            )
+            cmds = [a["command"] for a in res["actions"]]
+            self.assertEqual(cmds, ["SET_FEED_OVERRIDE", "REFILL_SPINDLE_LUBRICANT"])
+            self.assertEqual(res["actions"][0]["params"]["override_pct"], 50.0)
 
 
-class BrainIntegrationTests(unittest.TestCase):
-    def test_the_brain_publishes_the_diagnosis_and_one_repair(self) -> None:
+class AgentBrainIntegrationTests(unittest.TestCase):
+    """Kiểm tra tích hợp AgentBrain tiếp nhận output đã format từ RAGEngine."""
+
+    def test_brain_handle_alert_publishes_chat_and_commands(self) -> None:
         bus = EventBus(max_workers=2)
-        chats: List[Dict[str, Any]] = []
-        commands: List[Dict[str, Any]] = []
-        bus.subscribe("chat_notification", chats.append)
-        bus.subscribe("action_command", commands.append)
-        rag = RAGEngine(
-            llm_callable=ScriptedLLM(
-                {"diagnosis": "Bơm tưới nguội hỏng", "repair": "REPAIR_COOLANT_SYSTEM"}
-            )
+        chat_events: List[Dict[str, Any]] = []
+        action_events: List[Dict[str, Any]] = []
+
+        bus.subscribe("chat_notification", lambda e: chat_events.append(e))
+        bus.subscribe("action_command", lambda e: action_events.append(e))
+
+        tools = AgentTools(event_bus=bus)
+        rag = RAGEngine()
+        brain = AgentBrain(
+            rag_engine=rag, tools=tools, event_bus=bus, execute_actions=True
         )
-        AgentBrain(rag_engine=rag, event_bus=bus).handle_alert(
-            {
-                "machine_id": "MC-MILL-01",
-                "machine_type": "CNC_MILLING",
-                "payload": CNC_COOLANT_LOSS,
-            }
-        )
-        bus.shutdown(wait=True)  # waits for the handlers
-        self.assertEqual(len(chats), 1)
-        self.assertIn("Bơm tưới nguội hỏng", chats[0]["text"])
-        self.assertEqual(
-            [(c["command"], c["kind"]) for c in commands],
-            [("REPAIR_COOLANT_SYSTEM", "repair")],
-        )
+
+        alert_event = {
+            "event_type": "alert",
+            "machine_id": "MC-MILL-01",
+            "machine_type": "CNC_MILLING",
+            "payload": {
+                "Spindle_Temp_C": 95.0,
+                "Vibration_RMS_mm_s": 5.5,
+            },
+        }
+
+        brain.handle_alert(alert_event)
+
+        # Chờ nhẹ cho worker event bus
+        import time
+
+        time.sleep(0.3)
+
+        # 1. Có thông báo chẩn đoán lên chat cho kỹ sư
+        self.assertEqual(len(chat_events), 1)
+        self.assertEqual(chat_events[0]["source"], "AI_RAG")
+        self.assertEqual(chat_events[0]["machine_id"], "MC-MILL-01")
+
+        # 2. Có lệnh chuẩn đẩy vào action_command
+        self.assertGreater(len(action_events), 0)
+        cmd_names = [a["command"] for a in action_events]
+        self.assertIn("SET_FEED_OVERRIDE", cmd_names)
+        self.assertIn("REFILL_SPINDLE_LUBRICANT", cmd_names)
+
+        bus.shutdown()
 
 
 if __name__ == "__main__":

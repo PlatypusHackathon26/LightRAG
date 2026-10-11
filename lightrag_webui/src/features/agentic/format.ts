@@ -18,9 +18,8 @@ export function firstPage(pages?: string): number | undefined {
   return Number.isFinite(n) && n > 0 ? n : undefined
 }
 
-/** The command a proposed action would run ("SET_RPM", "S=50"), for the approve button. In a
- * multi-step procedure only the main step (the repair) names its command. */
+/** The command a proposed action would run ("SET_RPM", "S=50"), for the approve button. */
 export function actionCommand(items: { type: string; params: Record<string, string> }[]): string | undefined {
-  const plc = items.find((i) => i.type === 'plc_command' && (i.params['Lệnh'] ?? i.params.Command))
+  const plc = items.find((i) => i.type === 'plc_command')
   return plc?.params['Lệnh'] ?? plc?.params.Command ?? undefined
 }

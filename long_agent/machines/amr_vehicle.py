@@ -1,21 +1,13 @@
 from __future__ import annotations
 
 import random
+import time
 from typing import Any, Dict, Optional
-
-from machines import commands as cmd
 from machines.base_machine import BaseMachine
-from machines.commands import CommandSpec, ParamSpec
 
 
 class AmrVehicle(BaseMachine):
-    """Mô phỏng xe tự hành nhà kho AMR chuẩn VDA 5050 (Model: OMRON LD-90 / MiR250).
-
-    RUNNING là đang chạy lộ trình; CHARGING là đang nằm trên đế sạc."""
-
-    MACHINE_TYPE = "AMR_VEHICLE"
-    MIN_START_BATTERY_PCT = 15.0
-    CRITICAL_BATTERY_TEMP_C = 55.0
+    """Mô phỏng xe tự hành nhà kho AMR chuẩn VDA 5050 (Model: OMRON LD-90 / MiR250)."""
 
     def __init__(self, event_hub: Optional[Any] = None) -> None:
         super().__init__(
@@ -27,6 +19,7 @@ class AmrVehicle(BaseMachine):
         )
 
         # 1. Trạng thái điều khiển
+        self.state = "NAVIGATING"  # Mặc định xe chạy vận chuyển linh kiện
         self.target_station = "STATION_DOCK_2"
         self.current_station = "STATION_DOCK_1"
         self.target_speed_m_s = 1.2
@@ -39,6 +32,7 @@ class AmrVehicle(BaseMachine):
         self.payload_weight_kg = 25.0
         self.lidar_confidence_pct = self.nominal("Lidar_Confidence_Pct")
         self.ambient_temp_c = 26.0
+        self.last_update_time = time.time()
 
         # 3. Khai báo lỗi
         self.active_faults = {
@@ -47,96 +41,14 @@ class AmrVehicle(BaseMachine):
             "WHEEL_MOTOR_RESISTANCE": False,  # Kẹt cơ cấu bánh xe
         }
 
-    @classmethod
-    def command_specs(cls) -> Dict[str, CommandSpec]:
-        specs = cmd.control_commands(
-            hold_desc="Dừng xe tại chỗ, giữ lộ trình",
-            resume_from=frozenset({cmd.HOLD, cmd.CHARGING}),
-        )
-        for spec in (
-            cmd.repair(
-                "REPLACE_BATTERY_MODULE",
-                "BATTERY_CELL_DEGRADATION",
-                "Thay cụm cell pin LiFePO4 mới (module mới sạc sẵn 95%)",
-                60,
-                ("REPLACE_BATTERY", "CHANGE_BATTERY", "THAY_PIN"),
-            ),
-            cmd.repair(
-                "CLEAN_LIDAR_OPTICS",
-                "LIDAR_OPTICAL_DIRT",
-                "Lau sạch ống kính LiDAR",
-                20,
-                ("CLEAN_LIDAR", "CLEAN_LIDAR_LENS"),
-            ),
-            cmd.repair(
-                "SERVICE_DRIVE_MOTOR",
-                "WHEEL_MOTOR_RESISTANCE",
-                "Kiểm tra, bôi trơn cụm động cơ bánh xe",
-                45,
-                ("REPAIR_DRIVE_MOTOR", "SERVICE_WHEEL_MOTOR", "LUBRICATE_WHEEL"),
-            ),
-            CommandSpec(
-                "RETURN_TO_CHARGER",
-                "control",
-                "Về đế sạc để nạp pin (chỉ bù pin cạn do vận hành; không sửa được pin chai)",
-                frozenset({cmd.RUNNING, cmd.HOLD, cmd.STOPPED}),
-                cmd.CHARGING,
-                risk="LOW",
-                aliases=("GO_CHARGE", "CHARGE", "VE_SAC"),
-            ),
-            CommandSpec(
-                "NAVIGATE_TO",
-                "setpoint",
-                "Chạy tới trạm chỉ định",
-                frozenset({cmd.RUNNING, cmd.HOLD, cmd.CHARGING}),
-                cmd.RUNNING,
-                risk="LOW",
-                params={
-                    "station": ParamSpec(
-                        "str", default="BUFFER_STATION", desc_vi="mã trạm"
-                    ),
-                    "speed_m_s": ParamSpec("float", 0, 1.4, 1.2, "tốc độ m/s"),
-                },
-                aliases=("GOTO", "GO_TO_STATION"),
-            ),
-        ):
-            specs[spec.name] = spec
-        return specs
-
-    def on_command(self, name: str, params: Dict[str, Any]) -> Optional[str]:
-        if name == "RETURN_TO_CHARGER":
-            self.target_station = "CHARGING_STATION"
-            return "Xe về và kết nối đế sạc tự động."
-        if name == "NAVIGATE_TO":
-            self.target_station = params["station"]
-            self.target_speed_m_s = params["speed_m_s"]
-            return f"Chấp thuận lộ trình VDA 5050 tới trạm {self.target_station}."
-        if name in ("RESUME", "START"):
-            self.target_speed_m_s = self.target_speed_m_s or 1.2
-        return None
-
-    def on_repaired(self, name: str) -> None:
-        if name == "REPLACE_BATTERY_MODULE":
-            self.battery_pct = (
-                95.0  # the new module's own charge, not a reset of the old one
-            )
-
-    def at_rest(self) -> bool:
-        return self.current_velocity_m_s < 0.05
-
-    def start_blocker(self) -> Optional[str]:
-        if self.battery_pct < self.MIN_START_BATTERY_PCT:
-            return f"pin {self.battery_pct:.1f}% < {self.MIN_START_BATTERY_PCT:.0f}%, cần sạc"
-        if self.battery_temp_c > self.CRITICAL_BATTERY_TEMP_C:
-            return f"nhiệt pin {self.battery_temp_c:.1f}°C > {self.CRITICAL_BATTERY_TEMP_C:.0f}°C, chờ nguội"
-        return None
-
     def generate_telemetry(self) -> Dict[str, Any]:
         with self._lock:
-            dt = self._tick()
+            current_time = time.time()
+            dt = max(0.1, min(current_time - self.last_update_time, 2.5))
+            self.last_update_time = current_time
 
-            # --- VẬN TỐC XE: chỉ chạy khi RUNNING; còn lại phanh (dừng khẩn cấp phanh gấp đôi) ---
-            if self.running:
+            # --- VẬN TỐC XE ---
+            if self.state == "NAVIGATING":
                 desired = self.target_speed_m_s
                 if self.active_faults["WHEEL_MOTOR_RESISTANCE"]:
                     desired *= 0.5  # Kẹt bánh làm tốc độ tụt mạnh
@@ -144,19 +56,19 @@ class AmrVehicle(BaseMachine):
                     self.current_velocity_m_s, desired, dt, 4.0
                 )
             else:
-                decel = 5.0 if self.state == cmd.E_STOP else 2.5
                 self.current_velocity_m_s = max(
-                    0.0, self.current_velocity_m_s - decel * dt
+                    0.0, self.current_velocity_m_s - 2.5 * dt
                 )
 
             # --- TIÊU HAO & NHIỆT ĐỘ PIN ---
-            if self.running:
+            if self.state == "NAVIGATING":
                 drain = 0.04 + (self.payload_weight_kg / 90.0) * 0.02
                 if self.active_faults["BATTERY_CELL_DEGRADATION"]:
                     drain *= 4.0  # Tụt pin gấp 4 lần
                 if self.active_faults["WHEEL_MOTOR_RESISTANCE"]:
                     drain *= 1.8
                 self.battery_pct = max(0.0, self.battery_pct - drain * dt)
+
                 heat_gen = drain * 5.0
                 self.battery_temp_c = self.approach(
                     self.battery_temp_c,
@@ -164,7 +76,7 @@ class AmrVehicle(BaseMachine):
                     dt,
                     1 / 0.03,
                 )
-            elif self.state == cmd.CHARGING:
+            elif self.state == "CHARGING":
                 self.battery_pct = min(100.0, self.battery_pct + 0.4 * dt)
                 cooling = (self.battery_temp_c - self.ambient_temp_c) * 0.08 * dt
                 self.battery_temp_c = max(
@@ -211,3 +123,85 @@ class AmrVehicle(BaseMachine):
                 ),
                 "Simulated_Active_Faults": self.get_active_faults(),
             }
+
+    def detect_anomaly(self, telemetry: Dict[str, Any]) -> Optional[str]:
+        bat = telemetry.get("Battery_Pct", 100.0)
+        temp = telemetry.get("Battery_Temp_C", 30.0)
+        lidar = telemetry.get("Lidar_Confidence_Pct", 100.0)
+
+        if bat < 15.0 and self.state != "CHARGING":
+            return "CRITICAL_BATTERY_EXHAUSTED"
+        if temp > 55.0:
+            return "CRITICAL_BATTERY_OVERHEAT"
+        if lidar < 65.0:
+            return "LOCALIZATION_CONFIDENCE_LOST"
+        if bat < 25.0 and self.state != "CHARGING":
+            return "WARNING_LOW_BATTERY"
+        return None
+
+    def receive_plc_command(
+        self, command: str, payload: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        payload = payload or {}
+        with self._lock:
+            detail = ""
+
+            if command == "CLEAN_LIDAR_OPTICS":
+                self.clear_fault("LIDAR_OPTICAL_DIRT")
+                detail = (
+                    "Đã làm sạch ống kính quang học LiDAR bằng khí nén; SLAM phục hồi."
+                )
+
+            elif command == "SERVICE_DRIVE_MOTOR":
+                self.clear_fault("WHEEL_MOTOR_RESISTANCE")
+                detail = "Đã kiểm tra và bôi trơn trục động cơ di chuyển."
+
+            elif command == "REPLACE_BATTERY_MODULE":
+                self.clear_fault("BATTERY_CELL_DEGRADATION")
+                self.battery_pct = 95.0
+                detail = "Đã thay cụm cell pin LiFePO4 mới."
+
+            elif command == "RETURN_TO_CHARGER":
+                self.target_station = "CHARGING_STATION"
+                self.state = "CHARGING"
+                self.target_speed_m_s = 0.0
+                self.payload_weight_kg = 0.0
+                detail = "Xe đã kết nối đế sạc tiếp xúc tự động."
+
+            elif command == "NAVIGATE_TO":
+                station = payload.get("station", "BUFFER_STATION")
+                self.target_station = station
+                self.state = "NAVIGATING"
+                self.target_speed_m_s = max(
+                    0.0,
+                    min(
+                        self.max_configured_speed, float(payload.get("speed_m_s", 1.2))
+                    ),
+                )
+                detail = f"Chấp thuận lệnh lộ trình VDA 5050 tới trạm {station}."
+
+            elif command == "RESUME":
+                self.state = "NAVIGATING"
+                self.target_speed_m_s = 1.2
+                detail = "Tiếp tục lộ trình vận chuyển tự hành."
+
+            elif command == "EMERGENCY_STOP":
+                self.state = "E_STOP"
+                self.target_speed_m_s = 0.0
+                self.current_velocity_m_s = 0.0
+                detail = "Phanh điện từ kích hoạt, dừng xe khẩn cấp."
+
+            else:
+                detail = f"Lệnh '{command}' không được hỗ trợ trong giao thức VDA 5050."
+
+            return self._build_event(
+                "plc_command_executed",
+                {
+                    "machine_id": self.machine_id,
+                    "command": command,
+                    "execution_detail": detail,
+                    "current_state": self.state,
+                    "active_faults": self.get_active_faults(),
+                },
+                priority="info",
+            )

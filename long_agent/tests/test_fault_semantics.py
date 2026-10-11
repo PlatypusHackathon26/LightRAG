@@ -11,8 +11,8 @@ Each documented fault in machines_description.md is checked for two things:
 from __future__ import annotations
 
 import unittest
+from unittest.mock import patch
 
-from sim_helpers import repair, repair_and_restart, restart, simulate
 from machines.cnc_milling import CncMilling
 from machines.robot_arm import RobotArm
 from machines.amr_vehicle import AmrVehicle
@@ -71,6 +71,18 @@ DOCUMENTED_REPAIRS = {
 }
 
 
+def simulate(machine, seconds, step=1.0):
+    """Advance a machine with output noise removed and return the last sample."""
+    now = machine.last_update_time
+    telemetry = {}
+    with patch("random.uniform", return_value=0.0):
+        for _ in range(round(seconds / step)):
+            now += step
+            with patch("time.time", return_value=now):
+                telemetry = machine.generate_telemetry()
+    return telemetry
+
+
 class FaultCatalogTests(unittest.TestCase):
     def test_machines_start_clean_with_the_documented_catalog(self):
         for factory, faults in DOCUMENTED_FAULTS.items():
@@ -94,25 +106,26 @@ class FaultCatalogTests(unittest.TestCase):
                 machine = factory()
                 peers = [f for f in machine.active_faults if f != fault]
                 machine.set_active_faults([fault] + peers)
-                repair(machine, command)
+                machine.receive_plc_command(command)
                 self.assertNotIn(fault, machine.get_active_faults())
                 self.assertEqual(sorted(machine.get_active_faults()), sorted(peers))
 
     def test_enabling_faults_never_forces_a_control_state_change(self):
         # A sensor/mechanical fault is a condition, not an operator command, so
         # it must not stop, pause or e-stop the machine by itself.
+        expected_state = {
+            CncMilling: "RUNNING",
+            RobotArm: "RUNNING",
+            AmrVehicle: "NAVIGATING",
+            AoiInspection: "RUNNING",
+            InjectionMolding: "RUNNING",
+        }
         for factory, faults in DOCUMENTED_FAULTS.items():
             with self.subTest(machine=factory.__name__):
                 machine = factory()
                 machine.set_active_faults(sorted(faults))
                 simulate(machine, 30)
-                self.assertEqual(machine.state, "RUNNING")
-
-    def test_every_repair_is_declared_by_its_machine_as_fixing_that_fault(self):
-        for (factory, fault), command in DOCUMENTED_REPAIRS.items():
-            with self.subTest(command=command):
-                spec = factory.command_specs()[command]
-                self.assertEqual((spec.kind, spec.fixes), ("repair", fault))
+                self.assertEqual(machine.state, expected_state[factory])
 
 
 class CncFaultTests(unittest.TestCase):
@@ -125,7 +138,7 @@ class CncFaultTests(unittest.TestCase):
         self.assertAlmostEqual(telemetry["Spindle_Load_Pct"], 65, delta=3)
         self.assertGreater(telemetry["Spindle_Temp_C"], 120)
         self.assertGreater(telemetry["Vibration_RMS_mm_s"], 7.1)
-        repair_and_restart(machine, "REFILL_SPINDLE_LUBRICANT")
+        machine.receive_plc_command("REFILL_SPINDLE_LUBRICANT")
         self.assertNotIn("SPINDLE_BEARING_LACK_OF_LUBE", machine.get_active_faults())
         recovered = simulate(machine, 300)
         self.assertLess(recovered["Spindle_Temp_C"], 45)
@@ -141,7 +154,7 @@ class CncFaultTests(unittest.TestCase):
         self.assertGreater(telemetry["Spindle_Temp_C"], 55)
         self.assertLess(telemetry["Spindle_Temp_C"], 80)
         self.assertGreater(machine.tool_wear_pct, 16.0)
-        repair_and_restart(machine, "REPAIR_COOLANT_SYSTEM")
+        machine.receive_plc_command("REPAIR_COOLANT_SYSTEM")
         recovered = simulate(machine, 60)
         self.assertGreater(recovered["Coolant_Pressure_Bar"], 18.0)
         self.assertLess(recovered["Spindle_Temp_C"], 45)
@@ -157,11 +170,8 @@ class CncFaultTests(unittest.TestCase):
         self.assertGreater(telemetry["Vibration_RMS_mm_s"], 4.5)
         self.assertLess(telemetry["Vibration_RMS_mm_s"], 7.1)
         self.assertGreater(machine.tool_wear_pct, 13.5)
-        repair(machine, "REPLACE_TOOL")
-        self.assertEqual(
-            machine.tool_wear_pct, 0.0
-        )  # a new tool: the root cause itself
-        restart(machine)
+        machine.receive_plc_command("REPLACE_TOOL")
+        self.assertEqual(machine.tool_wear_pct, 0.0)
         recovered = simulate(machine, 60)
         self.assertLess(recovered["Spindle_Load_Pct"], 48)
 
@@ -192,7 +202,7 @@ class RobotFaultTests(unittest.TestCase):
         self.assertGreater(telemetry["Joint_3_Current_A"], 16.5)
         self.assertAlmostEqual(telemetry["Joint_3_Current_A"], 17.75, delta=0.2)
         self.assertGreater(telemetry["Motor_Temp_C"], 80)
-        repair_and_restart(machine, "REFILL_GEARBOX_GREASE")
+        machine.receive_plc_command("REFILL_GEARBOX_GREASE")
         recovered = simulate(machine, 300)
         self.assertLess(recovered["Joint_3_Current_A"], 10)
         self.assertLess(recovered["Motor_Temp_C"], 50)
@@ -206,7 +216,7 @@ class RobotFaultTests(unittest.TestCase):
         self.assertAlmostEqual(telemetry["Gripper_Pressure_Bar"], 0.8, delta=0.15)
         self.assertAlmostEqual(telemetry["Joint_3_Current_A"], 9.25, delta=0.1)
         self.assertAlmostEqual(telemetry["Motor_Temp_C"], 40.0, delta=1.0)
-        repair_and_restart(machine, "REPAIR_PNEUMATIC_SYSTEM")
+        machine.receive_plc_command("REPAIR_PNEUMATIC_SYSTEM")
         recovered = simulate(machine, 30)
         self.assertGreater(recovered["Gripper_Pressure_Bar"], 5.5)
 
@@ -225,11 +235,9 @@ class RobotFaultTests(unittest.TestCase):
         self.assertAlmostEqual(telemetry["Payload_Kg"], 12.0, delta=0.2)
         self.assertGreater(telemetry["Gripper_Pressure_Bar"], 6.0)
         self.assertAlmostEqual(telemetry["Gripper_Pressure_Bar"], 8.0, delta=0.2)
-        repair(machine, "RESET_PAYLOAD")
+        machine.receive_plc_command("RESET_PAYLOAD")
+        self.assertEqual(machine.payload_kg, 3.5)
         self.assertNotIn("PAYLOAD_OVERLOAD", machine.get_active_faults())
-        # The repair removes the heavy part; the reading falls with the scale, it is not reset.
-        self.assertGreater(machine.payload_kg, 8.0)
-        restart(machine)
         recovered = simulate(machine, 60)
         self.assertAlmostEqual(recovered["Payload_Kg"], 3.5, delta=0.1)
         self.assertAlmostEqual(recovered["Gripper_Pressure_Bar"], 6.0, delta=0.2)
@@ -248,10 +256,8 @@ class AmrFaultTests(unittest.TestCase):
             machine.battery_pct, 85 - self.NOMINAL_DRAIN * 4 * 120, delta=0.1
         )
         self.assertGreater(telemetry["Battery_Temp_C"], 55)
-        repair(machine, "REPLACE_BATTERY_MODULE")
-        self.assertAlmostEqual(
-            machine.battery_pct, 95.0, delta=0.1
-        )  # the new module's own charge
+        machine.receive_plc_command("REPLACE_BATTERY_MODULE")
+        self.assertEqual(machine.battery_pct, 95.0)
         self.assertNotIn("BATTERY_CELL_DEGRADATION", machine.get_active_faults())
 
     def test_lidar_dirt_lowers_localization_only(self):
@@ -263,7 +269,7 @@ class AmrFaultTests(unittest.TestCase):
         self.assertAlmostEqual(telemetry["Lidar_Confidence_Pct"], 40.0, delta=0.3)
         self.assertAlmostEqual(telemetry["Current_Velocity_m_s"], 1.2, delta=0.05)
         self.assertAlmostEqual(telemetry["Battery_Temp_C"], 33.6, delta=0.3)
-        repair_and_restart(machine, "CLEAN_LIDAR_OPTICS")
+        machine.receive_plc_command("CLEAN_LIDAR_OPTICS")
         recovered = simulate(machine, 120)
         self.assertGreater(recovered["Lidar_Confidence_Pct"], 95.0)
 
@@ -277,7 +283,7 @@ class AmrFaultTests(unittest.TestCase):
         self.assertAlmostEqual(
             machine.battery_pct, 85 - self.NOMINAL_DRAIN * 1.8 * 120, delta=0.1
         )
-        repair_and_restart(machine, "SERVICE_DRIVE_MOTOR")
+        machine.receive_plc_command("SERVICE_DRIVE_MOTOR")
         recovered = simulate(machine, 60)
         self.assertAlmostEqual(recovered["Current_Velocity_m_s"], 1.2, delta=0.05)
 
@@ -291,7 +297,7 @@ class AoiFaultTests(unittest.TestCase):
         # images push the false reject rate well past the 4% critical bound.
         self.assertAlmostEqual(telemetry["Optics_Cleanliness_Pct"], 30.0, delta=0.3)
         self.assertGreater(telemetry["False_Reject_Rate_Pct"], 6.0)
-        repair_and_restart(machine, "RECALIBRATE_OPTICS")
+        machine.receive_plc_command("RECALIBRATE_OPTICS")
         recovered = simulate(machine, 200)
         self.assertGreater(recovered["Optics_Cleanliness_Pct"], 95.0)
         self.assertLess(recovered["False_Reject_Rate_Pct"], 2.0)
@@ -306,7 +312,7 @@ class AoiFaultTests(unittest.TestCase):
             telemetry["Illumination_Intensity_Lux"], 9000.0, delta=50.0
         )
         self.assertGreater(telemetry["False_Reject_Rate_Pct"], 6.0)
-        repair_and_restart(machine, "REPLACE_LED_MODULE")
+        machine.receive_plc_command("REPLACE_LED_MODULE")
         recovered = simulate(machine, 60)
         self.assertGreater(recovered["Illumination_Intensity_Lux"], 18000.0)
 
@@ -325,7 +331,7 @@ class AoiFaultTests(unittest.TestCase):
         self.assertEqual(machine.boards_inspected_total, inspected)
         self.assertEqual(machine.boards_flagged_defect, flagged)
         self.assertAlmostEqual(telemetry["Optics_Cleanliness_Pct"], 99.0, delta=1.0)
-        repair_and_restart(machine, "CLEAR_CONVEYOR_JAM")
+        machine.receive_plc_command("CLEAR_CONVEYOR_JAM")
         recovered = simulate(machine, 20)
         self.assertAlmostEqual(recovered["Conveyor_Speed_m_min"], 1.2, delta=0.05)
 
@@ -340,7 +346,7 @@ class InjectionFaultTests(unittest.TestCase):
         self.assertGreater(telemetry["Nozzle_Temp_Zone1"], 245.0)
         self.assertAlmostEqual(telemetry["Nozzle_Temp_Zone1"], 280.0, delta=1.0)
         self.assertLess(telemetry["Injection_Pressure_Bar"], 85.0)
-        repair_and_restart(machine, "SERVICE_HEATER_SSR")
+        machine.receive_plc_command("SERVICE_HEATER_SSR")
         recovered = simulate(machine, 120)
         self.assertLess(recovered["Nozzle_Temp_Zone1"], 230.0)
 
@@ -353,7 +359,7 @@ class InjectionFaultTests(unittest.TestCase):
         self.assertAlmostEqual(telemetry["Clamping_Pressure_Bar"], 102.0, delta=2.0)
         self.assertLess(telemetry["Clamping_Pressure_Bar"], 115.0)
         self.assertAlmostEqual(telemetry["Injection_Pressure_Bar"], 95.0, delta=3.0)
-        repair_and_restart(machine, "REPAIR_HYDRAULIC_VALVE")
+        machine.receive_plc_command("REPAIR_HYDRAULIC_VALVE")
         recovered = simulate(machine, 60)
         self.assertGreater(recovered["Clamping_Pressure_Bar"], 135.0)
 
@@ -365,13 +371,11 @@ class InjectionFaultTests(unittest.TestCase):
         # 145 Bar limit) to fill the mould.
         self.assertGreater(telemetry["Injection_Pressure_Bar"], 145.0)
         self.assertAlmostEqual(telemetry["Injection_Pressure_Bar"], 165.0, delta=3.0)
-        # Purging needs a stopped but still hot barrel (no lockout: the heaters stay on).
-        repair_and_restart(machine, "PURGE_BARREL")
+        result = machine.receive_plc_command("PURGE_BARREL")
+        self.assertEqual(result["payload"]["current_state"], "PURGING")
         self.assertNotIn("NOZZLE_CLOGGING", machine.get_active_faults())
+        machine.receive_plc_command("RESUME")
         self.assertEqual(machine.state, "RUNNING")
-        self.assertAlmostEqual(
-            simulate(machine, 60)["Injection_Pressure_Bar"], 95.0, delta=3.0
-        )
 
 
 if __name__ == "__main__":

@@ -7,7 +7,6 @@ from machines.amr_vehicle import AmrVehicle
 from machines.aoi_inspection import AoiInspection
 from machines.injection_molding import InjectionMolding
 from iot.telemetry_receiver import TelemetryReceiver
-from sim_helpers import command, repair, repair_and_restart
 
 
 class MachineDynamicsTests(unittest.TestCase):
@@ -36,14 +35,16 @@ class MachineDynamicsTests(unittest.TestCase):
         machine = InjectionMolding()
         for invalid in (0, 179, 246, "bad", None, float("nan"), float("inf")):
             with self.subTest(invalid=invalid):
-                result = command(
-                    machine, "ADJUST_TEMPERATURE", {"target_temp": invalid}
+                result = machine.receive_plc_command(
+                    "ADJUST_TEMPERATURE", {"target_temp": invalid}
                 )
-                self.assertEqual(result["status"], "REJECTED")
+                self.assertIn("REJECTED", result["payload"]["execution_detail"])
                 self.assertEqual(machine.nozzle_temp_zone1_target, 220)
 
-        accepted = command(machine, "ADJUST_TEMPERATURE", {"target_temp": 215})
-        self.assertEqual(accepted["status"], "OK")
+        accepted = machine.receive_plc_command(
+            "ADJUST_TEMPERATURE", {"target_temp": 215}
+        )
+        self.assertNotIn("REJECTED", accepted["payload"]["execution_detail"])
         self.assertEqual(machine.nozzle_temp_zone1_target, 215)
 
         machine.nozzle_temp_zone1_target = 0
@@ -53,7 +54,7 @@ class MachineDynamicsTests(unittest.TestCase):
         self.assertAlmostEqual(telemetry["Nozzle_Temp_Zone1"], 220, delta=0.12)
 
     def test_cnc_vibration_noise_does_not_trigger_roc_alert(self):
-        receiver = TelemetryReceiver(settle_sec=0)
+        receiver = TelemetryReceiver()
         payload = {
             "Controller_Execution": "RUNNING",
             "Spindle_Temp_C": 38.0,
@@ -90,10 +91,10 @@ class MachineDynamicsTests(unittest.TestCase):
                 machine.active_faults[fault] = True
             self.simulate(machine, 60)
             self.assertAlmostEqual(machine.tool_wear_pct, 12 + rate * 60)
-            repair(machine, "REPLACE_TOOL")
+            machine.receive_plc_command("REPLACE_TOOL")
             self.assertEqual(machine.tool_wear_pct, 0)
         machine = CncMilling()
-        command(machine, "EMERGENCY_STOP")
+        machine.receive_plc_command("EMERGENCY_STOP")
         self.simulate(machine, 60)
         self.assertEqual(machine.tool_wear_pct, 12)
 
@@ -228,15 +229,16 @@ class MachineDynamicsTests(unittest.TestCase):
                 "PURGE_BARREL",
             ),
         )
-        for factory, fault, key, boundary, rises, repair_command in cases:
+        for factory, fault, key, boundary, rises, command in cases:
             with self.subTest(fault=fault):
                 machine = factory()
                 machine.active_faults[fault] = True
                 value = self.simulate(machine, 180)[key]
                 (self.assertGreater if rises else self.assertLess)(value, boundary)
-                repair_and_restart(machine, repair_command)
+                machine.receive_plc_command(command)
                 self.assertFalse(machine.active_faults[fault])
-                self.assertEqual(machine.state, "RUNNING")
+                if machine.state == "PURGING":
+                    machine.receive_plc_command("RESUME")
                 recovered = self.simulate(machine, 300)[key]
                 (self.assertLess if rises else self.assertGreater)(recovered, boundary)
 

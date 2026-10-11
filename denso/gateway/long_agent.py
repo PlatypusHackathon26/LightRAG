@@ -17,22 +17,8 @@ MACHINE_TYPE_VI = {
     "INJECTION_MOLDING": "Máy ép phun",
 }
 SHOWN_MESSAGES = (
-    14  # alerts, the latest diagnosis and the steps of the current procedure
+    8  # each alert appends two messages; the sidebar thread keeps the recent ones
 )
-SHOWN_ALERTS = 3
-SHOWN_EVENTS = (
-    10  # approvals, procedure steps, verification - in the order they happened
-)
-STATE_VI = {
-    "RUNNING": "đang chạy",
-    "HOLD": "tạm dừng",
-    "STARTING": "đang khởi động",
-    "STOPPED": "đã dừng",
-    "LOCKED_OUT": "khoá an toàn",
-    "MAINTENANCE": "đang bảo trì",
-    "E_STOP": "dừng khẩn cấp",
-    "CHARGING": "đang sạc",
-}
 EPISODE_GAP_S = 600  # alerts closer than this belong to the same incident (its title lists all their metrics)
 
 
@@ -69,9 +55,10 @@ def _point(metric: dict, value: float) -> tuple[dict, bool, bool]:
 
 
 def _messages(machine_id: str, raw: list[dict]) -> list[dict]:
-    """The thread shown for a machine, oldest first: its latest alerts, the latest diagnosis (an older
-    one was written on earlier readings), and the recent decisions and procedure steps."""
-    alerts, events, diagnoses = [], [], {}
+    """The latest alerts and the latest diagnosis, oldest first. Long-agent appends an alert on each
+    edge-filter trigger and a diagnosis each time it diagnoses; an older diagnosis was written on
+    earlier readings, so only the newest is shown."""
+    alerts, diagnoses = [], {}
     for m in raw:
         text = (m.get("text") or "").strip()
         if not text:
@@ -80,11 +67,7 @@ def _messages(machine_id: str, raw: list[dict]) -> list[dict]:
             diagnoses[text] = m.get(
                 "timestamp"
             )  # keeps the latest time a diagnosis was given
-        elif m.get("role") == "event":
-            events.append(
-                {"role": "system", "content": text, "timestamp": m.get("timestamp")}
-            )
-        elif m.get("role") != "approval":
+        else:
             alerts.append(
                 {
                     "role": "system",
@@ -93,20 +76,16 @@ def _messages(machine_id: str, raw: list[dict]) -> list[dict]:
                 }
             )
     latest = max(diagnoses.items(), key=lambda kv: kv[1] or "", default=None)
-    shown = (
-        alerts[-SHOWN_ALERTS:]
-        + events[-SHOWN_EVENTS:]
-        + (
-            [
-                {
-                    "role": "assistant",
-                    "content": f"**Chẩn đoán của agent giám sát (Long-agent):** {latest[0]}",
-                    "timestamp": latest[1],
-                }
-            ]
-            if latest
-            else []
-        )
+    shown = alerts[-3:] + (
+        [
+            {
+                "role": "assistant",
+                "content": f"**Chẩn đoán của agent giám sát (Long-agent):** {latest[0]}",
+                "timestamp": latest[1],
+            }
+        ]
+        if latest
+        else []
     )
     shown = sorted(shown, key=lambda m: m["timestamp"] or "")[-SHOWN_MESSAGES:]
     for i, m in enumerate(shown):
@@ -115,53 +94,34 @@ def _messages(machine_id: str, raw: list[dict]) -> list[dict]:
 
 
 def _proposal(machine_id: str, incident_id: str, pending: list[dict]) -> dict | None:
-    """The machine's waiting ticket as a HITL card: one item per procedure step."""
     for a in pending:
         if a.get("machine_id") != machine_id:
             continue
         command = a.get("command", "")
-        steps = a.get("steps") or [
-            {
-                "command": command,
-                "params": a.get("params") or a.get("payload") or {},
-                "desc": a.get("reason", ""),
-            }
-        ]
-        # The step the ticket is about (the repair, START, or the single command) names the command
-        # and the device; the steps around it only describe themselves.
-        main = next((s for s in steps if s.get("kind") == "repair"), None) or next(
-            (s for s in steps if s["command"] == command), steps[-1]
-        )
-        items = []
-        for step in steps:
-            params = {str(k): str(v) for k, v in (step.get("params") or {}).items()}
-            if step is main:
-                params = {"Lệnh": step["command"], "Thiết bị": machine_id, **params}
-            if step.get("duration_s"):
-                params["Thời gian"] = f"~{step['duration_s']:.0f} s"
-            items.append(
-                {
-                    "type": "plc_command",
-                    "title": step.get("desc") or step["command"],
-                    "description": step["command"],
-                    "params": params,
-                }
-            )
-        expires = a.get("expires_at")
-        remaining = (
-            int(max(0, expires - datetime.now().timestamp()))
-            if isinstance(expires, (int, float))
-            else 300
-        )
+        params = {
+            "Lệnh": command,
+            "Thiết bị": machine_id,
+            **{
+                str(k): str(v)
+                for k, v in (a.get("params") or a.get("payload") or {}).items()
+            },
+        }
         return {
             "id": a.get("approval_id") or a.get("action_id"),
             "incidentId": incident_id,
-            "titleVi": a.get("title") or f"Đề xuất: {command}",
+            "titleVi": f"Đề xuất: {command}",
             "subtitleVi": a.get("reason", ""),
             "diagnosisEn": "",
-            "items": items,
-            "timerSeconds": remaining,
-            "createdAt": a.get("created_at") or datetime.now().isoformat(),
+            "items": [
+                {
+                    "type": "plc_command",
+                    "title": "Lệnh điều khiển PLC",
+                    "description": command,
+                    "params": params,
+                }
+            ],
+            "timerSeconds": 300,
+            "createdAt": a.get("timestamp") or datetime.now().isoformat(),
         }
     return None
 
@@ -222,16 +182,7 @@ def incidents_from_state(state: dict) -> list[dict]:
         alarm = f"Bất thường: {', '.join(params)}" if params else "Cảnh báo bất thường"
         incident_id = f"LA-{mid}"
         proposal = _proposal(mid, incident_id, pending)
-        state = (
-            machine.get("state") or telemetry.get("Controller_Execution") or "RUNNING"
-        )
-        # Still an open incident while the machine is being worked on or has not run since.
-        active = (
-            machine.get("label") == "alert"
-            or warn
-            or state not in ("RUNNING", "CHARGING")
-            or bool(machine.get("procedure_phase"))
-        )
+        active = machine.get("label") == "alert" or warn
         msgs = _messages(mid, conv.get("messages") or [])
         timestamp = alert.get("timestamp") or (
             msgs[-1]["timestamp"] if msgs else datetime.now().isoformat()
@@ -254,8 +205,6 @@ def incidents_from_state(state: dict) -> list[dict]:
             },
             "messages": msgs,
             "tags": ["long-agent", machine.get("machine_type", "").lower()],
-            "machineState": state,
-            "procedurePhase": machine.get("procedure_phase"),
         }
         if proposal:
             incident["proposedAction"] = proposal
@@ -267,9 +216,7 @@ def incident_context(inc: dict) -> str:
     """The incident's live state, for the answer prompt of a chat held in its conversation."""
     lines = [
         f"- Machine: {inc.get('device')} ({(inc.get('telemetry') or {}).get('deviceName', '')}); "
-        f"{inc.get('alarm')}; incident status: {inc.get('status')}; machine state: "
-        f"{STATE_VI.get(inc.get('machineState'), inc.get('machineState'))}"
-        + (f"; procedure: {inc['procedurePhase']}" if inc.get("procedurePhase") else "")
+        f"{inc.get('alarm')}; status: {inc.get('status')}"
     ]
     points = (inc.get("telemetry") or {}).get("points") or []
     if points:
@@ -297,15 +244,8 @@ def incident_context(inc: dict) -> str:
     )
     if diagnosis:
         lines.append(
-            f"- The monitoring agent's diagnosis (may be wrong): {diagnosis.split('** ', 1)[-1]}"
+            f"- The monitoring agent's own guess (keyword-based, unverified): {diagnosis.split('** ', 1)[-1]}"
         )
-    steps = [
-        m["content"]
-        for m in inc.get("messages") or []
-        if m.get("role") == "system" and not m["content"].startswith("⚠")
-    ]
-    if steps:
-        lines.append("- What has been done so far: " + " | ".join(steps[-6:]))
     return (
         "The operator is asking about this live alert on a simulated factory machine (data from the monitoring "
         "system, NOT from the documents):\n" + "\n".join(lines) + "\n"

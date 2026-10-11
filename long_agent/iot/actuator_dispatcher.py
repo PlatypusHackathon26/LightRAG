@@ -11,13 +11,10 @@ logger = logging.getLogger("ActuatorDispatcher")
 
 
 class ActuatorDispatcher:
-    """Bộ định tuyến và chấp hành lệnh PLC xuống các thiết bị máy móc trong xưởng, có lưu vết Audit Trail.
+    """Bộ định tuyến và chấp hành lệnh PLC xuống các thiết bị máy móc trong xưởng.
 
-    Liên động và trạng thái cho phép do chính máy kiểm tra (machines/commands.py)."""
-
-    def machine(self, machine_id: str) -> Optional[BaseMachine]:
-        with self._lock:
-            return self._machines.get(machine_id)
+    Tích hợp kiểm tra an toàn liên động (Interlock Verification) và lưu vết Audit Trail.
+    """
 
     def __init__(self, event_bus: Optional[Any] = None) -> None:
         self.event_bus = event_bus
@@ -81,8 +78,28 @@ class ActuatorDispatcher:
                 timestamp=now_str,
             )
 
-        # 3. Gửi lệnh xuống máy. Máy tự kiểm tra lệnh có tồn tại, tham số, trạng thái cho phép và
-        # liên động (machines/commands.py), và trả kết quả có cấu trúc: không đoán qua câu chữ.
+        # 3. Kiểm tra khóa liên động an toàn (Interlock Safety Rules)
+        current_state = getattr(machine, "state", "UNKNOWN")
+        if current_state in ("EMERGENCY_STOP", "COLLISION_STOP") and command not in (
+            "RESET_COLLISION_ALARM",
+            "RESUME",
+            "SERVICE_HEATER_SSR",
+        ):
+            err_msg = (
+                f"LỆNH BỊ CHẶN AN TOÀN: Máy {machine_id} đang ở trạng thái {current_state}. "
+                f"Không thể thi hành '{command}' trước khi reset cờ lỗi phần cứng."
+            )
+            logger.warning(f"[Dispatcher] {err_msg}")
+            return self._record_and_publish(
+                machine_id=machine_id,
+                command=command,
+                status="INTERLOCK_BLOCKED",
+                error=err_msg,
+                reason=reason,
+                timestamp=now_str,
+            )
+
+        # 4. Gửi lệnh xuống hàm tiếp nhận PLC của máy
         logger.info(
             f"[Dispatcher] Gửi lệnh '{command}' xuống máy '{machine_id}' "
             f"| Params: {payload} | Lý do: {reason}"
@@ -92,20 +109,19 @@ class ActuatorDispatcher:
                 command=command, payload=payload
             )
             exec_payload = machine_result_event.get("payload", {})
-            status = "SUCCESS" if exec_payload.get("status") == "OK" else "REJECTED"
-            if status == "REJECTED":
-                logger.warning(
-                    f"[Dispatcher] {machine_id} từ chối '{command}': {exec_payload.get('execution_detail')}"
-                )
+            detail = str(exec_payload.get("execution_detail", ""))
+
+            # Phân loại kết quả thực thi
+            if "rejected" in detail.lower() or "không hợp lệ" in detail.lower():
+                status = "REJECTED"
+            else:
+                status = "SUCCESS"
 
             return self._record_and_publish(
                 machine_id=machine_id,
-                command=exec_payload.get("command") or command,
+                command=command,
                 status=status,
                 details=exec_payload,
-                error=""
-                if status == "SUCCESS"
-                else str(exec_payload.get("execution_detail", "")),
                 reason=reason,
                 timestamp=now_str,
             )

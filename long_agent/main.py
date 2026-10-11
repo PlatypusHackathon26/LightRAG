@@ -8,13 +8,11 @@ from iot.event_bus import EventBus
 from iot.telemetry_receiver import TelemetryReceiver
 from iot.actuator_dispatcher import ActuatorDispatcher
 from iot.action_approval import ActionApproval
-from iot.procedure_runner import ProcedureRunner
 
 from agent.brain import AgentBrain
-from agent.procedures import PlanningError, plan_repair
+from agent.tools import AgentTools
 from agent.rag_engine import RAGEngine
 from agent.llm_client import llm_callable_from_env
-from agent.retriever import retriever_from_env
 
 from machines.cnc_milling import CncMilling
 from machines.robot_arm import RobotArm
@@ -62,96 +60,49 @@ def main():
     # 1. Khởi tạo bus & dịch vụ chấp hành
     bus = EventBus(max_workers=4)
     dispatcher = ActuatorDispatcher(event_bus=bus)
-    runner = ProcedureRunner(
-        dispatcher,
-        event_bus=bus,
-        verify_s=float(os.environ.get("LONG_AGENT_VERIFY_S", "120")),
-    )
-    # Mọi lệnh agent đề xuất đều chờ kỹ sư duyệt; LONG_AGENT_AUTO_LOW=1 cho lệnh LOW (do máy khai báo) chạy ngay.
+    # Mọi lệnh agent đề xuất đều chờ kỹ sư duyệt; LONG_AGENT_AUTO_LOW=1 trả lại hành vi gốc (lệnh LOW chạy ngay).
     approval = ActionApproval(
         dispatcher=dispatcher,
         event_bus=bus,
-        procedure_runner=runner,
-        default_ttl_sec=float(os.environ.get("LONG_AGENT_APPROVAL_TTL_S", "1800")),
         require_approval_for_all=os.environ.get("LONG_AGENT_AUTO_LOW") != "1",
     )
     receiver = TelemetryReceiver(event_hub=bus)
     state_store = StateStore()
 
-    # Agent chẩn đoán (LLM khi có LONG_AGENT_LLM_*, tài liệu khi có LONG_AGENT_RAG_URL) và chỉ chọn
-    # lệnh sửa; quy trình dừng - khoá - sửa - khởi động lại do agent/procedures.py lập và kỹ sư duyệt 2 lần.
-    rag = RAGEngine(
-        llm_callable=llm_callable_from_env(), retriever=retriever_from_env()
-    )
+    # Agent phân tích và đề xuất; lệnh chỉ chạy sau khi kỹ sư duyệt, không tự thay đổi kịch bản lỗi.
+    # LLM thật khi có LONG_AGENT_LLM_BASE/MODEL (agent/llm_client.py), nếu không thì chẩn đoán giả lập.
+    # LONG_AGENT_PROPOSE=0 tắt đề xuất lệnh (chỉ chẩn đoán, như bản trước).
+    rag = RAGEngine(llm_callable=llm_callable_from_env())
+    tools = AgentTools(event_bus=bus)
     brain = AgentBrain(
         rag_engine=rag,
+        tools=tools,
         event_bus=bus,
         execute_actions=os.environ.get("LONG_AGENT_PROPOSE", "1") != "0",
         repeat_window_s=float(os.environ.get("LONG_AGENT_REPEAT_S", "120")),
-        busy=lambda mid: runner.is_busy(mid) or approval.has_pending(mid),
-        attempts=runner.attempts,
     )
-    bus.subscribe("alert", runner.on_alert)
     bus.subscribe("alert", brain.handle_alert)
     bus.subscribe("normal", brain.handle_heartbeat)
-    bus.subscribe("verification", brain.handle_verification)
 
     def _route_action_command(event: dict) -> None:
-        """An agent proposal becomes one ticket: a repair is expanded into its full procedure."""
-        machine_id = event.get("machine_id", "UNKNOWN")
-        if runner.is_busy(machine_id) or approval.has_pending(machine_id):
+        # Một lệnh đang chờ duyệt cho máy này thì không tạo thêm bản trùng.
+        if any(
+            a.get("machine_id") == event.get("machine_id")
+            and a.get("command") == event.get("command")
+            for a in approval.get_pending_actions()
+        ):
             return
-        machine = dispatcher.machine(machine_id)
-        if machine is None:
-            return
-        name = event.get("command", "")
-        base = {
-            "machine_id": machine_id,
-            "reason": event.get("reason", "Agent đề xuất"),
-            "diagnosis": event.get("diagnosis", ""),
-        }
-        if event.get("kind") == "repair":
-            try:
-                steps = plan_repair(machine.commands, machine.state, name)
-            except PlanningError as exc:
-                state_store.add_machine_note(
-                    machine_id, f"Không lập được quy trình sửa {name}: {exc}"
-                )
-                return
-            approval.process_action_request(
-                {
-                    **base,
-                    "kind": "repair",
-                    "command": name,
-                    "title": f"Sửa: {name}",
-                    "steps": steps,
-                }
-            )
-        else:
-            approval.process_action_request(
-                {
-                    **base,
-                    "kind": "command",
-                    "command": name,
-                    "params": event.get("params", {}),
-                    "payload": event.get("params", {}),
-                    "title": f"Lệnh: {name}",
-                }
-            )
-
-    def _request_restart(machine_id: str, steps: list, repair_record: dict) -> None:
         approval.process_action_request(
             {
-                "machine_id": machine_id,
-                "kind": "restart",
-                "command": "START",
-                "title": "Khởi động lại sau sửa chữa",
-                "steps": steps,
-                "reason": f"Đã xong {repair_record.get('command')}; kỹ sư kiểm tra máy rồi duyệt khởi động lại.",
+                "machine_id": event.get("machine_id", "UNKNOWN"),
+                "command": event.get("command", ""),
+                "params": event.get("params", {}),
+                "payload": event.get("params", {}),
+                "risk_level": event.get("risk_level", "LOW"),
+                "reason": event.get("reason", "Agent de xuat"),
             }
         )
 
-    runner.request_restart = _request_restart
     bus.subscribe("action_command", _route_action_command)
 
     # 1c. Đẩy mọi event bus vào StateStore để dashboard hiển thị
@@ -182,7 +133,6 @@ def main():
         state_store=state_store,
         machines_dict=machines_dict,
         approval=approval,
-        procedures=runner,
         on_chat=brain.handle_user_query,
         on_decision=approval.decide,
     )

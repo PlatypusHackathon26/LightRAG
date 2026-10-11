@@ -30,13 +30,4 @@ describe('approve button command', () => {
     ])).toBe('S=50')
     expect(actionCommand([{ type: 'inventory', params: {} }])).toBe(undefined)
   })
-
-  test('in a repair procedure, names the repair rather than its first step', () => {
-    expect(actionCommand([
-      { type: 'plc_command', params: {} },                                    // SAFE_STOP
-      { type: 'plc_command', params: {} },                                    // LOCKOUT
-      { type: 'plc_command', params: { 'Lệnh': 'REPAIR_COOLANT_SYSTEM', 'Thời gian': '~60 s' } },
-      { type: 'plc_command', params: {} },                                    // UNLOCK
-    ])).toBe('REPAIR_COOLANT_SYSTEM')
-  })
 })

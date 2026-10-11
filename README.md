@@ -63,12 +63,12 @@ Mỗi khối trong sơ đồ ứng với phần code dưới đây.
 
 | Khối trong sơ đồ | Code | Cổng | Vai trò |
 |---|---|---|---|
-| **Machines** | `long_agent/machines/` | – | 5 máy mô phỏng (CNC, robot, ép nhựa, AOI, AMR) sinh số liệu mỗi giây theo mô hình vật lý; trạng thái chạy / dừng / khoá an toàn / bảo trì / dừng khẩn cấp; tự khai báo và kiểm tra lệnh |
+| **Machines** | `long_agent/machines/` | – | 5 máy mô phỏng (CNC, robot, ép nhựa, AOI, AMR) sinh số liệu mỗi giây theo mô hình vật lý; nhận lệnh qua `receive_plc_command()` |
 | **IoT devices** | `long_agent/iot/` | – | `telemetry_receiver` lọc bất thường (ngưỡng + tốc độ biến thiên + cooldown); `event_bus` chuyển sự kiện; `actuator_dispatcher` gửi lệnh xuống máy |
-| **Agent – bộ não** | `long_agent/agent/` | 8085 | `brain.py` nhận cảnh báo; `rag_engine.py` tra SOP trong LightRAG và để LLM chọn một lệnh sửa máy khai báo; `procedures.py` lập quy trình dừng – khoá – sửa – khởi động |
+| **Agent – bộ não** | `long_agent/agent/` | 8085 | `brain.py` nhận cảnh báo, gọi LLM chẩn đoán, đề xuất lệnh sửa nguyên nhân gốc trong danh mục cho phép |
 | **Agent – Gateway** | `denso/gateway/` | 9700 | Backend của giao diện: hỏi đáp, phân quyền, trích dẫn, upload; dựng sự cố từ cảnh báo của Long-agent; chuyển quyết định duyệt |
 | **Agent – UI chatbot** | `lightrag_webui/src/features/agentic/` | 5173 / Vercel | Khung chat, mục **Automated Alerts**, thẻ duyệt lệnh, kho tri thức, nút **Dashboard** |
-| **HITL** | `long_agent/iot/action_approval.py`, `procedure_runner.py` | – | Giữ mọi đề xuất ở trạng thái chờ; duyệt sửa → chạy quy trình; xong thì xin duyệt khởi động lại; theo dõi để xác minh; ghi lịch sử |
+| **HITL** | `long_agent/iot/action_approval.py` | – | Giữ mọi lệnh agent đề xuất ở trạng thái chờ; chỉ gửi xuống máy khi được duyệt; vé hết hạn nếu bị bỏ quên |
 | **RAG** | `lightrag/` (lõi LightRAG) | 9621 / 9631 | Kho tri thức (`level_1`) và kho tra cứu theo xe (`level_1_lookup`); embedding bge-m3, reranker ngôn ngữ :7998 |
 | **Data files** | `denso/pipeline/`, `denso/gateway/jobs.py` | Docling 5001 | Đọc tài liệu (Docling), đọc trang scan bằng mô hình thị giác, làm sạch, gắn số trang + ngôn ngữ, nạp vào RAG |
 | **Users** | trình duyệt | – | Hỏi đáp, nhận cảnh báo, duyệt / từ chối lệnh; tester bật lỗi mô phỏng trên bảng Dashboard |
@@ -108,45 +108,38 @@ Gateway chọn tài liệu + trang để trích; không đủ căn cứ thì nó
 Câu trả lời kèm trích dẫn (tên tài liệu, trang) – bấm để xem trang gốc
 ```
 
-### 3.3. Giám sát, chẩn đoán và cảnh báo tự động (Machines → IoT → Agent ↔ RAG → Users)
+### 3.3. Giám sát và cảnh báo tự động (Machines → IoT → Agent → Users)
 
 ```
 Máy mô phỏng sinh số liệu mỗi giây  (tester bật lỗi trên bảng Dashboard để tạo sự cố)
-        │  số đo đi theo cơ cấu chấp hành: triệu chứng của lỗi chỉ xuất hiện khi bộ phận đó hoạt động
         ▼
 IoT: TelemetryReceiver so với ngưỡng (machines/specifications.py) + tốc độ biến thiên
-        │  đang chạy ổn định → kiểm tra đủ; đang dừng/khởi động → chỉ ngưỡng trần; khoá an toàn → không cảnh báo
+        │  bình thường → cập nhật trạng thái      bất thường → sự kiện "alert"
         ▼
-Agent (brain.py → rag_engine.py)
-        │  • bỏ qua máy đang có quy trình hoặc vé chờ duyệt; mỗi máy chỉ chẩn đoán lại khi có chỉ số lệch MỚI
-        │  • tra tài liệu SOP trong LightRAG theo triệu chứng (agent/retriever.py)
-        │  • LLM chọn ĐÚNG MỘT lệnh sửa trong danh sách máy khai báo (+ lệnh tạm thời nếu cần), kèm nguồn
-        │  • tên lệnh được chuẩn hoá (hoa/thường, dấu, khoảng trắng, tên gọi khác); sai thì hỏi lại 1 lần,
-        │    vẫn sai thì không đề xuất – văn bản tự do không bao giờ thành lệnh
+Agent (brain.py)
+        │  • mỗi máy chỉ chẩn đoán lại khi xuất hiện chỉ số lệch MỚI (không lặp)
+        │  • LLM nhận: giới hạn của máy, các chỉ số đang vượt ngưỡng, danh mục lệnh của loại máy
+        │  • trả về chẩn đoán + tối đa 2 lệnh, lệnh đầu phải sửa nguyên nhân gốc
         ▼
-agent/procedures.py lập quy trình từ đồ thị trạng thái của máy:  SAFE_STOP → LOCKOUT → <lệnh sửa> → UNLOCK
+Gateway đọc trạng thái Long-agent → dựng một sự cố cho mỗi máy đang lỗi
         ▼
-Gateway dựng một sự cố cho mỗi máy; giao diện hỏi GET /agent/incidents mỗi 4 giây → hội thoại trong
-"Automated Alerts": cảnh báo, chẩn đoán có trích nguồn, thẻ quy trình chờ duyệt, từng bước đã làm.
-Người dùng hỏi tiếp ngay trong hội thoại – câu hỏi gửi kèm bối cảnh sự cố và trả lời theo tài liệu (3.2).
+Giao diện hỏi GET /agent/incidents mỗi 4 giây → hội thoại mới trong "Automated Alerts":
+cảnh báo, chẩn đoán, thẻ lệnh chờ duyệt. Người dùng hỏi tiếp ngay trong hội thoại đó –
+câu hỏi được gửi kèm bối cảnh sự cố và trả lời theo tài liệu trong RAG (luồng 3.2).
 ```
 
-### 3.4. Duyệt và thực hiện sửa chữa (Agent → HITL → IoT → Machines), hai lần duyệt
+### 3.4. Duyệt hành động (Agent → HITL → IoT → Machines)
 
 ```
-Vé 1 "Sửa: <lệnh sửa>" – thẻ liệt kê các bước          [Duyệt] / [Từ chối]   (gateway kiểm quyền duyệt)
-        │  duyệt → ProcedureRunner chạy từng bước:
-        │    SAFE_STOP  máy dừng: tốc độ, tải, dòng về 0, nhiệt nguội dần
-        │    LOCKOUT    chờ bộ phận chuyển động đứng yên rồi mới khoá an toàn
-        │    <sửa>      MAINTENANCE trong thời gian sửa; chỉ gỡ đúng lỗi của bộ phận đó, KHÔNG đổi số đo
-        │    UNLOCK     máy về STOPPED
+Lệnh agent đề xuất ─► ActionApproval: trạng thái CHỜ DUYỆT (không lệnh nào tự chạy)
         ▼
-Vé 2 "Khởi động lại" – kỹ sư kiểm tra máy rồi duyệt     → START (liên động: quá nhiệt, pin cạn… thì chờ)
+Thẻ lệnh trên giao diện: [Duyệt] / [Từ chối]
+        │  POST /agent/actions/{id}/approve | reject   (gateway kiểm quyền duyệt)
         ▼
-Máy chạy lại, số đo hồi phục dần theo vật lý → theo dõi 2 phút
-        ├─ không cảnh báo → "đã xác minh"
-        └─ cảnh báo quay lại → "sửa chưa đúng"; agent chẩn đoán lại, không đề xuất lại lệnh đã thất bại
-Từng quyết định, bước, kết quả hiện trong hội thoại sự cố. Vé không ai duyệt hết hạn sau 30 phút (ghi lại).
+Gateway → Long-agent POST /api/decision
+        ├─ Từ chối → vé đóng, máy không bị tác động
+        └─ Duyệt   → ActuatorDispatcher → machine.receive_plc_command() → máy mô phỏng hồi phục
+                      kết quả hiện lại trong hội thoại sự cố
 ```
 
 ---
@@ -175,10 +168,9 @@ LightRAG/
 │
 ├── long_agent/                  Long-agent – giám sát nhà xưởng mô phỏng (long_agent/README.md)
 │   ├── main.py                  ghép 3 tầng + FastAPI :8085
-│   ├── machines/                Machines: 5 máy mô phỏng, lệnh khai báo (commands.py), ngưỡng
-│   ├── iot/                     IoT devices + HITL: lọc bất thường, duyệt, chạy quy trình, gửi lệnh
-│   ├── agent/                   Agent: chẩn đoán (LLM + SOP từ LightRAG), lập quy trình sửa
-│   ├── docs/maintenance_sop.md  SOP bảo trì 5 máy – nạp vào kho tri thức cho agent tra
+│   ├── machines/                Machines: 5 máy mô phỏng + ngưỡng (specifications.py)
+│   ├── iot/                     IoT devices + HITL: event bus, lọc bất thường, duyệt, gửi lệnh
+│   ├── agent/                   Agent: chẩn đoán bằng LLM, đề xuất lệnh sửa gốc
 │   ├── dashboard/               bảng tester (bật lỗi mô phỏng), API trạng thái
 │   ├── machines_description.md  mô tả máy và lỗi – cũng nạp vào kho tri thức
 │   └── tests/
@@ -249,10 +241,8 @@ Máy chạy backend phải luôn bật thì link mới hoạt động.
 - **API key** chỉ nằm trong `.env` (gitignored), không commit.
 - **Long-agent lưu trạng thái trong RAM** – cảnh báo và vé chờ duyệt mất khi tắt; cổng 8085 không có xác thực
   nên chỉ mở trên localhost, truy cập từ ngoài qua gateway.
-- **Lệnh do máy khai báo** – mỗi máy tự khai báo lệnh của nó (`long_agent/machines/commands.py`): tham số, trạng thái
-  được phép, lỗi mà lệnh sửa. Lệnh sửa chỉ chạy khi máy đã khoá an toàn; không lệnh nào ghi đè số đo.
-- **Nút "Reset mô phỏng (tester)"** trên bảng Dashboard xoá lỗi ngay – chỉ để tester dọn máy giữa các kịch bản,
-  không phải sửa chữa và không nằm trong luồng của agent.
+- Chẩn đoán sự cố hiện dựa trên ngưỡng của máy + danh mục lệnh; tài liệu trong RAG được dùng khi người dùng
+  hỏi tiếp trong hội thoại sự cố.
 
 ---
 

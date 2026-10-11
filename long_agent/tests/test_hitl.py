@@ -13,11 +13,6 @@ from dashboard.server import create_app
 from dashboard.state_store import StateStore
 from iot.action_approval import ActionApproval, ActionDispatchError
 from iot.actuator_dispatcher import ActuatorDispatcher
-from machines.cnc_milling import CncMilling
-
-
-def cnc_spec(machine_id: str, command: str):
-    return CncMilling.command_specs().get(command)
 
 
 class FakeDispatcher:
@@ -33,26 +28,14 @@ class FakeDispatcher:
 class HitlTests(unittest.TestCase):
     def setUp(self) -> None:
         self.dispatcher = FakeDispatcher()
-        self.approvals = ActionApproval(
-            dispatcher=self.dispatcher, spec_lookup=cnc_spec
-        )
+        self.approvals = ActionApproval(dispatcher=self.dispatcher)
 
-    def test_a_command_the_machine_declares_low_risk_runs_at_once_when_allowed(
-        self,
-    ) -> None:
+    def test_a_low_risk_command_runs_at_once_by_default(self) -> None:
         result = self.approvals.process_action_request(
-            {"machine_id": "MC-MILL-01", "command": "HOLD"}
+            {"machine_id": "MC-MILL-01", "command": "FEED_HOLD"}
         )
         self.assertEqual(result["status"], "SUCCESS")
-        self.assertEqual([c["command"] for c in self.dispatcher.calls], ["HOLD"])
-        self.assertEqual(self.approvals.get_history()[-1]["event"], "executed")
-
-    def test_a_request_cannot_lower_the_declared_risk(self) -> None:
-        ticket = self.approvals.process_action_request(
-            {"machine_id": "MC-MILL-01", "command": "REPLACE_TOOL", "risk_level": "LOW"}
-        )
-        self.assertEqual(ticket["status"], "PENDING_APPROVAL")
-        self.assertEqual(self.dispatcher.calls, [])
+        self.assertEqual([c["command"] for c in self.dispatcher.calls], ["FEED_HOLD"])
 
     def test_a_high_risk_command_waits_and_runs_once_after_approval(self) -> None:
         ticket = self.approvals.process_action_request(
@@ -89,7 +72,6 @@ class HitlTests(unittest.TestCase):
         ticket = approvals.propose("MISSING", "REPLACE_TOOL")
         with self.assertRaises(ActionDispatchError):
             approvals.decide(ticket["action_id"], "approve")
-        self.assertEqual(approvals.get_history()[-1]["event"], "failed")
 
     def test_unknown_tickets_and_decisions_are_refused(self) -> None:
         with self.assertRaises(KeyError):
@@ -104,30 +86,17 @@ class HitlTests(unittest.TestCase):
         time.sleep(0.1)
         self.assertEqual(approvals.get_pending_actions(), [])
         self.assertEqual(self.dispatcher.calls, [])
-        self.assertEqual(
-            approvals.get_history()[-1]["event"], "expired"
-        )  # recorded, not silently dropped
 
-    def test_the_dispatcher_reports_what_the_machine_answered(self) -> None:
-        machine = CncMilling()
+    def test_the_dispatcher_reaches_a_registered_machine(self) -> None:
+        machine = MagicMock(machine_id="MC-MILL-01", machine_type="CNC_MILLING")
+        machine.receive_plc_command.return_value = {"status": "OK"}
         dispatcher = ActuatorDispatcher()
         dispatcher.register_machine(machine)
-        ok = dispatcher.execute({"machine_id": "MC-MILL-01", "command": "feed hold"})
-        self.assertEqual(
-            (ok["status"], ok["command"], machine.state), ("SUCCESS", "HOLD", "HOLD")
-        )
-        refused = dispatcher.execute(
-            {"machine_id": "MC-MILL-01", "command": "REPLACE_TOOL"}
-        )
-        self.assertEqual(refused["status"], "REJECTED")
-        self.assertIn("LOCKED_OUT", refused["error"])
-        unknown = dispatcher.execute(
-            {"machine_id": "MC-MILL-01", "command": "TOGGLE_COOLANT"}
-        )
-        self.assertEqual(unknown["status"], "REJECTED")  # never reported as success
-        self.assertEqual(
-            dispatcher.execute({"machine_id": "MC-NONE", "command": "HOLD"})["status"],
-            "NOT_FOUND",
+        result = dispatcher.dispatch("MC-MILL-01", "FEED_HOLD", {"reason": "nóng"})
+        self.assertEqual(result["plc_command"], "FEED_HOLD")
+        self.assertTrue(machine.receive_plc_command.called)
+        self.assertNotEqual(
+            dispatcher.dispatch("MC-NONE", "FEED_HOLD")["status"], "dispatched"
         )
 
     def test_with_proposals_off_the_brain_only_announces_them(self) -> None:
@@ -137,14 +106,16 @@ class HitlTests(unittest.TestCase):
             "diagnosis": "Quá nhiệt trục chính",
             "actions": [
                 {
-                    "command": "HOLD",
+                    "command": "FEED_HOLD",
                     "params": {},
                     "risk_level": "LOW",
                     "reason": "giảm nhiệt",
                 }
             ],
         }
-        AgentBrain(rag_engine=rag, event_bus=bus, execute_actions=False).handle_alert(
+        AgentBrain(
+            rag_engine=rag, tools=MagicMock(), event_bus=bus, execute_actions=False
+        ).handle_alert(
             {
                 "machine_id": "MC-MILL-01",
                 "machine_type": "CNC_MILLING",
