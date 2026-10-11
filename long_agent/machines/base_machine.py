@@ -48,7 +48,9 @@ class BaseMachine:
         self.active_faults: Dict[str, bool] = {}
         self.commands: Dict[str, CommandSpec] = self.command_specs()
         self.last_update_time = time.time()
-        self._maintenance: Optional[Tuple[str, float]] = None   # (repair command, finishes at)
+        self._maintenance: Optional[Tuple[str, float]] = (
+            None  # (repair command, finishes at)
+        )
         self._starting_since = 0.0
         self.last_repair: Optional[Dict[str, Any]] = None
 
@@ -97,7 +99,11 @@ class BaseMachine:
         return dt
 
     def _advance(self, now: float) -> None:
-        if self.state == cmd.MAINTENANCE and self._maintenance and now >= self._maintenance[1]:
+        if (
+            self.state == cmd.MAINTENANCE
+            and self._maintenance
+            and now >= self._maintenance[1]
+        ):
             name = self._maintenance[0]
             spec = self.commands[name]
             fixed = bool(spec.fixes and self.active_faults.get(spec.fixes))
@@ -106,10 +112,17 @@ class BaseMachine:
             self.on_repaired(name)
             self._maintenance = None
             self.state = spec.return_state
-            self.last_repair = {"command": name, "fault": spec.fixes, "fault_was_present": fixed,
-                                "finished_at": datetime.now(timezone.utc).isoformat()}
-        if (self.state == cmd.STARTING and now - self._starting_since >= self.start_duration_s
-                and self.ready_to_run()):
+            self.last_repair = {
+                "command": name,
+                "fault": spec.fixes,
+                "fault_was_present": fixed,
+                "finished_at": datetime.now(timezone.utc).isoformat(),
+            }
+        if (
+            self.state == cmd.STARTING
+            and now - self._starting_since >= self.start_duration_s
+            and self.ready_to_run()
+        ):
             self.state = cmd.RUNNING
 
     def maintenance_remaining_s(self) -> float:
@@ -117,7 +130,9 @@ class BaseMachine:
             return 0.0
         return max(0.0, self._maintenance[1] - time.time())
 
-    def receive_plc_command(self, command: str, payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def receive_plc_command(
+        self, command: str, payload: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """Run a declared command if the machine's state allows it. Never raises for a bad request:
         the result says REJECTED and why."""
         with self._lock:
@@ -125,8 +140,11 @@ class BaseMachine:
             self._advance(now)
             name = cmd.normalize_command(command, self.commands)
             if name is None:
-                return self._command_result(str(command), "REJECTED",
-                                            f"Máy {self.machine_id} không có lệnh '{command}'.")
+                return self._command_result(
+                    str(command),
+                    "REJECTED",
+                    f"Máy {self.machine_id} không có lệnh '{command}'.",
+                )
             spec = self.commands[name]
             try:
                 params = cmd.validate_params(spec, payload)
@@ -134,16 +152,22 @@ class BaseMachine:
                 return self._command_result(name, "REJECTED", str(exc))
             if self.state not in spec.allowed_states:
                 return self._command_result(
-                    name, "REJECTED",
-                    f"{name} chỉ chạy khi máy ở {', '.join(sorted(spec.allowed_states))}; hiện tại {self.state}.")
+                    name,
+                    "REJECTED",
+                    f"{name} chỉ chạy khi máy ở {', '.join(sorted(spec.allowed_states))}; hiện tại {self.state}.",
+                )
             blocker = self._precondition(name, params)
-            if blocker:   # a condition that time can change (still moving, still hot): worth retrying
+            if blocker:  # a condition that time can change (still moving, still hot): worth retrying
                 return self._command_result(name, "REJECTED", blocker, retryable=True)
 
             if spec.kind == "repair":
                 self._maintenance = (name, now + spec.duration_s)
                 self.state = cmd.MAINTENANCE
-                return self._command_result(name, "OK", f"Bắt đầu: {spec.desc_vi} (khoảng {spec.duration_s:.0f} s).")
+                return self._command_result(
+                    name,
+                    "OK",
+                    f"Bắt đầu: {spec.desc_vi} (khoảng {spec.duration_s:.0f} s).",
+                )
             detail = self.on_command(name, params)
             if spec.next_state:
                 self.state = spec.next_state
@@ -160,7 +184,9 @@ class BaseMachine:
                 return f"Liên động khởi động: {blocker}"
         return self.command_precondition(name, params)
 
-    def _command_result(self, command: str, status: str, detail: str, retryable: bool = False) -> Dict[str, Any]:
+    def _command_result(
+        self, command: str, status: str, detail: str, retryable: bool = False
+    ) -> Dict[str, Any]:
         return self._build_event(
             "plc_command_executed",
             {
@@ -176,7 +202,9 @@ class BaseMachine:
         )
 
     def nominal(self, key: str) -> float:
-        return next(m["nominal"] for m in MACHINE_METRICS[self.machine_type] if m["key"] == key)
+        return next(
+            m["nominal"] for m in MACHINE_METRICS[self.machine_type] if m["key"] == key
+        )
 
     @staticmethod
     def approach(current: float, target: float, dt: float, tau: float) -> float:
@@ -209,7 +237,9 @@ class BaseMachine:
         """Tester control: replace the fault selection atomically; preserve physical state for recovery.
         Removing a fault here is the simulator's reset, not a repair - repairs go through commands."""
         with self._lock:
-            if not isinstance(faults, list) or any(not isinstance(f, str) for f in faults):
+            if not isinstance(faults, list) or any(
+                not isinstance(f, str) for f in faults
+            ):
                 raise ValueError("faults must be a list of fault codes")
             unknown = set(faults) - self.active_faults.keys()
             if unknown:
@@ -248,7 +278,9 @@ class BaseMachine:
             self._stop_event.set()
             return self._build_event("connection", {"status": "disconnected"})
 
-    def _build_event(self, event_type: str, payload: Dict[str, Any], priority: str = "info") -> Dict[str, Any]:
+    def _build_event(
+        self, event_type: str, payload: Dict[str, Any], priority: str = "info"
+    ) -> Dict[str, Any]:
         return {
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "event_type": event_type,
@@ -260,7 +292,9 @@ class BaseMachine:
             "payload": payload,
         }
 
-    def emit_event(self, event_type: str, payload: Dict[str, Any], priority: str = "info") -> Dict[str, Any]:
+    def emit_event(
+        self, event_type: str, payload: Dict[str, Any], priority: str = "info"
+    ) -> Dict[str, Any]:
         event = self._build_event(event_type, payload, priority)
         if self.event_hub is not None:
             self.event_hub.publish(event)
@@ -280,4 +314,6 @@ class BaseMachine:
         return json.dumps(data, ensure_ascii=False, sort_keys=True)
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(id={self.machine_id}, type={self.machine_type})"
+        return (
+            f"{self.__class__.__name__}(id={self.machine_id}, type={self.machine_type})"
+        )

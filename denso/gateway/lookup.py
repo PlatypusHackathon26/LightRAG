@@ -16,36 +16,116 @@ DISPLACEMENT = re.compile(r"\b(\d\.\d{1,2})\s*L?\b", re.IGNORECASE)
 WORD = re.compile(r"[A-Za-z0-9][A-Za-z0-9-]*")
 # Words that say what is asked, not which vehicle: they appear in every question.
 STOPWORDS = {
-    "WHICH", "WHAT", "DENSO", "SPARK", "PLUG", "PLUGS", "FITS", "FIT", "FOR", "THE", "A", "AN", "MY", "IS",
-    "ARE", "LISTED", "CAR", "VEHICLE", "MODEL", "ENGINE", "YEAR", "WIPER", "BLADE", "BLADES", "PART",
-    "NUMBER", "WITH", "AND", "OF", "TO", "IN", "DO", "DOES", "USE", "USED", "RECOMMENDED", "SUITABLE",
-    "BUGI", "NAO", "LAP", "CHO", "DOI", "XE", "NAM", "DUNG", "LOAI", "GAT", "MUA", "CUA", "LA", "GI",
+    "WHICH",
+    "WHAT",
+    "DENSO",
+    "SPARK",
+    "PLUG",
+    "PLUGS",
+    "FITS",
+    "FIT",
+    "FOR",
+    "THE",
+    "A",
+    "AN",
+    "MY",
+    "IS",
+    "ARE",
+    "LISTED",
+    "CAR",
+    "VEHICLE",
+    "MODEL",
+    "ENGINE",
+    "YEAR",
+    "WIPER",
+    "BLADE",
+    "BLADES",
+    "PART",
+    "NUMBER",
+    "WITH",
+    "AND",
+    "OF",
+    "TO",
+    "IN",
+    "DO",
+    "DOES",
+    "USE",
+    "USED",
+    "RECOMMENDED",
+    "SUITABLE",
+    "BUGI",
+    "NAO",
+    "LAP",
+    "CHO",
+    "DOI",
+    "XE",
+    "NAM",
+    "DUNG",
+    "LOAI",
+    "GAT",
+    "MUA",
+    "CUA",
+    "LA",
+    "GI",
 }
-MAKES = {"TOYOTA", "HONDA", "NISSAN", "MAZDA", "SUZUKI", "MITSUBISHI", "HYUNDAI", "KIA", "FORD", "LADA",
-         "CHEVROLET", "DAEWOO", "ISUZU", "SUBARU", "DAIHATSU", "LEXUS", "BMW", "MERCEDES", "AUDI", "VOLKSWAGEN",
-         "VW", "PEUGEOT", "RENAULT", "CITROEN", "SKODA", "OPEL", "FIAT", "VOLVO", "PROTON", "PERODUA", "VINFAST"}
+MAKES = {
+    "TOYOTA",
+    "HONDA",
+    "NISSAN",
+    "MAZDA",
+    "SUZUKI",
+    "MITSUBISHI",
+    "HYUNDAI",
+    "KIA",
+    "FORD",
+    "LADA",
+    "CHEVROLET",
+    "DAEWOO",
+    "ISUZU",
+    "SUBARU",
+    "DAIHATSU",
+    "LEXUS",
+    "BMW",
+    "MERCEDES",
+    "AUDI",
+    "VOLKSWAGEN",
+    "VW",
+    "PEUGEOT",
+    "RENAULT",
+    "CITROEN",
+    "SKODA",
+    "OPEL",
+    "FIAT",
+    "VOLVO",
+    "PROTON",
+    "PERODUA",
+    "VINFAST",
+}
 
 
 @dataclass(frozen=True)
 class Row:
-    source: str   # catalogue file name
+    source: str  # catalogue file name
     page: int
-    text: str     # the row without its page cell, upper-case
+    text: str  # the row without its page cell, upper-case
 
 
 @dataclass(frozen=True)
 class Query:
-    words: frozenset[str]      # model words and codes, upper-case
+    words: frozenset[str]  # model words and codes, upper-case
     makes: frozenset[str]
     years: tuple[int, ...]
     displacements: tuple[str, ...]
-    product: str | None = None   # "spark" / "wiper" when the question names the product
+    product: str | None = None  # "spark" / "wiper" when the question names the product
 
 
 def ascii_upper(text: str) -> str:
     import unicodedata
+
     text = text.replace("đ", "d").replace("Đ", "D")  # NFKD does not decompose đ
-    return unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode().upper()
+    return (
+        unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode().upper()
+    )
 
 
 def parse_query(question: str) -> Query:
@@ -58,9 +138,16 @@ def parse_query(question: str) -> Query:
     for w in WORD.findall(rest):
         if w in MAKES:
             makes.add(w)
-        elif w not in STOPWORDS and len(w) >= 2 and not YEAR.fullmatch(w) and not re.fullmatch(r"\d+", w):
+        elif (
+            w not in STOPWORDS
+            and len(w) >= 2
+            and not YEAR.fullmatch(w)
+            and not re.fullmatch(r"\d+", w)
+        ):
             words.add(w)
-    return Query(frozenset(words), frozenset(makes), years, displacements, product_of(q))
+    return Query(
+        frozenset(words), frozenset(makes), years, displacements, product_of(q)
+    )
 
 
 def product_of(question_upper: str) -> str | None:
@@ -94,10 +181,12 @@ def score(row: Row, q: Query) -> float:
     for w in q.words:
         if _has_word(text, w):
             has_digit = any(c.isdigit() for c in w)
-            s += 4 if has_digit else 3      # codes (NRE180, 1NR-FE) are the strongest evidence
+            s += (
+                4 if has_digit else 3
+            )  # codes (NRE180, 1NR-FE) are the strongest evidence
             model_hits += 1
     if q.words and not model_hits:
-        return 0.0                          # the asked model / code must be on the row
+        return 0.0  # the asked model / code must be on the row
     s += sum(1 for mk in q.makes if mk in text)
     for d in q.displacements:
         # "1.3L", "1.33L" or a bare "VIOS 1.5" / "1.5J" - but not "11.3" or "1.35"
@@ -123,7 +212,9 @@ def unknown_names(rows: list[Row], question: str) -> set[str]:
     return {w for w in candidates if w not in vocab}
 
 
-def search(rows: list[Row], question: str, limit: int = 12, min_score: float = 3.0) -> list[tuple[Row, float]]:
+def search(
+    rows: list[Row], question: str, limit: int = 12, min_score: float = 3.0
+) -> list[tuple[Row, float]]:
     q = parse_query(question)
     if not q.words and not q.makes:
         return []
@@ -138,13 +229,17 @@ def search(rows: list[Row], question: str, limit: int = 12, min_score: float = 3
     with_codes = [r for r in rows if codes and all(_has_word(r.text, c) for c in codes)]
     rows = with_codes or rows
     scored = [(r, score(r, q)) for r in rows]
-    hits = sorted((x for x in scored if x[1] >= min_score), key=lambda x: (-x[1], x[0].page))
+    hits = sorted(
+        (x for x in scored if x[1] >= min_score), key=lambda x: (-x[1], x[0].page)
+    )
     if not hits and q.years:
         # The model is listed but not for that year ("Lada Niva 2015": NIVA 2006-2013): its rows
         # are the evidence that lets the answer say which years are covered.
         undated = Query(q.words, q.makes, (), q.displacements, q.product)
-        hits = sorted((x for x in ((r, score(r, undated)) for r in rows) if x[1] >= min_score),
-                      key=lambda x: (-x[1], x[0].page))
+        hits = sorted(
+            (x for x in ((r, score(r, undated)) for r in rows) if x[1] >= min_score),
+            key=lambda x: (-x[1], x[0].page),
+        )
     seen, out = set(), []
     for r, s in hits:
         if (r.source, r.text) not in seen:
@@ -157,7 +252,10 @@ def search(rows: list[Row], question: str, limit: int = 12, min_score: float = 3
 
 def rows_context(hits: list[tuple[Row, float]]) -> str:
     """Catalogue rows for the LLM, each with its file and page."""
-    return "\n".join(f"[{i}] {r.source} | page {r.page} | {r.text}" for i, (r, _) in enumerate(hits, 1))
+    return "\n".join(
+        f"[{i}] {r.source} | page {r.page} | {r.text}"
+        for i, (r, _) in enumerate(hits, 1)
+    )
 
 
 ANSWER_INSTRUCTIONS = (

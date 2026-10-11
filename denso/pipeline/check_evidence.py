@@ -51,7 +51,9 @@ def recall(evidence: str, text: str) -> float:
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("--bench", type=Path, default=DEFAULT_BENCH)
     ap.add_argument("--md", type=Path, default=DEFAULT_MD)
     ap.add_argument("--threshold", type=float, default=0.8)
@@ -73,10 +75,18 @@ def main() -> None:
             rows.append((q["id"], c["file"], page, on_page, anywhere, c["evidence"]))
 
     ok = sum(r[3] >= args.threshold for r in rows)
-    print(f"Evidence check: {ok}/{len(rows)} citations found on the cited page (recall >= {args.threshold:.0%})\n")
+    print(
+        f"Evidence check: {ok}/{len(rows)} citations found on the cited page (recall >= {args.threshold:.0%})\n"
+    )
     for qid, file, page, on_page, anywhere, evidence in rows:
-        flag = "ok  " if on_page >= args.threshold else ("PAGE" if anywhere >= args.threshold else "MISS")
-        print(f"{flag} Q{qid:<2} p{page!s:<3} page={on_page:4.0%} doc={anywhere:4.0%}  {file[:38]:38}  {evidence[:70]}")
+        flag = (
+            "ok  "
+            if on_page >= args.threshold
+            else ("PAGE" if anywhere >= args.threshold else "MISS")
+        )
+        print(
+            f"{flag} Q{qid:<2} p{page!s:<3} page={on_page:4.0%} doc={anywhere:4.0%}  {file[:38]:38}  {evidence[:70]}"
+        )
     if missing_docs:
         print("\nNot cleaned yet (skipped):", ", ".join(sorted(missing_docs)))
     sys.exit(0 if ok == len(rows) else 1)

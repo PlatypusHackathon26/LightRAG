@@ -7,7 +7,14 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "pipeline"))
 
-from clean import clean_page, detect_lang, is_junk_line, is_letter_spaced, join_ocr_splits, repeated_lines  # noqa: E402
+from clean import (
+    clean_page,
+    detect_lang,
+    is_junk_line,
+    is_letter_spaced,
+    join_ocr_splits,
+    repeated_lines,
+)  # noqa: E402
 
 
 def joined(line: str, lang: str = "en") -> str:
@@ -75,7 +82,10 @@ def test_tables_are_recompacted_with_page_number():
     )
     blocks, tables, _ = clean_page(raw, 2, set())
     assert tables == [
-        {"page": 2, "markdown": "| Compressor Type | Refrigerant Type |\n|---|---|\n| Vane-type (TV) | HFC134a (R-134a) |"}
+        {
+            "page": 2,
+            "markdown": "| Compressor Type | Refrigerant Type |\n|---|---|\n| Vane-type (TV) | HFC134a (R-134a) |",
+        }
     ]
     assert tables[0]["markdown"] in blocks
 
@@ -86,9 +96,13 @@ def test_large_tables_get_a_page_column_but_json_tables_do_not():
     rows = "".join(f"| BKR{i}ES | K{i}TT |\n" for i in range(400))
     raw = "| NGK TYPE | DENSO |\n|---|---|\n" + rows
     blocks, tables, _ = clean_page(raw, 11, set())
-    assert blocks[0].startswith("| Trang | NGK TYPE | DENSO |\n|---|---|---|\n| 11 | BKR0ES | K0TT |")
+    assert blocks[0].startswith(
+        "| Trang | NGK TYPE | DENSO |\n|---|---|---|\n| 11 | BKR0ES | K0TT |"
+    )
     assert all(line.startswith("| 11 | ") for line in blocks[0].split("\n")[2:])
-    assert tables[0]["markdown"].startswith("| NGK TYPE | DENSO |")  # A3 JSON keeps the original table
+    assert tables[0]["markdown"].startswith(
+        "| NGK TYPE | DENSO |"
+    )  # A3 JSON keeps the original table
 
 
 def test_repeated_paragraph_on_same_page_is_dropped_once():
@@ -96,7 +110,11 @@ def test_repeated_paragraph_on_same_page_is_dropped_once():
     para = "Both electrodes are needle shaped for better ignitability and wider heat range, and the gap stays stable."
     raw = f"{para}\n\n{para}\n\nShort line here.\n\nShort line here.\n\n{para}\n"
     blocks, _, report = clean_page(raw, 32, set())
-    assert blocks == [para, "Short line here.", "Short line here."]  # short lines are never deduplicated
+    assert blocks == [
+        para,
+        "Short line here.",
+        "Short line here.",
+    ]  # short lines are never deduplicated
     assert sum(d.startswith("duplicate_in_page") for d in report.dropped) == 2
 
 
@@ -113,7 +131,12 @@ def test_multilingual_toc_page_is_mixed_not_guessed():
         "FR Compresseur de climatisation Guide d'installation HU Klímakompresszor beépítési útmutató"
     )
     assert detect_lang(toc) == "mixed"
-    assert detect_lang("Fit the bolts and tighten them with the torque given in the table below.") == "en"
+    assert (
+        detect_lang(
+            "Fit the bolts and tighten them with the torque given in the table below."
+        )
+        == "en"
+    )
 
 
 def test_footnote_legends_are_never_boilerplate():
@@ -121,7 +144,10 @@ def test_footnote_legends_are_never_boilerplate():
     # printed under every application table was removed from all 151 pages,
     # leaving '*2' markers in table cells unexplained.
     legend = "- *2 No applicable item is available"
-    pages = [f"| Car | *2 |\n{legend}\n*7 Shorter than OEM wiper\nNotes footer {i % 1}" for i in range(6)]
+    pages = [
+        f"| Car | *2 |\n{legend}\n*7 Shorter than OEM wiper\nNotes footer {i % 1}"
+        for i in range(6)
+    ]
     found = repeated_lines(pages)
     assert legend not in found and "*7 Shorter than OEM wiper" not in found
     assert "Notes footer 0" in found
@@ -130,14 +156,33 @@ def test_footnote_legends_are_never_boilerplate():
 def test_boilerplate_keeps_its_first_occurrence():
     boiler = {"Please take off the plastic part put on the wiper arm"}
     emitted: set[str] = set()
-    first, _, _ = clean_page("Please take off the plastic part put on the wiper arm\nBody one.", 26, boiler, emitted)
-    later, _, rep = clean_page("Please take off the plastic part put on the wiper arm\nBody two.", 27, boiler, emitted)
-    assert first == ["Please take off the plastic part put on the wiper arm", "Body one."]
-    assert later == ["Body two."] and rep.dropped == ["boilerplate: Please take off the plastic part put on the wiper arm"]
+    first, _, _ = clean_page(
+        "Please take off the plastic part put on the wiper arm\nBody one.",
+        26,
+        boiler,
+        emitted,
+    )
+    later, _, rep = clean_page(
+        "Please take off the plastic part put on the wiper arm\nBody two.",
+        27,
+        boiler,
+        emitted,
+    )
+    assert first == [
+        "Please take off the plastic part put on the wiper arm",
+        "Body one.",
+    ]
+    assert later == ["Body two."] and rep.dropped == [
+        "boilerplate: Please take off the plastic part put on the wiper arm"
+    ]
 
 
 def test_running_headers_detected_only_when_repeated():
-    pages = ["Diesel Common Rail System\nbody one", "Diesel Common Rail System\nbody two", "Diesel Common Rail System\nbody three"]
+    pages = [
+        "Diesel Common Rail System\nbody one",
+        "Diesel Common Rail System\nbody two",
+        "Diesel Common Rail System\nbody three",
+    ]
     assert repeated_lines(pages) == {"Diesel Common Rail System"}
     assert repeated_lines(pages[:2]) == set()
 
@@ -146,12 +191,16 @@ def test_running_headers_detected_only_when_repeated():
 
 from clean import IMG_LINE, compact_caption, inline_captions  # noqa: E402
 
-SHELF_PAGE = ("####### Shelf life\n\nThe shelf life for DENSO ND-oils is:\n\n<!-- image -->\n\n"
-              "Expiry date is printed on the label\n\n<!-- image -->\n\nSHELF LIFE: 36 MONTHS\n\n<!-- image -->\n")
+SHELF_PAGE = (
+    "####### Shelf life\n\nThe shelf life for DENSO ND-oils is:\n\n<!-- image -->\n\n"
+    "Expiry date is printed on the label\n\n<!-- image -->\n\nSHELF LIFE: 36 MONTHS\n\n<!-- image -->\n"
+)
 
 
 def test_descriptions_take_the_placeholders_in_order():
-    raw = inline_captions(SHELF_PAGE, ["can of ND-OIL 11", "can of ND-OIL 8", "can of ND-OIL 12"])
+    raw = inline_captions(
+        SHELF_PAGE, ["can of ND-OIL 11", "can of ND-OIL 8", "can of ND-OIL 12"]
+    )
     blocks, _, _ = clean_page(raw, 12, set())
     i = blocks.index("The shelf life for DENSO ND-oils is:")
     assert blocks[i + 1] == "[Ảnh] can of ND-OIL 11"
@@ -160,12 +209,19 @@ def test_descriptions_take_the_placeholders_in_order():
 
 def test_a_count_mismatch_puts_descriptions_at_the_page_end_not_in_a_wrong_section():
     raw = inline_captions(SHELF_PAGE, ["can of ND-OIL 8", "can of ND-OIL 12"])
-    assert raw.count("<!-- image -->") == 3 and raw.rstrip().endswith(IMG_LINE + "can of ND-OIL 12")
+    assert raw.count("<!-- image -->") == 3 and raw.rstrip().endswith(
+        IMG_LINE + "can of ND-OIL 12"
+    )
 
 
 def test_descriptions_do_not_change_the_page_language():
     german = "####### Einbau\n\nDie Schrauben mit 6,9 bis 10,8 Nm anziehen und die Führungsstifte entfernen.\n\n<!-- image -->\n"
-    raw = inline_captions(german, ["The image shows the suction control valve with two guide pins and the bolts."])
+    raw = inline_captions(
+        german,
+        [
+            "The image shows the suction control valve with two guide pins and the bolts."
+        ],
+    )
     _, _, report = clean_page(raw, 5, set())
     assert report.language == "de"
 
@@ -188,5 +244,7 @@ def test_a_formula_is_not_a_letter_spaced_logo():
 def test_an_escaped_pipe_stays_inside_its_cell():
     from clean import clean_table
 
-    md = clean_table(["| Chi tiết | Nm |", "|---|---|", r"| SCV \| bu-lông | 6,9 – 10,8 |"], "vi", [])
+    md = clean_table(
+        ["| Chi tiết | Nm |", "|---|---|", r"| SCV \| bu-lông | 6,9 – 10,8 |"], "vi", []
+    )
     assert md.splitlines()[2] == r"| SCV \| bu-lông | 6,9 – 10,8 |"

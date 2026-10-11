@@ -62,23 +62,35 @@ def main():
     # 1. Khởi tạo bus & dịch vụ chấp hành
     bus = EventBus(max_workers=4)
     dispatcher = ActuatorDispatcher(event_bus=bus)
-    runner = ProcedureRunner(dispatcher, event_bus=bus,
-                             verify_s=float(os.environ.get("LONG_AGENT_VERIFY_S", "120")))
+    runner = ProcedureRunner(
+        dispatcher,
+        event_bus=bus,
+        verify_s=float(os.environ.get("LONG_AGENT_VERIFY_S", "120")),
+    )
     # Mọi lệnh agent đề xuất đều chờ kỹ sư duyệt; LONG_AGENT_AUTO_LOW=1 cho lệnh LOW (do máy khai báo) chạy ngay.
-    approval = ActionApproval(dispatcher=dispatcher, event_bus=bus, procedure_runner=runner,
-                              default_ttl_sec=float(os.environ.get("LONG_AGENT_APPROVAL_TTL_S", "1800")),
-                              require_approval_for_all=os.environ.get("LONG_AGENT_AUTO_LOW") != "1")
+    approval = ActionApproval(
+        dispatcher=dispatcher,
+        event_bus=bus,
+        procedure_runner=runner,
+        default_ttl_sec=float(os.environ.get("LONG_AGENT_APPROVAL_TTL_S", "1800")),
+        require_approval_for_all=os.environ.get("LONG_AGENT_AUTO_LOW") != "1",
+    )
     receiver = TelemetryReceiver(event_hub=bus)
     state_store = StateStore()
 
     # Agent chẩn đoán (LLM khi có LONG_AGENT_LLM_*, tài liệu khi có LONG_AGENT_RAG_URL) và chỉ chọn
     # lệnh sửa; quy trình dừng - khoá - sửa - khởi động lại do agent/procedures.py lập và kỹ sư duyệt 2 lần.
-    rag = RAGEngine(llm_callable=llm_callable_from_env(), retriever=retriever_from_env())
-    brain = AgentBrain(rag_engine=rag, event_bus=bus,
-                       execute_actions=os.environ.get("LONG_AGENT_PROPOSE", "1") != "0",
-                       repeat_window_s=float(os.environ.get("LONG_AGENT_REPEAT_S", "120")),
-                       busy=lambda mid: runner.is_busy(mid) or approval.has_pending(mid),
-                       attempts=runner.attempts)
+    rag = RAGEngine(
+        llm_callable=llm_callable_from_env(), retriever=retriever_from_env()
+    )
+    brain = AgentBrain(
+        rag_engine=rag,
+        event_bus=bus,
+        execute_actions=os.environ.get("LONG_AGENT_PROPOSE", "1") != "0",
+        repeat_window_s=float(os.environ.get("LONG_AGENT_REPEAT_S", "120")),
+        busy=lambda mid: runner.is_busy(mid) or approval.has_pending(mid),
+        attempts=runner.attempts,
+    )
     bus.subscribe("alert", runner.on_alert)
     bus.subscribe("alert", brain.handle_alert)
     bus.subscribe("normal", brain.handle_heartbeat)
@@ -93,27 +105,51 @@ def main():
         if machine is None:
             return
         name = event.get("command", "")
-        base = {"machine_id": machine_id, "reason": event.get("reason", "Agent đề xuất"),
-                "diagnosis": event.get("diagnosis", "")}
+        base = {
+            "machine_id": machine_id,
+            "reason": event.get("reason", "Agent đề xuất"),
+            "diagnosis": event.get("diagnosis", ""),
+        }
         if event.get("kind") == "repair":
             try:
                 steps = plan_repair(machine.commands, machine.state, name)
             except PlanningError as exc:
-                state_store.add_machine_note(machine_id, f"Không lập được quy trình sửa {name}: {exc}")
+                state_store.add_machine_note(
+                    machine_id, f"Không lập được quy trình sửa {name}: {exc}"
+                )
                 return
-            approval.process_action_request({**base, "kind": "repair", "command": name,
-                                             "title": f"Sửa: {name}", "steps": steps})
+            approval.process_action_request(
+                {
+                    **base,
+                    "kind": "repair",
+                    "command": name,
+                    "title": f"Sửa: {name}",
+                    "steps": steps,
+                }
+            )
         else:
-            approval.process_action_request({**base, "kind": "command", "command": name,
-                                             "params": event.get("params", {}), "payload": event.get("params", {}),
-                                             "title": f"Lệnh: {name}"})
+            approval.process_action_request(
+                {
+                    **base,
+                    "kind": "command",
+                    "command": name,
+                    "params": event.get("params", {}),
+                    "payload": event.get("params", {}),
+                    "title": f"Lệnh: {name}",
+                }
+            )
 
     def _request_restart(machine_id: str, steps: list, repair_record: dict) -> None:
-        approval.process_action_request({
-            "machine_id": machine_id, "kind": "restart", "command": "START",
-            "title": "Khởi động lại sau sửa chữa", "steps": steps,
-            "reason": f"Đã xong {repair_record.get('command')}; kỹ sư kiểm tra máy rồi duyệt khởi động lại.",
-        })
+        approval.process_action_request(
+            {
+                "machine_id": machine_id,
+                "kind": "restart",
+                "command": "START",
+                "title": "Khởi động lại sau sửa chữa",
+                "steps": steps,
+                "reason": f"Đã xong {repair_record.get('command')}; kỹ sư kiểm tra máy rồi duyệt khởi động lại.",
+            }
+        )
 
     runner.request_restart = _request_restart
     bus.subscribe("action_command", _route_action_command)

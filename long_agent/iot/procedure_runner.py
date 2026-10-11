@@ -6,6 +6,7 @@ restart approved -> START, wait for RUNNING -> verification window: no alert for
 the repair is verified; an alert means it failed and the agent diagnoses again with that attempt
 on record. Rules: a machine runs one procedure at a time; nothing here decides what to repair.
 """
+
 from __future__ import annotations
 
 import logging
@@ -39,10 +40,14 @@ class ProcedureRunner:
         self.sleep = sleep
         self.clock = clock
         self.background = background
-        self.request_restart: Optional[Callable[[str, List[Dict[str, Any]], Dict[str, Any]], Any]] = None
+        self.request_restart: Optional[
+            Callable[[str, List[Dict[str, Any]], Dict[str, Any]], Any]
+        ] = None
         self._lock = threading.Lock()
-        self._busy: Dict[str, str] = {}                  # machine -> phase ("repair" / "restart")
-        self._verifying: Dict[str, Dict[str, Any]] = {}  # machine -> {"until", "repair"}
+        self._busy: Dict[str, str] = {}  # machine -> phase ("repair" / "restart")
+        self._verifying: Dict[
+            str, Dict[str, Any]
+        ] = {}  # machine -> {"until", "repair"}
         self._attempts: Dict[str, List[Dict[str, Any]]] = {}
 
     # ------------------------------------------------------------------ queries
@@ -73,7 +78,9 @@ class ProcedureRunner:
             self._busy[machine_id] = record.get("kind", "repair")
             self._verifying.pop(machine_id, None)
         if self.background:
-            threading.Thread(target=self._run, args=(record,), daemon=True, name=f"proc-{machine_id}").start()
+            threading.Thread(
+                target=self._run, args=(record,), daemon=True, name=f"proc-{machine_id}"
+            ).start()
         else:
             self._run(record)
         return True
@@ -83,14 +90,26 @@ class ProcedureRunner:
         ok, failed_step = True, None
         try:
             for i, step in enumerate(record.get("steps") or []):
-                self._publish("procedure_step", record, step=i, command=step["command"], status="running")
+                self._publish(
+                    "procedure_step",
+                    record,
+                    step=i,
+                    command=step["command"],
+                    status="running",
+                )
                 ok, detail = self._run_step(machine_id, step)
-                self._publish("procedure_step", record, step=i, command=step["command"],
-                              status="done" if ok else "failed", detail=detail)
+                self._publish(
+                    "procedure_step",
+                    record,
+                    step=i,
+                    command=step["command"],
+                    status="done" if ok else "failed",
+                    detail=detail,
+                )
                 if not ok:
                     failed_step = step["command"]
                     break
-        except Exception as exc:   # never leave a machine marked busy
+        except Exception as exc:  # never leave a machine marked busy
             logger.exception("[Procedure] %s crashed", machine_id)
             ok, failed_step = False, f"lỗi nội bộ: {exc}"
         finally:
@@ -100,25 +119,44 @@ class ProcedureRunner:
         if not ok:
             return
         if kind == "repair":
-            repair = next((s["command"] for s in record["steps"] if s.get("kind") == "repair"), None)
+            repair = next(
+                (s["command"] for s in record["steps"] if s.get("kind") == "repair"),
+                None,
+            )
             with self._lock:
                 self._attempts.setdefault(machine_id, []).append(
-                    {"repair": repair, "outcome": "awaiting_restart", "at": datetime.now().isoformat()})
+                    {
+                        "repair": repair,
+                        "outcome": "awaiting_restart",
+                        "at": datetime.now().isoformat(),
+                    }
+                )
             if self.request_restart:
-                self.request_restart(machine_id, self._restart_steps(machine_id), record)
+                self.request_restart(
+                    machine_id, self._restart_steps(machine_id), record
+                )
         elif kind == "restart":
             with self._lock:
                 attempts = self._attempts.get(machine_id) or []
                 if attempts and attempts[-1]["outcome"] == "awaiting_restart":
                     attempts[-1]["outcome"] = "verifying"
-                self._verifying[machine_id] = {"until": self.clock() + self.verify_s,
-                                               "repair": attempts[-1]["repair"] if attempts else None}
-            self._publish("verification", record, status="started", seconds=self.verify_s)
+                self._verifying[machine_id] = {
+                    "until": self.clock() + self.verify_s,
+                    "repair": attempts[-1]["repair"] if attempts else None,
+                }
+            self._publish(
+                "verification", record, status="started", seconds=self.verify_s
+            )
             if self.background:
-                threading.Thread(target=self._watch_verification, args=(machine_id, record), daemon=True).start()
+                threading.Thread(
+                    target=self._watch_verification,
+                    args=(machine_id, record),
+                    daemon=True,
+                ).start()
 
     def _restart_steps(self, machine_id: str) -> List[Dict[str, Any]]:
         from agent.procedures import plan_restart
+
         machine = self.dispatcher.machine(machine_id)
         return plan_restart(machine.commands, machine.state)
 
@@ -126,13 +164,21 @@ class ProcedureRunner:
         """Dispatch one step, retrying while the machine says 'not yet', then wait for its effect."""
         deadline = self.clock() + self.step_timeout_s
         while True:
-            res = self.dispatcher.execute({"machine_id": machine_id, "command": step["command"],
-                                           "params": step.get("params") or {}, "reason": "Quy trình đã duyệt"})
+            res = self.dispatcher.execute(
+                {
+                    "machine_id": machine_id,
+                    "command": step["command"],
+                    "params": step.get("params") or {},
+                    "reason": "Quy trình đã duyệt",
+                }
+            )
             details = res.get("details") or {}
             if res.get("status") == "SUCCESS":
                 break
             if not details.get("retryable") or self.clock() >= deadline:
-                return False, res.get("error") or str(details.get("execution_detail") or res.get("status"))
+                return False, res.get("error") or str(
+                    details.get("execution_detail") or res.get("status")
+                )
             self.sleep(self.poll_s)
         machine = self.dispatcher.machine(machine_id)
         if step.get("kind") == "repair":
@@ -141,7 +187,9 @@ class ProcedureRunner:
                     return False, "quá thời gian chờ bảo trì"
                 self.sleep(self.poll_s)
             fixed = (machine.last_repair or {}).get("fault_was_present")
-            return True, "đã sửa xong" + ("" if fixed else " (bộ phận này không có lỗi)")
+            return True, "đã sửa xong" + (
+                "" if fixed else " (bộ phận này không có lỗi)"
+            )
         if step["command"] == "START":
             while machine.state != cmd.RUNNING:
                 if machine.state != cmd.STARTING or self.clock() >= deadline:
@@ -162,8 +210,13 @@ class ProcedureRunner:
                 if a["outcome"] == "verifying":
                     a["outcome"] = "failed"
         params = [a.get("param") for a in event.get("anomalies") or []]
-        self._publish("verification", {"machine_id": machine_id}, status="failed", repair=watch["repair"],
-                      params=params)
+        self._publish(
+            "verification",
+            {"machine_id": machine_id},
+            status="failed",
+            repair=watch["repair"],
+            params=params,
+        )
 
     def check_verification(self, machine_id: str) -> Optional[str]:
         """Close the window once it has passed without an alert. Returns the outcome if it closed."""
@@ -172,8 +225,15 @@ class ProcedureRunner:
             if watch is None or self.clock() < watch["until"]:
                 return None
             self._verifying.pop(machine_id)
-            self._attempts.pop(machine_id, None)   # healthy again: the attempt history starts over
-        self._publish("verification", {"machine_id": machine_id}, status="verified", repair=watch["repair"])
+            self._attempts.pop(
+                machine_id, None
+            )  # healthy again: the attempt history starts over
+        self._publish(
+            "verification",
+            {"machine_id": machine_id},
+            status="verified",
+            repair=watch["repair"],
+        )
         return "verified"
 
     def _watch_verification(self, machine_id: str, record: Dict[str, Any]) -> None:
@@ -185,6 +245,13 @@ class ProcedureRunner:
     def _publish(self, event_type: str, record: Dict[str, Any], **extra: Any) -> None:
         if self.event_bus is None:
             return
-        self.event_bus.publish({"event_type": event_type, "machine_id": record.get("machine_id"),
-                                "procedure_id": record.get("approval_id"), "kind": record.get("kind"),
-                                "timestamp": datetime.now().isoformat(), **extra})
+        self.event_bus.publish(
+            {
+                "event_type": event_type,
+                "machine_id": record.get("machine_id"),
+                "procedure_id": record.get("approval_id"),
+                "kind": record.get("kind"),
+                "timestamp": datetime.now().isoformat(),
+                **extra,
+            }
+        )

@@ -35,7 +35,20 @@ PAGE_BREAK = "<!-- PAGE_BREAK -->"
 
 # Languages wordfreq knows well enough for OCR word-joining. Vietnamese is
 # excluded on purpose: its words are space-separated syllables.
-JOINABLE_LANGS = {"en", "de", "fr", "es", "it", "pt", "ro", "pl", "nl", "sv", "da", "ru"}
+JOINABLE_LANGS = {
+    "en",
+    "de",
+    "fr",
+    "es",
+    "it",
+    "pt",
+    "ro",
+    "pl",
+    "nl",
+    "sv",
+    "da",
+    "ru",
+}
 CJK_LANGS = {"zh-cn", "zh-tw", "ja", "ko"}
 
 HTML_COMMENT = re.compile(r"^\s*<!--.*-->\s*$")
@@ -129,7 +142,9 @@ def join_ocr_splits(line: str, lang: str, log: list[str]) -> str:
             if not all(w.isalpha() for w in words):
                 continue
             # Acronyms and capitalised follow-up words are separate on purpose.
-            if any(w.isupper() and len(w) > 1 for w in words) or any(w[0].isupper() for w in words[1:]):
+            if any(w.isupper() and len(w) > 1 for w in words) or any(
+                w[0].isupper() for w in words[1:]
+            ):
                 continue
             joined = "".join(words)
             zj = _zipf(joined, lang)
@@ -190,7 +205,10 @@ SPLIT_TABLE_ROWS = 10
 
 
 def likely_split(table_md: str) -> bool:
-    return len(table_md) >= SPLIT_TABLE_CHARS or table_md.count("\n") - 1 >= SPLIT_TABLE_ROWS
+    return (
+        len(table_md) >= SPLIT_TABLE_CHARS
+        or table_md.count("\n") - 1 >= SPLIT_TABLE_ROWS
+    )
 
 
 def with_page_column(table_md: str, page: int) -> str:
@@ -218,7 +236,9 @@ def repeated_lines(pages: list[str]) -> set[str]:
         seen = {
             ln.strip()
             for ln in page.split("\n")
-            if 0 < len(ln.strip()) < 80 and not ln.startswith("|") and not FOOTNOTE_LEGEND.match(ln.strip())
+            if 0 < len(ln.strip()) < 80
+            and not ln.startswith("|")
+            and not FOOTNOTE_LEGEND.match(ln.strip())
         }
         counts.update(seen)
     return {ln for ln, n in counts.items() if n >= max(3, len(pages) // 2)}
@@ -230,7 +250,9 @@ def clean_page(
     """Clean one page. `emitted` collects boilerplate lines already kept once in this document."""
     emitted = set() if emitted is None else emitted
     # Inlined image descriptions are English model output: keep them out of the page language.
-    lang = detect_lang("\n".join(x for x in raw.split("\n") if not x.strip().startswith(IMG_LINE)))
+    lang = detect_lang(
+        "\n".join(x for x in raw.split("\n") if not x.strip().startswith(IMG_LINE))
+    )
     report = PageReport(page=number, language=lang)
     blocks: list[str] = []
     tables: list[dict] = []
@@ -249,18 +271,24 @@ def clean_page(
                 i += 1
             table_md = clean_table(table_lines, lang, report.joined)
             if table_md:
-                blocks.append(with_page_column(table_md, number) if likely_split(table_md) else table_md)
+                blocks.append(
+                    with_page_column(table_md, number)
+                    if likely_split(table_md)
+                    else table_md
+                )
                 tables.append({"page": number, "markdown": table_md})
             continue
         i += 1
         if stripped.startswith(IMG_LINE):
-            blocks.append(f"[Ảnh] {stripped[len(IMG_LINE):].strip()}")
+            blocks.append(f"[Ảnh] {stripped[len(IMG_LINE) :].strip()}")
             continue
         if stripped in boilerplate:
             if stripped in emitted:
                 report.dropped.append(f"boilerplate: {stripped}")
                 continue
-            emitted.add(stripped)  # keep the first occurrence, run it through the normal rules
+            emitted.add(
+                stripped
+            )  # keep the first occurrence, run it through the normal rules
         heading = HEADING.match(stripped)
         if heading:
             text = clean_inline(heading.group(2), lang, report.joined)
@@ -273,7 +301,7 @@ def clean_page(
             continue
         bullet = BULLET_GT.match(line)
         if bullet:
-            body = line[bullet.end():]
+            body = line[bullet.end() :]
             for item in INLINE_GT_BULLET.split(body.replace("&gt;", ">")):
                 item = clean_inline(item.lstrip("> "), lang, report.joined)
                 if item:
@@ -330,17 +358,27 @@ def markdown_page(blocks: list[str], number: int, lang: str) -> str:
 
 
 def page_marker(number: int, lang: str | None = None) -> str:
-    return f"--- [Trang {number}] ---" if lang is None else f"--- [Trang {number} | ngôn ngữ: {lang}] ---"
+    return (
+        f"--- [Trang {number}] ---"
+        if lang is None
+        else f"--- [Trang {number} | ngôn ngữ: {lang}] ---"
+    )
 
 
 def doc_id_for(source: Path) -> str:
-    digest = hashlib.sha256(source.read_bytes()).hexdigest() if source.exists() else hashlib.sha256(source.name.encode()).hexdigest()
+    digest = (
+        hashlib.sha256(source.read_bytes()).hexdigest()
+        if source.exists()
+        else hashlib.sha256(source.name.encode()).hexdigest()
+    )
     return f"DENSO_{digest[:8].upper()}"
 
 
 TIERS_FILE = Path(__file__).resolve().parent / "tiers.json"
 PART_NAME = re.compile(r"^p(\d{4})-(\d{4})\.md$")
-LOOKUP_HINT = "[native-P!]"  # LightRAG filename hint: native engine, P chunking, no KG extraction
+LOOKUP_HINT = (
+    "[native-P!]"  # LightRAG filename hint: native engine, P chunking, no KG extraction
+)
 
 
 def load_tiers() -> dict:
@@ -371,7 +409,11 @@ def load_captions(doc_dir: Path) -> dict[int, list[str]]:
         captions = []
         for k in keys:
             t = (texts.get(k) or {}).get("text", "").strip()
-            if t and not re.fullmatch(r"\W*no text\W*", t, re.IGNORECASE) and len(t) >= 15:
+            if (
+                t
+                and not re.fullmatch(r"\W*no text\W*", t, re.IGNORECASE)
+                and len(t) >= 15
+            ):
                 captions.append(compact_caption(t))
         if captions:
             out[int(page)] = captions
@@ -407,11 +449,15 @@ def load_pages(doc_dir: Path) -> tuple[list[str], bool, int]:
     if (doc_dir / "meta.json").exists() and (doc_dir / "docling.md").exists():
         md = (doc_dir / "docling.md").read_text(encoding="utf-8")
         return md.split(PAGE_BREAK), True, len(md)
-    parts = sorted(
-        (int(m.group(1)), int(m.group(2)), f)
-        for f in (doc_dir / "parts").glob("p*.md")
-        if (m := PART_NAME.match(f.name))
-    ) if (doc_dir / "parts").exists() else []
+    parts = (
+        sorted(
+            (int(m.group(1)), int(m.group(2)), f)
+            for f in (doc_dir / "parts").glob("p*.md")
+            if (m := PART_NAME.match(f.name))
+        )
+        if (doc_dir / "parts").exists()
+        else []
+    )
     pages: list[str] = []
     size = 0
     for start, end, f in parts:
@@ -440,9 +486,13 @@ def process(doc_dir: Path, out_root: Path, tiers: dict | None = None) -> dict | 
     if not complete and (tier is None or len(pages_raw) < tier["knowledge_pages"][1]):
         return None  # nothing publishable until more ranges are parsed
     pages_raw = [html.unescape(p) for p in pages_raw]
-    boilerplate = repeated_lines(pages_raw)  # before inlining: descriptions repeat with their images
+    boilerplate = repeated_lines(
+        pages_raw
+    )  # before inlining: descriptions repeat with their images
     captions = load_captions(doc_dir)
-    pages_raw = [inline_captions(p, captions.get(n, [])) for n, p in enumerate(pages_raw, 1)]
+    pages_raw = [
+        inline_captions(p, captions.get(n, [])) for n, p in enumerate(pages_raw, 1)
+    ]
     emitted: set[str] = set()
 
     md_parts: list[str] = []
@@ -455,9 +505,13 @@ def process(doc_dir: Path, out_root: Path, tiers: dict | None = None) -> dict | 
         all_tables += tables
         md_parts.append(markdown_page(blocks, n, report.language))
         prose = [b for b in blocks if not b.startswith("|")]
-        text_parts.append(page_marker(n) + "\n" + "\n".join(b.lstrip("#").strip() for b in prose))
+        text_parts.append(
+            page_marker(n) + "\n" + "\n".join(b.lstrip("#").strip() for b in prose)
+        )
 
-    langs = Counter(r.language for r in reports if r.language not in ("unknown", "mixed"))
+    langs = Counter(
+        r.language for r in reports if r.language not in ("unknown", "mixed")
+    )
     cleaned_text = "\n\n".join(text_parts).strip()
     md_dir = out_root / "cleaned_md"
     md_dir.mkdir(parents=True, exist_ok=True)
@@ -480,12 +534,20 @@ def process(doc_dir: Path, out_root: Path, tiers: dict | None = None) -> dict | 
         if complete:
             lookup_from = max(last, 0) + 1
             lookup_name = f"{stem} - lookup.{LOOKUP_HINT}.md"
-            write_md(md_dir / lookup_name, f"{stem} (lookup tables)", md_parts[lookup_from - 1 :])
-            clean_report["outputs"].append(f"{lookup_name} (lookup pp.{lookup_from}-{len(md_parts)})")
+            write_md(
+                md_dir / lookup_name,
+                f"{stem} (lookup tables)",
+                md_parts[lookup_from - 1 :],
+            )
+            clean_report["outputs"].append(
+                f"{lookup_name} (lookup pp.{lookup_from}-{len(md_parts)})"
+            )
     else:
         write_md(md_dir / f"{stem}.md", stem, md_parts)
         clean_report["outputs"].append(f"{stem}.md")
-    (doc_dir / "clean_report.json").write_text(json.dumps(clean_report, ensure_ascii=False, indent=2), encoding="utf-8")
+    (doc_dir / "clean_report.json").write_text(
+        json.dumps(clean_report, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     if not complete:
         return clean_report  # the A3 JSON describes the whole document; wait for the full parse
 
@@ -504,7 +566,8 @@ def process(doc_dir: Path, out_root: Path, tiers: dict | None = None) -> dict | 
         "metadata": {
             "total_pages": len(pages_raw),
             "file_size_kb": meta["file_size_kb"],
-            "is_corrupted": meta.get("docling_status") != "success" or len(cleaned_text) < 50,
+            "is_corrupted": meta.get("docling_status") != "success"
+            or len(cleaned_text) < 50,
         },
     }
     (out_root / "cleaned_json").mkdir(parents=True, exist_ok=True)
@@ -512,19 +575,31 @@ def process(doc_dir: Path, out_root: Path, tiers: dict | None = None) -> dict | 
         json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8"
     )
     clean_report["outputs"].append(f"cleaned_json/{stem}.json")
-    (doc_dir / "clean_report.json").write_text(json.dumps(clean_report, ensure_ascii=False, indent=2), encoding="utf-8")
+    (doc_dir / "clean_report.json").write_text(
+        json.dumps(clean_report, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     return clean_report
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("names", nargs="*", help="Parsed document folder names (default: all)")
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    ap.add_argument(
+        "names", nargs="*", help="Parsed document folder names (default: all)"
+    )
     ap.add_argument("--parsed", type=Path, default=DEFAULT_PARSED)
     ap.add_argument("--out", type=Path, default=DEFAULT_OUT)
     args = ap.parse_args()
 
-    dirs = [args.parsed / n for n in args.names] if args.names else sorted(
-        d for d in args.parsed.iterdir() if (d / "docling.md").exists() or (d / "parts").exists()
+    dirs = (
+        [args.parsed / n for n in args.names]
+        if args.names
+        else sorted(
+            d
+            for d in args.parsed.iterdir()
+            if (d / "docling.md").exists() or (d / "parts").exists()
+        )
     )
     tiers = load_tiers()
     for d in dirs:

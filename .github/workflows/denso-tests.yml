@@ -1,0 +1,61 @@
+name: DENSO Tests
+
+# The 23 test files under denso/tests and long_agent/tests were never run in
+# CI. tests.yml cannot run them: its testpaths is tests/ (the LightRAG core
+# suite) and it triggers on [main, dev, dev-*] only, while this project works
+# on feat/*, Long-*, Phuc_* and nam-*. This workflow is the only thing that
+# runs the DENSO suites, so keep it in sync when a suite moves.
+on:
+  push:
+    branches: [ main, dev, 'dev-*', 'feat/**', 'Long-*', 'Phuc_*', 'nam-*' ]
+  pull_request:
+    branches: [ main, dev, 'dev-*', 'feat/**' ]
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+jobs:
+  denso-tests:
+    name: DENSO Tests
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v7
+
+    - name: Set up Python
+      uses: actions/setup-python@v7
+      with:
+        # denso/ and long_agent/ are plain Python; one interpreter version is
+        # enough, and 3.12 matches what the setup wizard job already uses.
+        python-version: '3.12'
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v7  # no floating major tag exists past v7
+      with:
+        enable-cache: true
+
+    - name: Install dependencies (locked)
+      # The api extra brings fastapi/httpx/PyYAML/numpy; denso/requirements.txt
+      # adds langdetect/wordfreq/pillow, which the pipeline tests import;
+      # long_agent/requirements.txt adds its own fastapi/uvicorn/pydantic/httpx.
+      # pytest/pytest-asyncio come from the same versions the repo pins in the
+      # pytest extra. Deliberately not `--extra pytest`: it also pulls httpx2,
+      # which the DENSO suites were not validated against.
+      run: |
+        uv sync --frozen --python 3.12 --extra api
+        uv pip install --python .venv/bin/python \
+          -r denso/requirements.txt \
+          -r long_agent/requirements.txt \
+          pytest pytest-asyncio
+
+    - name: denso tests
+      # -o addopts="" because the root pyproject.toml configures tests/, not
+      # denso/tests. Run from the repository root: the suite resolves its
+      # fixtures relative to it.
+      run: .venv/bin/python -m pytest denso/tests -q -o addopts=""
+
+    - name: long_agent tests
+      # These import the package by its top-level module names (iot/, agent/,
+      # machines/, dashboard/), so the working directory has to be long_agent/.
+      working-directory: long_agent
+      run: ../.venv/bin/python -m pytest tests -q -o addopts=""

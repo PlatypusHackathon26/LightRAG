@@ -19,16 +19,16 @@ class EventBus:
             max_workers=max_workers, thread_name_prefix="event_bus_worker"
         )
 
-    def subscribe(
-        self, topic: str, handler: Callable[[Dict[str, Any]], None]
-    ) -> None:
+    def subscribe(self, topic: str, handler: Callable[[Dict[str, Any]], None]) -> None:
         """Đăng ký lắng nghe theo topic (hỗ trợ wildcard '*')."""
         with self._lock:
             if topic not in self._subscribers:
                 self._subscribers[topic] = []
             if handler not in self._subscribers[topic]:
                 self._subscribers[topic].append(handler)
-                logger.debug(f"[EventBus] Handler '{getattr(handler, '__name__', str(handler))}' subscribed to '{topic}'")
+                logger.debug(
+                    f"[EventBus] Handler '{getattr(handler, '__name__', str(handler))}' subscribed to '{topic}'"
+                )
 
     def unsubscribe(
         self, topic: str, handler: Callable[[Dict[str, Any]], None]

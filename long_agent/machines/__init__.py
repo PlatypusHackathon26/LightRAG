@@ -1,4 +1,4 @@
-﻿from .cnc_milling import CncMilling
+from .cnc_milling import CncMilling
 from .robot_arm import RobotArm
 from .injection_molding import InjectionMolding
 from .aoi_inspection import AoiInspection

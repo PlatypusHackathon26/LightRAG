@@ -49,10 +49,16 @@ class ActionApproval:
             self.dispatcher_callback = dispatcher.execute
         else:
             self.dispatcher_callback = None
-        if spec_lookup is None and dispatcher is not None and hasattr(dispatcher, "machine"):
+        if (
+            spec_lookup is None
+            and dispatcher is not None
+            and hasattr(dispatcher, "machine")
+        ):
+
             def _lookup(machine_id: str, name: str) -> Any:
                 machine = dispatcher.machine(machine_id)
                 return machine.commands.get(name) if machine is not None else None
+
             self.spec_lookup = _lookup
 
         # Danh sách chờ: {approval_id: command_record}
@@ -66,19 +72,39 @@ class ActionApproval:
         return spec.risk if spec is not None else "HIGH"
 
     def _record(self, event: str, rec: Dict[str, Any], **extra: Any) -> None:
-        entry = {"ts": datetime.now().isoformat(), "event": event, "approval_id": rec.get("approval_id"),
-                 "machine_id": rec.get("machine_id"), "command": rec.get("command"), "kind": rec.get("kind"),
-                 "title": rec.get("title"), **extra}
+        entry = {
+            "ts": datetime.now().isoformat(),
+            "event": event,
+            "approval_id": rec.get("approval_id"),
+            "machine_id": rec.get("machine_id"),
+            "command": rec.get("command"),
+            "kind": rec.get("kind"),
+            "title": rec.get("title"),
+            **extra,
+        }
         self.history.append(entry)
         if self.event_bus:
-            self.event_bus.publish({"event_type": f"approval_{event}", "approval_id": rec.get("approval_id"),
-                                    "machine_id": rec.get("machine_id"), "command": rec, **extra})
+            self.event_bus.publish(
+                {
+                    "event_type": f"approval_{event}",
+                    "approval_id": rec.get("approval_id"),
+                    "machine_id": rec.get("machine_id"),
+                    "command": rec,
+                    **extra,
+                }
+            )
 
     def _cleanup_expired(self) -> None:
         now = time.time()
-        for aid in [a for a, rec in self.pending_actions.items() if now > rec.get("expires_at", float("inf"))]:
+        for aid in [
+            a
+            for a, rec in self.pending_actions.items()
+            if now > rec.get("expires_at", float("inf"))
+        ]:
             rec = self.pending_actions.pop(aid)
-            logger.warning(f"[Approval] Ticket {aid} ({rec.get('title') or rec.get('command')}) ĐÃ HẾT HẠN.")
+            logger.warning(
+                f"[Approval] Ticket {aid} ({rec.get('title') or rec.get('command')}) ĐÃ HẾT HẠN."
+            )
             self._record("expired", rec)
 
     def process_action_request(self, command: Dict[str, Any]) -> Dict[str, Any]:
@@ -88,21 +114,33 @@ class ActionApproval:
             machine_id = command.get("machine_id", "UNKNOWN")
             cmd_name = str(command.get("command") or command.get("action") or "UNKNOWN")
             steps = command.get("steps")
-            risk = "HIGH" if steps or self.require_approval_for_all else self._assess_risk_level(machine_id, cmd_name)
+            risk = (
+                "HIGH"
+                if steps or self.require_approval_for_all
+                else self._assess_risk_level(machine_id, cmd_name)
+            )
 
             if risk == "LOW":
-                logger.info(f"[Approval] Lệnh an toàn [{cmd_name}] trên [{machine_id}] -> thi hành ngay.")
+                logger.info(
+                    f"[Approval] Lệnh an toàn [{cmd_name}] trên [{machine_id}] -> thi hành ngay."
+                )
                 if not self.dispatcher_callback:
                     return {"status": "NO_DISPATCHER_ATTACHED", "command": command}
                 res = self.dispatcher_callback(command)
-                self._record("executed", {**command, "command": cmd_name}, result=res.get("status"))
+                self._record(
+                    "executed",
+                    {**command, "command": cmd_name},
+                    result=res.get("status"),
+                )
                 return res
 
             approval_id = f"APP-{str(uuid.uuid4())[:8].upper()}"
             now_ts = time.time()
             record = {
                 **command,
-                "command": cmd_name if not steps else command.get("command") or command.get("title"),
+                "command": cmd_name
+                if not steps
+                else command.get("command") or command.get("title"),
                 "kind": command.get("kind") or ("command" if not steps else "repair"),
                 "approval_id": approval_id,
                 "action_id": approval_id,
@@ -112,17 +150,32 @@ class ActionApproval:
                 "expires_at": now_ts + self.default_ttl_sec,
             }
             self.pending_actions[approval_id] = record
-            logger.warning(f"[Approval] Chờ kỹ sư duyệt [{record.get('title') or cmd_name}] trên [{machine_id}] "
-                           f"[{approval_id}]")
+            logger.warning(
+                f"[Approval] Chờ kỹ sư duyệt [{record.get('title') or cmd_name}] trên [{machine_id}] "
+                f"[{approval_id}]"
+            )
             if self.event_bus:
-                self.event_bus.publish({"event_type": "approval_required", "approval_id": approval_id,
-                                        "command": record})
+                self.event_bus.publish(
+                    {
+                        "event_type": "approval_required",
+                        "approval_id": approval_id,
+                        "command": record,
+                    }
+                )
             return record
 
-    def propose(self, machine_id: str, action: str, payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def propose(
+        self, machine_id: str, action: str, payload: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """A single-command ticket (shorthand for process_action_request)."""
-        return self.process_action_request({"machine_id": machine_id, "command": action,
-                                            "payload": payload or {}, "params": payload or {}})
+        return self.process_action_request(
+            {
+                "machine_id": machine_id,
+                "command": action,
+                "payload": payload or {},
+                "params": payload or {},
+            }
+        )
 
     def approve(self, action_id: str) -> Dict[str, Any]:
         """Kỹ sư bấm [Duyệt]. A procedure starts on the runner; a single command is dispatched and
@@ -138,7 +191,11 @@ class ActionApproval:
                 self._record("failed", record, error="máy đang chạy một quy trình khác")
                 raise ActionDispatchError("Máy đang chạy một quy trình khác")
             self._record("approved", record)
-            return {"status": "approved", "action_id": action_id, "procedure": "started"}
+            return {
+                "status": "approved",
+                "action_id": action_id,
+                "procedure": "started",
+            }
 
         if not self.dispatcher_callback:
             return {"status": "DISPATCHER_UNAVAILABLE", "action_id": action_id}
@@ -153,9 +210,15 @@ class ActionApproval:
             self._record("failed", record, error=error)
             raise ActionDispatchError(f"Máy từ chối lệnh: {error}")
         self._record("approved", record, result=status)
-        return {"status": "approved", "action_id": action_id, "dispatch_result": exec_res}
+        return {
+            "status": "approved",
+            "action_id": action_id,
+            "dispatch_result": exec_res,
+        }
 
-    def reject(self, action_id: str, reason: str = "Rejected by operator") -> Dict[str, Any]:
+    def reject(
+        self, action_id: str, reason: str = "Rejected by operator"
+    ) -> Dict[str, Any]:
         """Kỹ sư bấm [Từ chối]."""
         with self._lock:
             record = self.pending_actions.pop(action_id, None)
@@ -179,7 +242,9 @@ class ActionApproval:
             return list(self.pending_actions.values())
 
     def has_pending(self, machine_id: str) -> bool:
-        return any(a.get("machine_id") == machine_id for a in self.get_pending_actions())
+        return any(
+            a.get("machine_id") == machine_id for a in self.get_pending_actions()
+        )
 
     def get_history(self) -> List[Dict[str, Any]]:
         with self._lock:

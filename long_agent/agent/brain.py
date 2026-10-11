@@ -34,7 +34,9 @@ class AgentBrain:
         # Trong cửa sổ này, một máy chỉ được chẩn đoán lại khi có THÊM chỉ số bất thường mới: với LLM thật,
         # mỗi cảnh báo lặp là một lượt gọi API và một chẩn đoán trùng. 0 = luôn chẩn đoán.
         self.repeat_window_s = repeat_window_s
-        self._diagnosed: Dict[str, Tuple[float, set]] = {}  # máy -> (thời điểm, các chỉ số đã chẩn đoán)
+        self._diagnosed: Dict[
+            str, Tuple[float, set]
+        ] = {}  # máy -> (thời điểm, các chỉ số đã chẩn đoán)
 
     def handle_heartbeat(self, event: Dict[str, Any]) -> None:
         """Gói tin 'normal': chỉ cập nhật trạng thái sống, không chẩn đoán."""
@@ -56,26 +58,43 @@ class AgentBrain:
         payload = event.get("payload", {})
 
         if self.busy and self.busy(machine_id):
-            logger.info(f"[Brain] {machine_id} đang có quy trình hoặc vé chờ duyệt: không chẩn đoán thêm")
+            logger.info(
+                f"[Brain] {machine_id} đang có quy trình hoặc vé chờ duyệt: không chẩn đoán thêm"
+            )
             return
-        params = {str(a.get("param")) for a in event.get("anomalies") or [] if isinstance(a, dict)}
+        params = {
+            str(a.get("param"))
+            for a in event.get("anomalies") or []
+            if isinstance(a, dict)
+        }
         now = time.monotonic()
         if self.repeat_window_s:
             since, seen = self._diagnosed.get(machine_id, (float("-inf"), set()))
             if now - since < self.repeat_window_s and params <= seen:
-                logger.info(f"[Brain] Bỏ qua cảnh báo lặp {machine_id} {sorted(params)} (đã chẩn đoán gần đây)")
+                logger.info(
+                    f"[Brain] Bỏ qua cảnh báo lặp {machine_id} {sorted(params)} (đã chẩn đoán gần đây)"
+                )
                 return
-            self._diagnosed[machine_id] = (now, (seen | params) if now - since < self.repeat_window_s else params)
+            self._diagnosed[machine_id] = (
+                now,
+                (seen | params) if now - since < self.repeat_window_s else params,
+            )
 
         logger.info(f"[Brain] Chẩn đoán {machine_id} ({machine_type})")
         attempts = self.attempts(machine_id) if self.attempts else []
         try:
-            result = self.rag.query_with_schema(machine_id=machine_id, machine_type=machine_type,
-                                                telemetry=payload, attempts=attempts)
+            result = self.rag.query_with_schema(
+                machine_id=machine_id,
+                machine_type=machine_type,
+                telemetry=payload,
+                attempts=attempts,
+            )
         except Exception as exc:
             logger.exception(f"[Brain] Chẩn đoán {machine_id} lỗi: {exc}")
-            result = {"diagnosis": f"Agent không chẩn đoán được cảnh báo này ({exc}); cần kỹ sư kiểm tra.",
-                      "actions": []}
+            result = {
+                "diagnosis": f"Agent không chẩn đoán được cảnh báo này ({exc}); cần kỹ sư kiểm tra.",
+                "actions": [],
+            }
 
         text = str(result.get("diagnosis") or "").strip()
         if result.get("sources"):
@@ -85,23 +104,37 @@ class AgentBrain:
         for note in result.get("notes") or []:
             text += f"\n⚠ {note}"
         if self.event_bus and text:
-            self.event_bus.publish({"event_type": "chat_notification", "machine_id": machine_id,
-                                    "text": text, "source": "AI_RAG"})
+            self.event_bus.publish(
+                {
+                    "event_type": "chat_notification",
+                    "machine_id": machine_id,
+                    "text": text,
+                    "source": "AI_RAG",
+                }
+            )
 
         for act in result.get("actions") or []:
-            if not self.event_bus or not isinstance(act, dict) or not act.get("command"):
+            if (
+                not self.event_bus
+                or not isinstance(act, dict)
+                or not act.get("command")
+            ):
                 continue
-            self.event_bus.publish({
-                "event_type": "action_command" if self.execute_actions else "action_proposed",
-                "machine_id": machine_id,
-                "command": act["command"],
-                "kind": act.get("kind", "control"),
-                "params": act.get("params", {}),
-                "payload": act.get("params", {}),
-                "risk_level": act.get("risk_level", "HIGH"),
-                "reason": act.get("reason") or "Theo chẩn đoán của agent",
-                "diagnosis": result.get("diagnosis", ""),
-            })
+            self.event_bus.publish(
+                {
+                    "event_type": "action_command"
+                    if self.execute_actions
+                    else "action_proposed",
+                    "machine_id": machine_id,
+                    "command": act["command"],
+                    "kind": act.get("kind", "control"),
+                    "params": act.get("params", {}),
+                    "payload": act.get("params", {}),
+                    "risk_level": act.get("risk_level", "HIGH"),
+                    "reason": act.get("reason") or "Theo chẩn đoán của agent",
+                    "diagnosis": result.get("diagnosis", ""),
+                }
+            )
             logger.info(f"[Brain] Đề xuất '{act['command']}' cho {machine_id}")
 
     def handle_user_query(self, query_text: str) -> str:

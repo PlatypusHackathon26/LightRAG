@@ -25,15 +25,34 @@ from pathlib import Path
 from urllib.parse import quote
 
 import httpx
-from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
+from fastapi import (
+    Depends,
+    FastAPI,
+    File,
+    Form,
+    Header,
+    HTTPException,
+    Request,
+    UploadFile,
+)
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, RedirectResponse, Response, StreamingResponse
+from fastapi.responses import (
+    FileResponse,
+    RedirectResponse,
+    Response,
+    StreamingResponse,
+)
 from pydantic import BaseModel
 
 import long_agent as factory  # noqa: E402  (sibling module)
 import lookup as catalogue  # noqa: E402  (sibling module; app.py runs as a script)
 from jobs import JobRunner  # noqa: E402
-from language import language_instruction, named_languages, question_language, small_talk_reply  # noqa: E402
+from language import (
+    language_instruction,
+    named_languages,
+    question_language,
+    small_talk_reply,
+)  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
@@ -95,10 +114,17 @@ def pages_from_chunks(chunks: list[str]) -> str | None:
     # English (the manuals' source language) when the document has it: a Vietnamese question
     # answered from a Vietnamese upload kept the installation manual in vector order, and its
     # first chunk's language gave pages 44-45 of another translation.
-    first_lang = "en" if any(lang == "en" for _, lang in marks) else next(
-        (m.group(1) for c in chunks for m in [CHUNK_LANG.search(c)] if m), None)
+    first_lang = (
+        "en"
+        if any(lang == "en" for _, lang in marks)
+        else next(
+            (m.group(1) for c in chunks for m in [CHUNK_LANG.search(c)] if m), None
+        )
+    )
     # A chunk can run across a language boundary (en p.4 -> de p.5): filter page by page.
-    pages = sorted({p for p, lang in marks if not first_lang or lang in (first_lang, "mixed", "")})
+    pages = sorted(
+        {p for p, lang in marks if not first_lang or lang in (first_lang, "mixed", "")}
+    )
     if len(pages) > MAX_PAGES_SHOWN:
         return ", ".join(map(str, pages[:MAX_PAGES_SHOWN])) + ", …"
     return ", ".join(map(str, pages)) or None
@@ -106,13 +132,17 @@ def pages_from_chunks(chunks: list[str]) -> str | None:
 
 def excerpt_from_chunks(chunks: list[str], limit: int = 300) -> str | None:
     for c in chunks:
-        text = re.sub(r"\s+", " ", PAGE_MARK.sub(" ", re.sub(r"<[^>]+>", " ", c))).strip(" #-")
+        text = re.sub(
+            r"\s+", " ", PAGE_MARK.sub(" ", re.sub(r"<[^>]+>", " ", c))
+        ).strip(" #-")
         if text:
             return text[:limit] + ("…" if len(text) > limit else "")
     return None
 
 
-def to_citations(references: list[dict], answer: str = "", prefer: set[str] = frozenset()) -> list[dict]:
+def to_citations(
+    references: list[dict], answer: str = "", prefer: set[str] = frozenset()
+) -> list[dict]:
     """LightRAG references (with include_chunk_content) -> UI Citation objects.
 
     With the answer, pages and excerpt come from the chunks that support it, not from every
@@ -123,21 +153,32 @@ def to_citations(references: list[dict], answer: str = "", prefer: set[str] = fr
         # A question about a language section looks at every chunk: the supporting-chunk filter
         # favours the English chunk (it shares the document name the answer cites) and dropped
         # the Russian one before its page could be chosen.
-        chunks = supporting_chunks(ref, answer) if answer and not prefer else chunk_texts(ref)
-        out.append({
-            "id": f"cit-{ref.get('reference_id', len(out) + 1)}",
-            "documentId": display_name(ref.get("file_path", "")),
-            "documentName": display_name(ref.get("file_path", "")),
-            "pages": supporting_pages(chunks, answer, prefer) or pages_from_chunks(chunks),
-            "excerpt": excerpt_from_chunks(chunks),
-        })
+        chunks = (
+            supporting_chunks(ref, answer)
+            if answer and not prefer
+            else chunk_texts(ref)
+        )
+        out.append(
+            {
+                "id": f"cit-{ref.get('reference_id', len(out) + 1)}",
+                "documentId": display_name(ref.get("file_path", "")),
+                "documentName": display_name(ref.get("file_path", "")),
+                "pages": supporting_pages(chunks, answer, prefer)
+                or pages_from_chunks(chunks),
+                "excerpt": excerpt_from_chunks(chunks),
+            }
+        )
     return out
 
 
 def listed_reference_ids(answer: str) -> set[str]:
     """Ids in the answer's own '### References' block ("- [2] guide.md"): the sources it claims."""
     parts = re.split(r"\n#{2,4}\s*References\s*\n", answer, maxsplit=1)
-    return set(re.findall(r"^\s*[-*]\s*\[(\d+)\]", parts[1], re.MULTILINE)) if len(parts) > 1 else set()
+    return (
+        set(re.findall(r"^\s*[-*]\s*\[(\d+)\]", parts[1], re.MULTILINE))
+        if len(parts) > 1
+        else set()
+    )
 
 
 def strip_reference_section(answer: str) -> str:
@@ -150,16 +191,21 @@ BRACKET_CITATION = re.compile(r"\s*【\s*(\d+)[^】]*】")
 OTHER_BRACKET = re.compile(r"\s*【[^】]*】")
 CITED_ID = re.compile(r"\[(\d+(?:\s*,\s*\d+)*)\]")
 # Page marker lines the model sometimes copies from the context into its answer.
-LEAKED_PAGE_MARK = re.compile(r"-{2,}\s*\[Trang ([\d\s,–-]+?)\s*(?:\|[^\]]*)?\]\s*-{2,}")
-REFUSAL = re.compile(r"(?:do not|don[’']t|does not|doesn[’']t) have enough information|not enough information|"
-                     r"(?:context|documents?) (?:does|do) not (?:contain|specify|provide|include|mention|list)|"
-                     r"\bno (?:relevant )?information (?:is )?(?:available|provided|found|about|on|regarding)|"
-                     r"\b(?:is|are) not (?:specified|listed|mentioned|provided|given|stated) in\b|"
-                     r"không (?:có )?(?:đủ )?thông tin|không (?:được )?(?:nêu|đề cập) (?:trong|tới|đến)|không tìm thấy thông tin|"
-                     # "Tài liệu được cung cấp không chứa bất kỳ thông tin nào về giá ..." cited three documents.
-                     r"(?:tài liệu|ngữ cảnh|văn bản)[^.]{0,40}không (?:chứa|có|ghi|nêu|đề cập|cung cấp)|"
-                     r"情報(?:が|は)(?:ありません|見つかりません)|記載(?:が|は)?(?:ありません|されていません)|"
-                     r"cannot (?:determine|answer)", re.IGNORECASE)
+LEAKED_PAGE_MARK = re.compile(
+    r"-{2,}\s*\[Trang ([\d\s,–-]+?)\s*(?:\|[^\]]*)?\]\s*-{2,}"
+)
+REFUSAL = re.compile(
+    r"(?:do not|don[’']t|does not|doesn[’']t) have enough information|not enough information|"
+    r"(?:context|documents?) (?:does|do) not (?:contain|specify|provide|include|mention|list)|"
+    r"\bno (?:relevant )?information (?:is )?(?:available|provided|found|about|on|regarding)|"
+    r"\b(?:is|are) not (?:specified|listed|mentioned|provided|given|stated) in\b|"
+    r"không (?:có )?(?:đủ )?thông tin|không (?:được )?(?:nêu|đề cập) (?:trong|tới|đến)|không tìm thấy thông tin|"
+    # "Tài liệu được cung cấp không chứa bất kỳ thông tin nào về giá ..." cited three documents.
+    r"(?:tài liệu|ngữ cảnh|văn bản)[^.]{0,40}không (?:chứa|có|ghi|nêu|đề cập|cung cấp)|"
+    r"情報(?:が|は)(?:ありません|見つかりません)|記載(?:が|は)?(?:ありません|されていません)|"
+    r"cannot (?:determine|answer)",
+    re.IGNORECASE,
+)
 
 
 def is_refusal(answer: str) -> bool:
@@ -170,13 +216,47 @@ def is_refusal(answer: str) -> bool:
     """
     first = re.split(r"(?<=[.!?。])\s+|\n", answer.strip(), maxsplit=1)[0]
     return bool(REFUSAL.search(first[:300]))
+
+
 # Decimal figures (6.9, 10,8) or long part numbers (DND08250, 294009-2150): specific enough to locate a source.
 # Distinctive words (7+ letters) to match an answer with no figures to its sources; short words
 # ("system", "seal", "with") appear in every document. English only: the sources are English.
 PAGE_WORD = re.compile(r"(?<![A-Za-z])[A-Za-z][A-Za-z-]{3,}(?![A-Za-z])")
-PAGE_STOPWORDS = {"that", "this", "with", "from", "have", "will", "your", "when", "then", "they", "them", "there",
-                  "their", "into", "also", "must", "should", "which", "what", "about", "after", "before", "using",
-                  "used", "each", "only", "than", "more", "such", "these", "those", "page", "trang"}
+PAGE_STOPWORDS = {
+    "that",
+    "this",
+    "with",
+    "from",
+    "have",
+    "will",
+    "your",
+    "when",
+    "then",
+    "they",
+    "them",
+    "there",
+    "their",
+    "into",
+    "also",
+    "must",
+    "should",
+    "which",
+    "what",
+    "about",
+    "after",
+    "before",
+    "using",
+    "used",
+    "each",
+    "only",
+    "than",
+    "more",
+    "such",
+    "these",
+    "those",
+    "page",
+    "trang",
+}
 CONTENT_WORD = re.compile(r"\b[A-Za-z][A-Za-z-]{6,}\b")
 ANSWER_FIGURE = re.compile(r"\b\d+[.,]\d+\b|\b[A-Z]{2,}\d{4,}\b|\b\d{5,}(?:-\d+)?\b")
 
@@ -188,9 +268,9 @@ def strip_reasoning(answer: str) -> str:
     <think> (cut off, nothing usable after it), or as a stray </think> after leading notes.
     """
     text = re.sub(r"<think>.*?</think>", "", answer, flags=re.DOTALL)
-    if "</think>" in text:          # notes before an orphan closing tag
+    if "</think>" in text:  # notes before an orphan closing tag
         text = text.rsplit("</think>", 1)[1]
-    if "<think>" in text:           # unclosed: everything after it is reasoning
+    if "<think>" in text:  # unclosed: everything after it is reasoning
         text = text.split("<think>", 1)[0]
     return text.strip()
 
@@ -211,18 +291,25 @@ def chunk_texts(ref: dict) -> list[str]:
 def evidence(text: str, words: set[str], figures: set[str]) -> int:
     """How much of the answer a chunk supports: shared distinctive words, figures count triple."""
     t = text.replace(",", ".")
-    return (len(words & {w.lower() for w in CONTENT_WORD.findall(t)})
-            + 3 * sum(1 for f in figures if f in t))
+    return len(words & {w.lower() for w in CONTENT_WORD.findall(t)}) + 3 * sum(
+        1 for f in figures if f in t
+    )
 
 
 def answer_terms(answer: str) -> tuple[set[str], set[str]]:
     body = CITED_ID.sub(" ", answer)
-    return ({w.lower() for w in CONTENT_WORD.findall(body)},
-            {f.replace(",", ".") for f in ANSWER_FIGURE.findall(body)})
+    return (
+        {w.lower() for w in CONTENT_WORD.findall(body)},
+        {f.replace(",", ".") for f in ANSWER_FIGURE.findall(body)},
+    )
 
 
-def only_cited(references: list[dict], answer: str, prefer: set[str] = frozenset(),
-               listed: set[str] = frozenset()) -> list[dict]:
+def only_cited(
+    references: list[dict],
+    answer: str,
+    prefer: set[str] = frozenset(),
+    listed: set[str] = frozenset(),
+) -> list[dict]:
     """See _only_cited; a question about a language section keeps the sources holding that section.
 
     The SCV guide and its image-text document share a name; for "the Russian section" the
@@ -234,8 +321,11 @@ def only_cited(references: list[dict], answer: str, prefer: set[str] = frozenset
         # guide pins" answer shares too few words with any chunk and was left with no source.
         # The sources covering most of the languages asked about (the guide itself holds both the
         # Russian and the English section; its image-text document only English and German pages).
-        langs = {id(r): {m.group(2) for t in chunk_texts(r) for m in PAGE_LANG.finditer(t)} & prefer
-                 for r in references}
+        langs = {
+            id(r): {m.group(2) for t in chunk_texts(r) for m in PAGE_LANG.finditer(t)}
+            & prefer
+            for r in references
+        }
         # Greedy cover, document text before picture descriptions, then cited sources first:
         # "German and French" kept only the image-text document (its OCR pages carry both tags)
         # and dropped the guide whose text holds the French section.
@@ -251,8 +341,14 @@ def only_cited(references: list[dict], answer: str, prefer: set[str] = frozenset
         family = (tied & {base(r) for r in kept}) or tied
         same = [r for r in references if base(r) in family]
         holding, covered = [], set()
-        order = sorted(same, key=lambda r: (" - images" in (r.get("file_path") or ""),
-                                            r not in kept, -len(langs[id(r)])))
+        order = sorted(
+            same,
+            key=lambda r: (
+                " - images" in (r.get("file_path") or ""),
+                r not in kept,
+                -len(langs[id(r)]),
+            ),
+        )
         for r in order:
             if langs[id(r)] - covered:
                 holding.append(r)
@@ -273,29 +369,47 @@ def _loose(text: str) -> str:
 def named_in_answer(references: list[dict], answer: str) -> list[dict]:
     """References whose document the answer names, as the prompt asks: "(Name, p. N)"."""
     text = _loose(answer)
-    return [r for r in references if len(_base_name(r)) >= 6 and _loose(_base_name(r)) in text]
+    return [
+        r
+        for r in references
+        if len(_base_name(r)) >= 6 and _loose(_base_name(r)) in text
+    ]
 
 
 # Codes and figures that survive translation: R-134a, DCRS300260, M14, 6,9, 140cc. Brand and unit
 # words are in every document and prove nothing.
-CODE_TOKEN = re.compile(r"\b(?=[A-Za-z0-9-]*\d)[A-Za-z0-9][A-Za-z0-9-]*[A-Za-z0-9]\b|\b[A-Z]{2,}\b")
+CODE_TOKEN = re.compile(
+    r"\b(?=[A-Za-z0-9-]*\d)[A-Za-z0-9][A-Za-z0-9-]*[A-Za-z0-9]\b|\b[A-Z]{2,}\b"
+)
 CODE_STOPWORDS = {"DENSO", "NM", "OK", "EN", "PDF", "AC"}
 
 
 def sharing_codes(references: list[dict], answer: str) -> list[dict]:
     """The references holding most of the answer's codes and figures; none when it has none."""
-    codes = {c for c in CODE_TOKEN.findall(CITED_ID.sub(" ", answer).replace(",", "."))
-             if c.upper() not in CODE_STOPWORDS}
+    codes = {
+        c
+        for c in CODE_TOKEN.findall(CITED_ID.sub(" ", answer).replace(",", "."))
+        if c.upper() not in CODE_STOPWORDS
+    }
     if not codes:
         return []
-    score = {id(r): max((sum(1 for c in codes if c in t.replace(",", ".")) for t in chunk_texts(r)), default=0)
-             for r in references}
+    score = {
+        id(r): max(
+            (sum(1 for c in codes if c in t.replace(",", ".")) for t in chunk_texts(r)),
+            default=0,
+        )
+        for r in references
+    }
     best = max(score.values(), default=0)
     return [r for r in references if best and score[id(r)] == best]
 
 
-def _only_cited(references: list[dict], answer: str, judge_grounding: bool = True,
-                listed: set[str] = frozenset()) -> list[dict]:
+def _only_cited(
+    references: list[dict],
+    answer: str,
+    judge_grounding: bool = True,
+    listed: set[str] = frozenset(),
+) -> list[dict]:
     """The references the answer draws on: never none, never one that does not support it.
 
     LightRAG returns every document that contributed a context chunk (a whole catalogue next
@@ -307,12 +421,17 @@ def _only_cited(references: list[dict], answer: str, judge_grounding: bool = Tru
     if not references:
         return []
     words, figures = answer_terms(answer)
-    score = {id(r): max((evidence(t, words, figures) for t in chunk_texts(r)), default=0) for r in references}
+    score = {
+        id(r): max((evidence(t, words, figures) for t in chunk_texts(r)), default=0)
+        for r in references
+    }
     best = max(score.values())
     # [n] in the text, or the answer's own References block (stripped before the answer is shown):
     # accurate for Vietnamese / Japanese answers, empty for off-topic ones. Greetings and "who are
     # you" never get here (small_talk_reply), they listed two catalogues.
-    ids = {i for m in CITED_ID.finditer(answer) for i in re.findall(r"\d+", m.group(1))} | set(listed)
+    ids = {
+        i for m in CITED_ID.finditer(answer) for i in re.findall(r"\d+", m.group(1))
+    } | set(listed)
     cited = [r for r in references if str(r.get("reference_id")) in ids]
     # A substantive (English) answer that no retrieved chunk supports came from somewhere else -
     # conversation history, the model's own knowledge. Citing a chunk would present it as
@@ -320,17 +439,37 @@ def _only_cited(references: list[dict], answer: str, judge_grounding: bool = Tru
     # Judged only for English answers (the documents' language: a Vietnamese answer shares no
     # words with them) and only when none of the answer's figures is in a chunk (a cross-lingual
     # answer quoting the Russian value has few English words in common with the chunks).
-    terms = {w.lower() for w in PAGE_WORD.findall(CITED_ID.sub(" ", answer))} - PAGE_STOPWORDS
-    figure_found = any(f in t.replace(",", ".") for f in figures for r in references for t in chunk_texts(r))
-    if judge_grounding and len(terms) >= 10 and not figure_found and question_language(answer) == "en":
-        support = max(len(terms & {w.lower() for w in PAGE_WORD.findall(t)}) for r in references for t in chunk_texts(r) or [""])
+    terms = {
+        w.lower() for w in PAGE_WORD.findall(CITED_ID.sub(" ", answer))
+    } - PAGE_STOPWORDS
+    figure_found = any(
+        f in t.replace(",", ".")
+        for f in figures
+        for r in references
+        for t in chunk_texts(r)
+    )
+    if (
+        judge_grounding
+        and len(terms) >= 10
+        and not figure_found
+        and question_language(answer) == "en"
+    ):
+        support = max(
+            len(terms & {w.lower() for w in PAGE_WORD.findall(t)})
+            for r in references
+            for t in chunk_texts(r) or [""]
+        )
         if support < max(3, 0.2 * len(terms)):
             return []
     if best < 3:
         # Too little English text to judge (short or Vietnamese answer): keep only what the answer
         # itself points to. Returning every reference cited two catalogues for "Xin chào!".
-        picked = (cited or named_in_answer(references, answer) or quoting_references(references, answer)
-                  or sharing_codes(references, answer))
+        picked = (
+            cited
+            or named_in_answer(references, answer)
+            or quoting_references(references, answer)
+            or sharing_codes(references, answer)
+        )
         # The model's own References block can name the wrong source: a Chinook answer listed the
         # Spark Plug Catalogue, which holds none of its words, while the slides held "Chinook".
         # Keep a pick only when it shares about as much of the answer as the best. Language-neutral
@@ -340,8 +479,16 @@ def _only_cited(references: list[dict], answer: str, judge_grounding: bool = Tru
         # Manual, p. 2" for a fact of the oil bulletin) matched that manual on its own name.
         body = CITATION_PAREN.sub(" ", CITED_ID.sub(" ", answer))
         terms_any = neutral_terms(body)
-        overlap = {id(r): max((len(terms_any & neutral_terms(t)) + 3 * ranges_in(body, t) for t in chunk_texts(r)),
-                              default=0) for r in references}
+        overlap = {
+            id(r): max(
+                (
+                    len(terms_any & neutral_terms(t)) + 3 * ranges_in(body, t)
+                    for t in chunk_texts(r)
+                ),
+                default=0,
+            )
+            for r in references
+        }
         top = max(overlap.values(), default=0)
         if top >= 2:
             sound = [r for r in picked if overlap[id(r)] >= top * 0.5]
@@ -361,17 +508,33 @@ def _squash(text: str) -> str:
 
 def answer_core(answer: str) -> str:
     """A short answer without its "(document, p. N)" and [n]: e.g. "o(b m/2)". Empty for long answers."""
-    core = _squash(re.sub(r"\([^()]*\b(?:p\.|trang|ページ)\s*\d+[^()]*\)", " ", CITED_ID.sub(" ", answer))).strip(" .")
+    core = _squash(
+        re.sub(
+            r"\([^()]*\b(?:p\.|trang|ページ)\s*\d+[^()]*\)",
+            " ",
+            CITED_ID.sub(" ", answer),
+        )
+    ).strip(" .")
     return core if 4 <= len(core) <= 120 else ""
 
 
 def quoting_references(references: list[dict], answer: str) -> list[dict]:
     """References a short answer quotes verbatim ("O(b m/2)" shares no word with anything)."""
     core = answer_core(answer)
-    return [r for r in references if core and any(core in _squash(t) for t in chunk_texts(r))] if core else []
+    return (
+        [
+            r
+            for r in references
+            if core and any(core in _squash(t) for t in chunk_texts(r))
+        ]
+        if core
+        else []
+    )
 
 
-CITATION_PAREN = re.compile(r"\([^()]*\b(?:p\.|page|trang|tr\.|ページ)\s*\d+[^()]*\)", re.IGNORECASE)
+CITATION_PAREN = re.compile(
+    r"\([^()]*\b(?:p\.|page|trang|tr\.|ページ)\s*\d+[^()]*\)", re.IGNORECASE
+)
 NUMBER = re.compile(r"\d+(?:[.,]\d+)?")
 
 
@@ -382,14 +545,21 @@ def ranges_in(answer: str, text: str) -> int:
     """
     nums = [n.replace(",", ".") for n in NUMBER.findall(answer)]
     flat = text.replace(",", ".")
-    return sum(1 for a, b in set(zip(nums, nums[1:])) if a != b
-               and re.search(rf"(?<![\d.]){re.escape(a)}\D{{1,12}}{re.escape(b)}(?![\d.])", flat))
+    return sum(
+        1
+        for a, b in set(zip(nums, nums[1:]))
+        if a != b
+        and re.search(
+            rf"(?<![\d.]){re.escape(a)}\D{{1,12}}{re.escape(b)}(?![\d.])", flat
+        )
+    )
 
 
 def neutral_terms(text: str) -> set[str]:
     """Terms that read the same in every language: Latin-script words of 4+ letters and whole numbers."""
     return ({w.lower() for w in PAGE_WORD.findall(text)} - PAGE_STOPWORDS) | set(
-        re.findall(r"(?<![\d.,])\d{2,}(?![\d.,]?\d)", text))
+        re.findall(r"(?<![\d.,])\d{2,}(?![\d.,]?\d)", text)
+    )
 
 
 def page_terms(text: str) -> set[str]:
@@ -404,10 +574,20 @@ def page_terms(text: str) -> set[str]:
     words = [w.lower() for w in UNICODE_WORD.findall(text)]
     # Whole numbers too ("b ~ 35, m ~ 100"): decimals and long codes alone left that slide with 1 point.
     numbers = set(re.findall(r"(?<![\d.,])\d{2,}(?![\d.,]?\d)", text))
-    return english | numbers | {f"{a} {b}" for a, b in zip(words, words[1:]) if not (a.isascii() and b.isascii())}
+    return (
+        english
+        | numbers
+        | {
+            f"{a} {b}"
+            for a, b in zip(words, words[1:])
+            if not (a.isascii() and b.isascii())
+        }
+    )
 
 
-def supporting_pages(chunks: list[str], answer: str, prefer: set[str] = frozenset()) -> str | None:
+def supporting_pages(
+    chunks: list[str], answer: str, prefer: set[str] = frozenset()
+) -> str | None:
     """Pages, within the supporting chunks, whose text supports the answer best.
 
     A chunk of a long manual runs across several pages (power-off sits on one page of a
@@ -426,23 +606,34 @@ def supporting_pages(chunks: list[str], answer: str, prefer: set[str] = frozense
             page_text[int(page)] = page_text.get(int(page), "") + "\n" + text
     scores: dict[int, int] = {}
     core = answer_core(answer)
-    named_pages = {int(n) for n in re.findall(r"(?:\bp\.|\bpage|\btrang|\btr\.|ページ)\s*(\d+)", answer, re.IGNORECASE)}
+    named_pages = {
+        int(n)
+        for n in re.findall(
+            r"(?:\bp\.|\bpage|\btrang|\btr\.|ページ)\s*(\d+)", answer, re.IGNORECASE
+        )
+    }
     for page, text in page_text.items():
         t = text.replace(",", ".")
-        scores[page] = len(words & page_terms(text)) + 3 * sum(1 for f in figures if f in t)
+        scores[page] = len(words & page_terms(text)) + 3 * sum(
+            1 for f in figures if f in t
+        )
         if core and core in _squash(text):
             scores[page] += 10  # the short answer is printed on this page
     # The answer names its page itself ("(Trang 27)") and that page does support it: cite it alone.
     # p. 9 shared more words about chess and was cited instead. Only a page holding at least half
     # the best support counts - the model's page can be wrong (a Russian-section answer said p. 6).
     best_any = max(scores.values(), default=0)
-    named_ok = sorted(p for p in named_pages if scores.get(p, 0) >= max(1, best_any * 0.5))
+    named_ok = sorted(
+        p for p in named_pages if scores.get(p, 0) >= max(1, best_any * 0.5)
+    )
     if named_ok and not prefer:
         return ", ".join(map(str, named_ok[:MAX_PAGES_SHOWN]))
     # A question about a language section ("phần tiếng Nga") cites that section: the same figure is
     # on every translation's page (a Russian-section question cited the English and German pages).
     if prefer:
-        lang_of = {int(m.group(1)): m.group(2) for c in chunks for m in PAGE_LANG.finditer(c)}
+        lang_of = {
+            int(m.group(1)): m.group(2) for c in chunks for m in PAGE_LANG.finditer(c)
+        }
         in_lang = {p: v for p, v in scores.items() if lang_of.get(p) in prefer}
         if in_lang and max(in_lang.values()) >= 2:
             if len(prefer) > 1:
@@ -450,7 +641,11 @@ def supporting_pages(chunks: list[str], answer: str, prefer: set[str] = frozense
                 # each language asked about, not only the one that shares most words.
                 picked = set()
                 for lang in prefer:
-                    own = {p: v for p, v in in_lang.items() if lang_of.get(p) == lang and v >= 2}
+                    own = {
+                        p: v
+                        for p, v in in_lang.items()
+                        if lang_of.get(p) == lang and v >= 2
+                    }
                     if own:
                         top = max(own.values())
                         picked |= {p for p, v in own.items() if v >= top * 0.8}
@@ -462,21 +657,31 @@ def supporting_pages(chunks: list[str], answer: str, prefer: set[str] = frozense
         # "Common Rail" are on every translation's page: a Vietnamese procedure answer cited
         # "4, 6, 7, 10, 12, 14, ...". Keep the pages of the best-scoring language, English (the
         # manuals' source language) on a tie - the first chunk's language picked the Spanish page.
-        lang_of = {int(m.group(1)): m.group(2) for c in chunks for m in PAGE_LANG.finditer(c)}
+        lang_of = {
+            int(m.group(1)): m.group(2) for c in chunks for m in PAGE_LANG.finditer(c)
+        }
         by_lang: dict[str, int] = {}
         for p, v in scores.items():
             if lang_of.get(p) not in (None, "mixed"):
                 by_lang[lang_of[p]] = max(by_lang.get(lang_of[p], 0), v)
-        first = max(by_lang, key=lambda lang: (by_lang[lang], lang == "en"), default=None)
+        first = max(
+            by_lang, key=lambda lang: (by_lang[lang], lang == "en"), default=None
+        )
         if first and len(by_lang) > 1:
-            own = {p: v for p, v in scores.items() if lang_of.get(p) in (first, "mixed", None)}
+            own = {
+                p: v
+                for p, v in scores.items()
+                if lang_of.get(p) in (first, "mixed", None)
+            }
             if own and max(own.values()) >= 2:
                 scores = own
     best = max(scores.values(), default=0)
     if best < 2:
         return None
     pages = sorted(p for p, v in scores.items() if v >= best * 0.6)
-    return ", ".join(map(str, pages[:MAX_PAGES_SHOWN])) + (", …" if len(pages) > MAX_PAGES_SHOWN else "")
+    return ", ".join(map(str, pages[:MAX_PAGES_SHOWN])) + (
+        ", …" if len(pages) > MAX_PAGES_SHOWN else ""
+    )
 
 
 def supporting_chunks(ref: dict, answer: str) -> list[str]:
@@ -486,15 +691,30 @@ def supporting_chunks(ref: dict, answer: str) -> list[str]:
     # alpha-beta (pp. 29-36) lost to chunks naming Kasparov and Minimax, and pp. 8, 9, 46 were cited.
     _, figures = answer_terms(answer)
     terms = page_terms(CITED_ID.sub(" ", answer))
-    scored = [(len(terms & page_terms(t)) + 3 * sum(1 for f in figures if f in t.replace(",", ".")), t) for t in chunks]
+    scored = [
+        (
+            len(terms & page_terms(t))
+            + 3 * sum(1 for f in figures if f in t.replace(",", ".")),
+            t,
+        )
+        for t in chunks
+    ]
     best = max((s for s, _ in scored), default=0)
     if best < 3:
         return chunks
     # Keep the chunk holding a page the answer names ("(…, trang 27)"): it was dropped here, before
     # supporting_pages could prefer that page, and p. 1 was cited.
-    named = {n for n in re.findall(r"(?:\bp\.|\bpage|\btrang|\btr\.|ページ)\s*(\d+)", answer, re.IGNORECASE)}
-    return [t for s, t in sorted(scored, key=lambda x: -x[0])
-            if s >= best * 0.5 or (named & set(PAGE_MARK.findall(t)))]
+    named = {
+        n
+        for n in re.findall(
+            r"(?:\bp\.|\bpage|\btrang|\btr\.|ページ)\s*(\d+)", answer, re.IGNORECASE
+        )
+    }
+    return [
+        t
+        for s, t in sorted(scored, key=lambda x: -x[0])
+        if s >= best * 0.5 or (named & set(PAGE_MARK.findall(t)))
+    ]
 
 
 def _nfc(text: str) -> str:
@@ -513,29 +733,45 @@ def raw_file(file_path: str, data_dir: Path, max_level: int = MAX_LEVEL) -> Path
     meta = data_dir / "parsed" / stem / "meta.json"
     if meta.is_file():
         try:
-            source = json.loads(meta.read_text(encoding="utf-8")).get("source_file") or ""
+            source = (
+                json.loads(meta.read_text(encoding="utf-8")).get("source_file") or ""
+            )
         except (OSError, ValueError):
             source = ""
         if source:
-            candidates += [raw_dir / Path(source).name, *raw_dir.glob(f"level_*/{Path(source).name}")]
+            candidates += [
+                raw_dir / Path(source).name,
+                *raw_dir.glob(f"level_*/{Path(source).name}"),
+            ]
     # No meta.json (or a stale one): match the stem, in either Unicode normal form.
     want = _nfc(stem)
-    candidates += [p for p in raw_dir.rglob("*") if p.is_file() and _nfc(p.stem) == want]
+    candidates += [
+        p for p in raw_dir.rglob("*") if p.is_file() and _nfc(p.stem) == want
+    ]
     for p in candidates:
         p = p.resolve()
         if not (p.is_file() and raw_dir in p.parents):
             continue
         folder = p.parent.name
-        if folder.startswith("level_") and folder[6:].isdigit() and int(folder[6:]) > max_level:
+        if (
+            folder.startswith("level_")
+            and folder[6:].isdigit()
+            and int(folder[6:]) > max_level
+        ):
             continue
         return p
     return None
 
 
-PAGELESS = {".md", ".txt"}  # an upload with no pages: its single "--- [Trang 1 ...]" marker is not a page
+PAGELESS = {
+    ".md",
+    ".txt",
+}  # an upload with no pages: its single "--- [Trang 1 ...]" marker is not a page
 
 
-def without_page_one(content: str, citations: list[dict], data_dir: Path) -> tuple[str, list[dict]]:
+def without_page_one(
+    content: str, citations: list[dict], data_dir: Path
+) -> tuple[str, list[dict]]:
     """Drop "page 1" from citations of documents uploaded as Markdown or text, and from the answer's
     "(name.md, trang 1)" references to them: a page number there says nothing."""
     out = []
@@ -544,8 +780,12 @@ def without_page_one(content: str, citations: list[dict], data_dir: Path) -> tup
         if raw is not None and raw.suffix.lower() in PAGELESS and c.get("pages") == "1":
             c = {**c, "pages": None}
             name = re.escape(c["documentName"])
-            content = re.sub(rf"(\(\s*{name}(?:\.md|\.txt)?)\s*,\s*(?:trang|tr\.|p\.|page|ページ)\s*1\s*\)", r"\1)",
-                             content, flags=re.IGNORECASE)
+            content = re.sub(
+                rf"(\(\s*{name}(?:\.md|\.txt)?)\s*,\s*(?:trang|tr\.|p\.|page|ページ)\s*1\s*\)",
+                r"\1)",
+                content,
+                flags=re.IGNORECASE,
+            )
         out.append(c)
     return content, out
 
@@ -557,7 +797,11 @@ def incident_query(message: str, inc: dict) -> str:
     if question_language(message) != "vi":
         return message
     fault = (inc.get("alarm") or "").split(":", 1)[-1].strip()
-    return f"{message}\n({fault})" if fault and fault.lower() not in message.lower() else message
+    return (
+        f"{message}\n({fault})"
+        if fault and fault.lower() not in message.lower()
+        else message
+    )
 
 
 def classify_target(message: str) -> str:
@@ -605,12 +849,14 @@ class Settings:
     lookup_mode: str = "naive"
     # Keyword search over the lookup catalogues (gateway/lookup.py); empty = LightRAG lookup server only.
     lookup_files: list[Path] = field(default_factory=list)
-    lookup_llm_base: str = "http://127.0.0.1:8899/v1"   # OpenAI-compatible; the proxy adds the API key
+    lookup_llm_base: str = (
+        "http://127.0.0.1:8899/v1"  # OpenAI-compatible; the proxy adds the API key
+    )
     lookup_llm_model: str = "nvidia/nemotron-3-super-120b-a12b"
     # Uploads go through the DENSO pipeline (gateway/jobs.py) so their answers cite pages;
     # False sends the raw file straight to LightRAG (no Docling available, e.g. a server).
     upload_pipeline: bool = True
-    data_dir: Path = REPO / "denso" / "data"   # pipeline outputs a delete cleans up
+    data_dir: Path = REPO / "denso" / "data"  # pipeline outputs a delete cleans up
     docling_url: str = "http://127.0.0.1:5001"
     # Extra request fields, e.g. {"chat_template_kwargs": {"enable_thinking": false}} for Nemotron.
     lookup_llm_extra_body: dict = field(default_factory=dict)
@@ -621,10 +867,15 @@ class Settings:
     @classmethod
     def from_env(cls) -> "Settings":
         servers = os.environ.get(
-            "DENSO_LEVEL_SERVERS", "http://127.0.0.1:9621,http://127.0.0.1:9622,http://127.0.0.1:9623"
+            "DENSO_LEVEL_SERVERS",
+            "http://127.0.0.1:9621,http://127.0.0.1:9622,http://127.0.0.1:9623",
         ).split(",")
         users_file = Path(os.environ.get("DENSO_GATEWAY_USERS", HERE / "users.json"))
-        users = json.loads(users_file.read_text(encoding="utf-8")) if users_file.exists() else {}
+        users = (
+            json.loads(users_file.read_text(encoding="utf-8"))
+            if users_file.exists()
+            else {}
+        )
         return cls(
             level_servers=[s.strip() for s in servers if s.strip()],
             lookup_server=os.environ.get("DENSO_LOOKUP_SERVER") or None,
@@ -632,15 +883,31 @@ class Settings:
             guest_level=int(os.environ.get("DENSO_GUEST_LEVEL", "1")),
             guest_can_upload=os.environ.get("DENSO_GUEST_CAN_UPLOAD", "0") == "1",
             api_key=os.environ.get("LIGHTRAG_API_KEY") or None,
-            cors=[o.strip() for o in os.environ.get("DENSO_GATEWAY_CORS", "http://localhost:5173").split(",")],
+            cors=[
+                o.strip()
+                for o in os.environ.get(
+                    "DENSO_GATEWAY_CORS", "http://localhost:5173"
+                ).split(",")
+            ],
             cors_regex=os.environ.get("DENSO_GATEWAY_CORS_REGEX") or None,
             knowledge_mode=os.environ.get("DENSO_KNOWLEDGE_MODE", "naive"),
             answer_timeout=float(os.environ.get("DENSO_ANSWER_TIMEOUT", "150")),
-            lookup_files=sorted(Path(os.environ.get("DENSO_LOOKUP_DIR", REPO / "denso" / "data" / "cleaned_md"))
-                                .glob("* - lookup.*.md")),
-            lookup_llm_base=os.environ.get("DENSO_LOOKUP_LLM_BASE", "http://127.0.0.1:8899/v1"),
-            lookup_llm_model=os.environ.get("DENSO_LOOKUP_LLM_MODEL", "nvidia/nemotron-3-super-120b-a12b"),
-            lookup_llm_extra_body=json.loads(os.environ.get("DENSO_LOOKUP_LLM_EXTRA_BODY") or "{}"),
+            lookup_files=sorted(
+                Path(
+                    os.environ.get(
+                        "DENSO_LOOKUP_DIR", REPO / "denso" / "data" / "cleaned_md"
+                    )
+                ).glob("* - lookup.*.md")
+            ),
+            lookup_llm_base=os.environ.get(
+                "DENSO_LOOKUP_LLM_BASE", "http://127.0.0.1:8899/v1"
+            ),
+            lookup_llm_model=os.environ.get(
+                "DENSO_LOOKUP_LLM_MODEL", "nvidia/nemotron-3-super-120b-a12b"
+            ),
+            lookup_llm_extra_body=json.loads(
+                os.environ.get("DENSO_LOOKUP_LLM_EXTRA_BODY") or "{}"
+            ),
             upload_pipeline=os.environ.get("DENSO_UPLOAD_PIPELINE", "1") != "0",
             docling_url=os.environ.get("DENSO_DOCLING_URL", "http://127.0.0.1:5001"),
             iot_url=(os.environ.get("DENSO_IOT_URL") or "").rstrip("/") or None,
@@ -662,13 +929,20 @@ class ChatRequest(BaseModel):
     target: str | None = None  # optional override: "knowledge" | "lookup"
 
 
-def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = None) -> FastAPI:
+def create_app(
+    settings: Settings, transport: httpx.AsyncBaseTransport | None = None
+) -> FastAPI:
     if len(settings.level_servers) != MAX_LEVEL:
-        raise ValueError(f"need {MAX_LEVEL} level servers, got {len(settings.level_servers)}")
+        raise ValueError(
+            f"need {MAX_LEVEL} level servers, got {len(settings.level_servers)}"
+        )
     headers = {"X-API-Key": settings.api_key} if settings.api_key else {}
     # A user waiting in the chat gets a clear 504 instead of a spinner for up to 15 minutes.
-    client = httpx.AsyncClient(timeout=httpx.Timeout(settings.answer_timeout, connect=10), headers=headers,
-                               transport=transport)
+    client = httpx.AsyncClient(
+        timeout=httpx.Timeout(settings.answer_timeout, connect=10),
+        headers=headers,
+        transport=transport,
+    )
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
@@ -676,18 +950,36 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
         await client.aclose()
 
     app = FastAPI(title="DENSO Agent Gateway", lifespan=lifespan)
-    app.add_middleware(CORSMiddleware, allow_origins=settings.cors, allow_origin_regex=settings.cors_regex,
-                       allow_methods=["*"], allow_headers=["*"])
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors,
+        allow_origin_regex=settings.cors_regex,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
     history: dict[tuple, deque] = defaultdict(lambda: deque(maxlen=HISTORY_TURNS * 2))
     lookup_rows = catalogue.load_rows(settings.lookup_files)
-    runner = JobRunner(REPO, settings.level_servers, docling=settings.docling_url) if settings.upload_pipeline else None
+    runner = (
+        JobRunner(REPO, settings.level_servers, docling=settings.docling_url)
+        if settings.upload_pipeline
+        else None
+    )
 
     def job_document(job) -> dict:
-        return {"id": f"job-{job.id}", "name": Path(job.name).stem, "tags": ["#Uploaded", f"level_{job.level}"],
-                "sizeBytes": job.size, "importedAt": datetime.fromtimestamp(job.created, timezone.utc).isoformat(),
-                "indexStatus": job.status, "progress": job.progress, "extractedText": job.error or job.stage}
+        return {
+            "id": f"job-{job.id}",
+            "name": Path(job.name).stem,
+            "tags": ["#Uploaded", f"level_{job.level}"],
+            "sizeBytes": job.size,
+            "importedAt": datetime.fromtimestamp(job.created, timezone.utc).isoformat(),
+            "indexStatus": job.status,
+            "progress": job.progress,
+            "extractedText": job.error or job.stage,
+        }
 
-    async def answer_from_rows(question: str, hits: list, past: list[dict]) -> tuple[str, list[dict]]:
+    async def answer_from_rows(
+        question: str, hits: list, past: list[dict]
+    ) -> tuple[str, list[dict]]:
         """Ask the LLM with the keyword-matched catalogue rows; cite the rows it used."""
         body = {
             **settings.lookup_llm_extra_body,
@@ -695,52 +987,105 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
             "temperature": 0,
             "reasoning_effort": "low",
             "max_tokens": 2000,
-            "messages": [{"role": "system", "content": f"{catalogue.ANSWER_INSTRUCTIONS} {language_instruction(question)}".strip()},
-                         *past,
-                         {"role": "user", "content": f"Catalogue rows:\n{catalogue.rows_context(hits)}\n\nQuestion: {question}"}],
+            "messages": [
+                {
+                    "role": "system",
+                    "content": f"{catalogue.ANSWER_INSTRUCTIONS} {language_instruction(question)}".strip(),
+                },
+                *past,
+                {
+                    "role": "user",
+                    "content": f"Catalogue rows:\n{catalogue.rows_context(hits)}\n\nQuestion: {question}",
+                },
+            ],
         }
         try:
-            r = await client.post(f"{settings.lookup_llm_base}/chat/completions", json=body)
+            r = await client.post(
+                f"{settings.lookup_llm_base}/chat/completions", json=body
+            )
         except httpx.TimeoutException:
-            raise HTTPException(status_code=504, detail=f"the answering LLM did not reply within "
-                                                        f"{settings.answer_timeout:.0f} s (free API overloaded) - please ask again")
+            raise HTTPException(
+                status_code=504,
+                detail=f"the answering LLM did not reply within "
+                f"{settings.answer_timeout:.0f} s (free API overloaded) - please ask again",
+            )
         if r.status_code != 200:
-            raise HTTPException(status_code=503, detail=f"the answering LLM failed ({r.status_code}) - please ask again")
-        content = clean_answer((r.json().get("choices") or [{}])[0].get("message", {}).get("content") or "")
+            raise HTTPException(
+                status_code=503,
+                detail=f"the answering LLM failed ({r.status_code}) - please ask again",
+            )
+        content = clean_answer(
+            (r.json().get("choices") or [{}])[0].get("message", {}).get("content") or ""
+        )
         if not content:
-            raise HTTPException(status_code=503, detail="the answering LLM returned no answer - please ask again")
+            raise HTTPException(
+                status_code=503,
+                detail="the answering LLM returned no answer - please ask again",
+            )
         if is_refusal(content):
-            return content, []  # "not in the catalogue" must not list the rows it rejected
-        cited = {int(i) for m in CITED_ID.finditer(content) for i in re.findall(r"\d+", m.group(1))}
+            return (
+                content,
+                [],
+            )  # "not in the catalogue" must not list the rows it rejected
+        cited = {
+            int(i)
+            for m in CITED_ID.finditer(content)
+            for i in re.findall(r"\d+", m.group(1))
+        }
         # Without [n], the rows whose part numbers the answer quotes - never every matched row.
-        codes = {c for c in CODE_TOKEN.findall(CITED_ID.sub(" ", content).upper()) if any(ch.isdigit() for ch in c)}
-        used = ([row for i, (row, _) in enumerate(hits, 1) if i in cited]
-                or [row for row, _ in hits if any(re.search(rf"(?<![A-Z0-9]){re.escape(c)}(?![A-Z0-9])", row.text)
-                                                  for c in codes)])
+        codes = {
+            c
+            for c in CODE_TOKEN.findall(CITED_ID.sub(" ", content).upper())
+            if any(ch.isdigit() for ch in c)
+        }
+        used = [row for i, (row, _) in enumerate(hits, 1) if i in cited] or [
+            row
+            for row, _ in hits
+            if any(
+                re.search(rf"(?<![A-Z0-9]){re.escape(c)}(?![A-Z0-9])", row.text)
+                for c in codes
+            )
+        ]
         citations = []
         for source in dict.fromkeys(row.source for row in used):
             rows = [row for row in used if row.source == source]
             pages = sorted({row.page for row in rows})
-            shown = ", ".join(map(str, pages[:MAX_PAGES_SHOWN])) + (", …" if len(pages) > MAX_PAGES_SHOWN else "")
-            citations.append({"id": f"cit-{len(citations) + 1}", "documentId": display_name(source),
-                              "documentName": display_name(source), "pages": shown,
-                              "excerpt": rows[0].text.strip(" |")[:300]})
+            shown = ", ".join(map(str, pages[:MAX_PAGES_SHOWN])) + (
+                ", …" if len(pages) > MAX_PAGES_SHOWN else ""
+            )
+            citations.append(
+                {
+                    "id": f"cit-{len(citations) + 1}",
+                    "documentId": display_name(source),
+                    "documentName": display_name(source),
+                    "pages": shown,
+                    "excerpt": rows[0].text.strip(" |")[:300],
+                }
+            )
         return content, citations
 
     def current_user(authorization: str | None = Header(default=None)) -> User:
         token = (authorization or "").removeprefix("Bearer ").strip()
         if not token:
             # -GuestUpload is the team-testing mode: guests get every right, approvals included.
-            return User(name="guest", level=settings.guest_level, can_upload=settings.guest_can_upload,
-                        can_approve=settings.guest_can_upload)
+            return User(
+                name="guest",
+                level=settings.guest_level,
+                can_upload=settings.guest_can_upload,
+                can_approve=settings.guest_can_upload,
+            )
         info = settings.users.get(token)
         if info is None:
             raise HTTPException(status_code=401, detail="unknown token")
         level = int(info.get("level", 1))
         if not 1 <= level <= MAX_LEVEL:
             raise HTTPException(status_code=500, detail="misconfigured user level")
-        return User(name=info.get("name", "user"), level=level, can_upload=bool(info.get("can_upload")),
-                    can_approve=bool(info.get("can_approve")))
+        return User(
+            name=info.get("name", "user"),
+            level=level,
+            can_upload=bool(info.get("can_upload")),
+            can_approve=bool(info.get("can_approve")),
+        )
 
     def ops() -> dict:
         if settings.ops_file.exists():
@@ -758,10 +1103,18 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
             try:
                 r = await client.get(f"{url}/health", timeout=5)
                 cfg = r.json().get("configuration", {})
-                return {"url": url, "ok": r.status_code == 200, "workspace": cfg.get("workspace")}
+                return {
+                    "url": url,
+                    "ok": r.status_code == 200,
+                    "workspace": cfg.get("workspace"),
+                }
             except (httpx.HTTPError, ValueError):
                 return {"url": url, "ok": False}
-        backends = {f"level_{i + 1}": await probe(u) for i, u in enumerate(settings.level_servers)}
+
+        backends = {
+            f"level_{i + 1}": await probe(u)
+            for i, u in enumerate(settings.level_servers)
+        }
         if settings.lookup_server:
             backends["lookup"] = await probe(settings.lookup_server)
         if settings.iot_url:
@@ -781,45 +1134,103 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
         if reply:
             # A greeting is not a question about the documents: no retrieval, no sources.
             now = datetime.now(timezone.utc).isoformat()
-            return {"content": reply, "citations": [], "grounded": True, "target": "knowledge",
-                    "llmGenerated": False,
-                    "events": [{"id": f"ev-{uuid.uuid4().hex[:8]}", "timestamp": now, "type": "response_generated",
-                                "label": "Small talk - no document lookup"}]}
+            return {
+                "content": reply,
+                "citations": [],
+                "grounded": True,
+                "target": "knowledge",
+                "llmGenerated": False,
+                "events": [
+                    {
+                        "id": f"ev-{uuid.uuid4().hex[:8]}",
+                        "timestamp": now,
+                        "type": "response_generated",
+                        "label": "Small talk - no document lookup",
+                    }
+                ],
+            }
         # History is per user, not per client-chosen id: a guest sending a level-3 user's
         # conversationId would otherwise get that conversation's answers as context.
         conversation = (user.level, user.name, req.conversationId)
         target = "knowledge" if inc else (req.target or classify_target(req.message))
-        unknown = catalogue.unknown_names(lookup_rows, req.message) if target == "lookup" and lookup_rows else set()
+        unknown = (
+            catalogue.unknown_names(lookup_rows, req.message)
+            if target == "lookup" and lookup_rows
+            else set()
+        )
         if unknown:
             # No catalogue row mentions this vehicle: vector search still found a look-alike row
             # ("Lada Niva" -> a Lada G4FA row) and the LLM offered its plugs. Say it is not listed.
             names = " ".join(w.title() for w in sorted(unknown))
-            content = (f"Không tìm thấy xe {names} trong các catalogue DENSO hiện có, nên tôi không thể chỉ ra "
-                       f"mã phụ tùng phù hợp." if question_language(req.message) == "vi" else
-                       f"{names} is not listed in the available DENSO catalogues, so I cannot name a matching part.")
+            content = (
+                f"Không tìm thấy xe {names} trong các catalogue DENSO hiện có, nên tôi không thể chỉ ra "
+                f"mã phụ tùng phù hợp."
+                if question_language(req.message) == "vi"
+                else f"{names} is not listed in the available DENSO catalogues, so I cannot name a matching part."
+            )
             now = datetime.now(timezone.utc).isoformat()
-            return {"content": content, "citations": [], "grounded": True, "target": "lookup", "llmGenerated": False,
-                    "events": [{"id": f"ev-{uuid.uuid4().hex[:8]}", "timestamp": now, "type": "knowledge_retrieved",
-                                "label": f"No catalogue row mentions {names} (lookup, keyword, level {user.level})",
-                                "citations": []}]}
-        hits = catalogue.search(lookup_rows, req.message) if target == "lookup" and lookup_rows else []
+            return {
+                "content": content,
+                "citations": [],
+                "grounded": True,
+                "target": "lookup",
+                "llmGenerated": False,
+                "events": [
+                    {
+                        "id": f"ev-{uuid.uuid4().hex[:8]}",
+                        "timestamp": now,
+                        "type": "knowledge_retrieved",
+                        "label": f"No catalogue row mentions {names} (lookup, keyword, level {user.level})",
+                        "citations": [],
+                    }
+                ],
+            }
+        hits = (
+            catalogue.search(lookup_rows, req.message)
+            if target == "lookup" and lookup_rows
+            else []
+        )
         if hits:
             # Vehicle-application rows look alike to vector search; keyword matching finds the row.
-            content, citations = await answer_from_rows(req.message, hits, list(history[conversation]))
+            content, citations = await answer_from_rows(
+                req.message, hits, list(history[conversation])
+            )
             history[conversation].extend(
-                [{"role": "user", "content": req.message}, {"role": "assistant", "content": content}])
+                [
+                    {"role": "user", "content": req.message},
+                    {"role": "assistant", "content": content},
+                ]
+            )
             now = datetime.now(timezone.utc).isoformat()
-            return {"content": content, "citations": citations, "target": "lookup", "llmGenerated": True,
-                    "events": [
-                        {"id": f"ev-{uuid.uuid4().hex[:8]}", "timestamp": now, "type": "knowledge_retrieved",
-                         "label": f"Matched {len(hits)} catalogue row(s) (lookup, keyword, level {user.level})",
-                         "citations": citations},
-                        {"id": f"ev-{uuid.uuid4().hex[:8]}", "timestamp": now, "type": "response_generated",
-                         "label": "Answer generated"}]}
+            return {
+                "content": content,
+                "citations": citations,
+                "target": "lookup",
+                "llmGenerated": True,
+                "events": [
+                    {
+                        "id": f"ev-{uuid.uuid4().hex[:8]}",
+                        "timestamp": now,
+                        "type": "knowledge_retrieved",
+                        "label": f"Matched {len(hits)} catalogue row(s) (lookup, keyword, level {user.level})",
+                        "citations": citations,
+                    },
+                    {
+                        "id": f"ev-{uuid.uuid4().hex[:8]}",
+                        "timestamp": now,
+                        "type": "response_generated",
+                        "label": "Answer generated",
+                    },
+                ],
+            }
         if target == "lookup" and settings.lookup_server:
             url, mode = settings.lookup_server, settings.lookup_mode
         else:
-            target, url, mode = "knowledge", settings.level_servers[user.level - 1], settings.knowledge_mode
+            target, url, mode = (
+                "knowledge",
+                settings.level_servers[user.level - 1],
+                settings.knowledge_mode,
+            )
         past = list(history[conversation])
         payload = {
             "query": incident_query(req.message, inc) if inc else req.message,
@@ -838,51 +1249,107 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
         try:
             r = await client.post(f"{url}/query", json=payload)
         except httpx.TimeoutException:
-            raise HTTPException(status_code=504, detail=f"the answering LLM did not reply within "
-                                                        f"{settings.answer_timeout:.0f} s (free API overloaded) - please ask again")
+            raise HTTPException(
+                status_code=504,
+                detail=f"the answering LLM did not reply within "
+                f"{settings.answer_timeout:.0f} s (free API overloaded) - please ask again",
+            )
         except httpx.ConnectError:
             if target != "lookup":
-                raise HTTPException(status_code=503, detail=f"LightRAG level_{user.level} server is not running")
+                raise HTTPException(
+                    status_code=503,
+                    detail=f"LightRAG level_{user.level} server is not running",
+                )
             # Lookup server not deployed (compose profile off): answer from the knowledge tier.
-            target, url, mode = "knowledge", settings.level_servers[user.level - 1], settings.knowledge_mode
+            target, url, mode = (
+                "knowledge",
+                settings.level_servers[user.level - 1],
+                settings.knowledge_mode,
+            )
             r = await client.post(f"{url}/query", json={**payload, "mode": mode})
         if r.status_code != 200:
-            raise HTTPException(status_code=502, detail=f"LightRAG {target} server returned {r.status_code}")
+            raise HTTPException(
+                status_code=502,
+                detail=f"LightRAG {target} server returned {r.status_code}",
+            )
         body = r.json()
         if body.get("response", "").strip() == EMPTY_LLM_PLACEHOLDER:
             # LightRAG substitutes this when the answering LLM returned nothing (timeout,
             # 429, spent quota). Passing it on would read as "the documents have no answer".
-            raise HTTPException(status_code=503, detail="the answering LLM returned nothing (quota, rate limit or "
-                                                       "timeout) - see denso/logs/llm_proxy.jsonl and the server log")
+            raise HTTPException(
+                status_code=503,
+                detail="the answering LLM returned nothing (quota, rate limit or "
+                "timeout) - see denso/logs/llm_proxy.jsonl and the server log",
+            )
         content = clean_answer(body.get("response", ""))
         if not content:
             # Only reasoning came back (cut off before the answer): an LLM failure, not an empty answer.
-            raise HTTPException(status_code=503, detail="the answering LLM returned only its reasoning, no answer "
-                                                        "- please ask again")
+            raise HTTPException(
+                status_code=503,
+                detail="the answering LLM returned only its reasoning, no answer "
+                "- please ask again",
+            )
         # A "not in the documents" answer cites nothing: a listed source would read as support.
         refused = is_refusal(content)
         named = named_languages(req.message)
         listed = listed_reference_ids(strip_reasoning(body.get("response", "")))
-        citations = [] if refused else to_citations(only_cited(body.get("references") or [], content, named, listed),
-                                                    content, named)
+        citations = (
+            []
+            if refused
+            else to_citations(
+                only_cited(body.get("references") or [], content, named, listed),
+                content,
+                named,
+            )
+        )
         content, citations = without_page_one(content, citations, settings.data_dir)
         grounded = refused or bool(citations)
         history[conversation].extend(
-            [{"role": "user", "content": req.message}, {"role": "assistant", "content": content}]
+            [
+                {"role": "user", "content": req.message},
+                {"role": "assistant", "content": content},
+            ]
         )
         now = datetime.now(timezone.utc).isoformat()
-        events = ([{"id": f"ev-{uuid.uuid4().hex[:8]}", "timestamp": now, "type": "correlation",
-                    "label": f"Incident context added ({inc['id']}, {inc['device']})"}] if inc else []) + [
-            {"id": f"ev-{uuid.uuid4().hex[:8]}", "timestamp": now, "type": "knowledge_retrieved",
-             "label": (f"Retrieved {len(citations)} source document(s) ({target}, {mode}, level {user.level})"
-                       if grounded else
-                       "⚠️ Không có đoạn tài liệu nào khớp câu trả lời này – có thể dựa trên lịch sử hội thoại, cần kiểm tra lại"),
-             "citations": citations},
-            {"id": f"ev-{uuid.uuid4().hex[:8]}", "timestamp": now, "type": "response_generated",
-             "label": "Answer generated", "detail": f"{body.get('response_time', '?')} s"},
+        events = (
+            [
+                {
+                    "id": f"ev-{uuid.uuid4().hex[:8]}",
+                    "timestamp": now,
+                    "type": "correlation",
+                    "label": f"Incident context added ({inc['id']}, {inc['device']})",
+                }
+            ]
+            if inc
+            else []
+        ) + [
+            {
+                "id": f"ev-{uuid.uuid4().hex[:8]}",
+                "timestamp": now,
+                "type": "knowledge_retrieved",
+                "label": (
+                    f"Retrieved {len(citations)} source document(s) ({target}, {mode}, level {user.level})"
+                    if grounded
+                    else "⚠️ Không có đoạn tài liệu nào khớp câu trả lời này – có thể dựa trên lịch sử hội thoại, cần kiểm tra lại"
+                ),
+                "citations": citations,
+            },
+            {
+                "id": f"ev-{uuid.uuid4().hex[:8]}",
+                "timestamp": now,
+                "type": "response_generated",
+                "label": "Answer generated",
+                "detail": f"{body.get('response_time', '?')} s",
+            },
         ]
-        return {"content": content, "citations": citations, "events": events, "grounded": grounded,
-                "target": target, "llmGenerated": body.get("llm_generated", True)}
+        return {
+            "content": content,
+            "citations": citations,
+            "events": events,
+            "grounded": grounded,
+            "target": target,
+            "llmGenerated": body.get("llm_generated", True),
+        }
 
     @app.get("/agent/documents/jobs/{job_id}")
     async def upload_job(job_id: str, user: User = Depends(current_user)) -> dict:
@@ -895,26 +1362,43 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
     async def documents(user: User = Depends(current_user)) -> list[dict]:
         url = settings.level_servers[user.level - 1]
         # Uploads still in the pipeline first, so the Knowledge Hub shows their progress.
-        out = [job_document(j) for j in (runner.active() if runner else []) if j.level <= user.level]
+        out = [
+            job_document(j)
+            for j in (runner.active() if runner else [])
+            if j.level <= user.level
+        ]
         page = 1
         while True:
-            r = await client.post(f"{url}/documents/paginated", json={"page": page, "page_size": 100})
+            r = await client.post(
+                f"{url}/documents/paginated", json={"page": page, "page_size": 100}
+            )
             if r.status_code != 200:
-                raise HTTPException(status_code=502, detail="LightRAG documents listing failed")
+                raise HTTPException(
+                    status_code=502, detail="LightRAG documents listing failed"
+                )
             data = r.json()
-            out += [to_knowledge_document(d, user.level) for d in data.get("documents", [])]
+            out += [
+                to_knowledge_document(d, user.level) for d in data.get("documents", [])
+            ]
             if not data.get("pagination", {}).get("has_next"):
                 return out
             page += 1
 
     @app.post("/agent/documents")
     async def upload(
-        file: UploadFile = File(...), level: int = Form(1), user: User = Depends(current_user)
+        file: UploadFile = File(...),
+        level: int = Form(1),
+        user: User = Depends(current_user),
     ) -> dict:
         if not user.can_upload:
-            raise HTTPException(status_code=403, detail="this user may not upload documents")
+            raise HTTPException(
+                status_code=403, detail="this user may not upload documents"
+            )
         if not 1 <= level <= user.level:
-            raise HTTPException(status_code=403, detail=f"cannot upload a level-{level} document as level {user.level}")
+            raise HTTPException(
+                status_code=403,
+                detail=f"cannot upload a level-{level} document as level {user.level}",
+            )
         data = await file.read()
         if runner:
             try:
@@ -923,11 +1407,18 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
                 raise HTTPException(status_code=415, detail=str(exc)) from None
             return {"status": "accepted", "jobId": job.id, "job": job.public()}
         tracks = {}
-        for lv in range(level, MAX_LEVEL + 1):  # cumulative: a level-N document is visible to N..3
-            r = await client.post(f"{settings.level_servers[lv - 1]}/documents/upload",
-                                  files={"file": (file.filename, data)})
+        for lv in range(
+            level, MAX_LEVEL + 1
+        ):  # cumulative: a level-N document is visible to N..3
+            r = await client.post(
+                f"{settings.level_servers[lv - 1]}/documents/upload",
+                files={"file": (file.filename, data)},
+            )
             if r.status_code != 200:
-                raise HTTPException(status_code=502, detail=f"upload to level_{lv} failed ({r.status_code})")
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"upload to level_{lv} failed ({r.status_code})",
+                )
             tracks[f"level_{lv}"] = r.json().get("track_id")
         return {"status": "accepted", "trackIds": tracks}
 
@@ -937,11 +1428,16 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
         ids, page = [], 1
         try:
             while True:
-                r = await client.post(f"{url}/documents/paginated", json={"page": page, "page_size": 100})
+                r = await client.post(
+                    f"{url}/documents/paginated", json={"page": page, "page_size": 100}
+                )
                 r.raise_for_status()
                 data = r.json()
                 for d in data.get("documents", []):
-                    own = {Path(d.get("file_path") or "").name, (d.get("metadata") or {}).get("source_file") or ""}
+                    own = {
+                        Path(d.get("file_path") or "").name,
+                        (d.get("metadata") or {}).get("source_file") or "",
+                    }
                     if own & names:
                         ids.append(d["id"])
                 if not data.get("pagination", {}).get("has_next"):
@@ -954,10 +1450,15 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
         page = 1
         try:
             while True:
-                r = await client.post(f"{url}/documents/paginated", json={"page": page, "page_size": 100})
+                r = await client.post(
+                    f"{url}/documents/paginated", json={"page": page, "page_size": 100}
+                )
                 r.raise_for_status()
                 data = r.json()
-                doc = next((d for d in data.get("documents", []) if d.get("id") == doc_id), None)
+                doc = next(
+                    (d for d in data.get("documents", []) if d.get("id") == doc_id),
+                    None,
+                )
                 if doc or not data.get("pagination", {}).get("has_next"):
                     return doc
                 page += 1
@@ -965,7 +1466,9 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
             return None
 
     @app.get("/agent/documents/{doc_id}/file")
-    async def document_file(doc_id: str, user: User = Depends(current_user)) -> FileResponse:
+    async def document_file(
+        doc_id: str, user: User = Depends(current_user)
+    ) -> FileResponse:
         """The original upload, for the UI's preview; only from a server at the caller's level."""
         doc = None
         for url in settings.level_servers[: user.level]:
@@ -973,12 +1476,21 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
             if doc:
                 break
         if doc is None:
-            raise HTTPException(status_code=404, detail="document not found at your access level")
+            raise HTTPException(
+                status_code=404, detail="document not found at your access level"
+            )
         path = raw_file(doc.get("file_path") or "", settings.data_dir, user.level)
         if path is None:
-            raise HTTPException(status_code=404, detail="the original file is not on this server")
+            raise HTTPException(
+                status_code=404, detail="the original file is not on this server"
+            )
         media = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
-        return FileResponse(path, media_type=media, filename=path.name, content_disposition_type="inline")
+        return FileResponse(
+            path,
+            media_type=media,
+            filename=path.name,
+            content_disposition_type="inline",
+        )
 
     def remove_local_files(file_path: str) -> list[str]:
         """Pipeline outputs of a deleted document; the raw upload stays (undo by uploading it again)."""
@@ -986,14 +1498,22 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
         stem = stem.split(".[", 1)[0]  # "x.[native-P!]" -> "x"
         data = settings.data_dir
         removed = []
-        for p in [data / "cleaned_md" / f"{stem}.md", data / "cleaned_md" / f"{stem}.[native-P!].md",
-                  data / "cleaned_md" / f"{stem} - images.[native-P!].md", data / "cleaned_json" / f"{stem}.json"]:
+        for p in [
+            data / "cleaned_md" / f"{stem}.md",
+            data / "cleaned_md" / f"{stem}.[native-P!].md",
+            data / "cleaned_md" / f"{stem} - images.[native-P!].md",
+            data / "cleaned_json" / f"{stem}.json",
+        ]:
             if p.exists():
                 p.unlink()
                 removed.append(p.name)
         parsed = (data / "parsed" / stem).resolve()
         # Never more than one folder directly under parsed/ (a name like ".." must not reach data/).
-        if stem not in ("", ".", "..") and parsed.is_dir() and parsed.parent == (data / "parsed").resolve():
+        if (
+            stem not in ("", ".", "..")
+            and parsed.is_dir()
+            and parsed.parent == (data / "parsed").resolve()
+        ):
             shutil.rmtree(parsed)
             removed.append(f"parsed/{stem}/")
         return removed
@@ -1003,9 +1523,14 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
         """Remove a document from every level server holding it: chunks, vectors, its knowledge-
         graph contributions and cache (LightRAG delete_document), then its local pipeline files."""
         if not user.can_upload:
-            raise HTTPException(status_code=403, detail="this user may not delete documents")
+            raise HTTPException(
+                status_code=403, detail="this user may not delete documents"
+            )
         if doc_id.startswith("job-"):
-            raise HTTPException(status_code=409, detail="this upload is still being processed; delete it when it is ready")
+            raise HTTPException(
+                status_code=409,
+                detail="this upload is still being processed; delete it when it is ready",
+            )
         doc = None
         # The servers this user can see (levels 1..user.level), skipping any that is not running.
         for url in settings.level_servers[: user.level]:
@@ -1013,8 +1538,13 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
             if doc:
                 break
         if doc is None:
-            raise HTTPException(status_code=404, detail="document not found at your access level")
-        names = {Path(doc.get("file_path") or "").name, (doc.get("metadata") or {}).get("source_file") or ""} - {""}
+            raise HTTPException(
+                status_code=404, detail="document not found at your access level"
+            )
+        names = {
+            Path(doc.get("file_path") or "").name,
+            (doc.get("metadata") or {}).get("source_file") or "",
+        } - {""}
         holders, unreachable = {}, []
         for lv, url in enumerate(settings.level_servers, 1):
             ids = await named_documents(url, names)
@@ -1025,42 +1555,82 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
             elif ids:
                 holders[lv] = (url, ids)
         if min(holders, default=user.level) > user.level:
-            raise HTTPException(status_code=403, detail="cannot delete a document above your access level")
+            raise HTTPException(
+                status_code=403,
+                detail="cannot delete a document above your access level",
+            )
         deleted = []
         for lv, (url, ids) in sorted(holders.items()):
-            r = await client.request("DELETE", f"{url}/documents/delete_document", json={"doc_ids": ids, "delete_file": False})
+            r = await client.request(
+                "DELETE",
+                f"{url}/documents/delete_document",
+                json={"doc_ids": ids, "delete_file": False},
+            )
             status = r.json().get("status") if r.status_code == 200 else None
             if status == "busy":
-                raise HTTPException(status_code=409, detail="the knowledge base is busy indexing another document - try again in a minute")
+                raise HTTPException(
+                    status_code=409,
+                    detail="the knowledge base is busy indexing another document - try again in a minute",
+                )
             if r.status_code != 200 or status not in ("deletion_started", "success"):
-                raise HTTPException(status_code=502, detail=f"level_{lv} refused the deletion ({r.status_code} {status})")
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"level_{lv} refused the deletion ({r.status_code} {status})",
+                )
             deleted.append(f"level_{lv}")
         # Deletion runs in the background on each server: wait briefly so the UI's next listing is right.
         for _ in range(30):
-            remaining = [url for url, _ in holders.values() if await named_documents(url, names)]
+            remaining = [
+                url for url, _ in holders.values() if await named_documents(url, names)
+            ]
             if not remaining:
                 break
             await asyncio.sleep(2)
         # Earlier answers quoting the document sit in the conversation history the LLM is given; left
         # there, the next question was answered from them (seen live, right after a delete).
         history.clear()
-        return {"status": "deleted", "levels": deleted, "notChecked": unreachable,
-                "removedFiles": remove_local_files(doc.get("file_path") or "")}
+        return {
+            "status": "deleted",
+            "levels": deleted,
+            "notChecked": unreachable,
+            "removedFiles": remove_local_files(doc.get("file_path") or ""),
+        }
 
     # ------------------------------------------------ Long-agent tester dashboard (relay)
     # Only what that page uses: the page, the machine list, the fault picker and the event stream.
     # Long-agent's decision / PLC / approve / upload routes stay unreachable from outside.
 
-    async def iot_relay(method: str, path: str, request: Request, body: bytes | None = None) -> Response:
+    async def iot_relay(
+        method: str, path: str, request: Request, body: bytes | None = None
+    ) -> Response:
         if not settings.iot_url:
-            raise HTTPException(status_code=404, detail="Long-agent is not enabled (serve_chat.ps1 -WithIoT)")
-        headers = {"Content-Type": request.headers["content-type"]} if body is not None and "content-type" in request.headers else {}
+            raise HTTPException(
+                status_code=404,
+                detail="Long-agent is not enabled (serve_chat.ps1 -WithIoT)",
+            )
+        headers = (
+            {"Content-Type": request.headers["content-type"]}
+            if body is not None and "content-type" in request.headers
+            else {}
+        )
         try:
-            r = await client.request(method, f"{settings.iot_url}{path}", params=request.query_params,
-                                     content=body, headers=headers, timeout=15)
+            r = await client.request(
+                method,
+                f"{settings.iot_url}{path}",
+                params=request.query_params,
+                content=body,
+                headers=headers,
+                timeout=15,
+            )
         except httpx.HTTPError:
-            raise HTTPException(status_code=503, detail="Long-agent is not reachable") from None
-        return Response(r.content, status_code=r.status_code, media_type=r.headers.get("content-type"))
+            raise HTTPException(
+                status_code=503, detail="Long-agent is not reachable"
+            ) from None
+        return Response(
+            r.content,
+            status_code=r.status_code,
+            media_type=r.headers.get("content-type"),
+        )
 
     @app.get("/dashboard", include_in_schema=False)
     async def dashboard_root() -> RedirectResponse:
@@ -1076,32 +1646,54 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
 
     @app.get("/api/machines/{machine_id}/faults", include_in_schema=False)
     async def iot_faults(machine_id: str, request: Request) -> Response:
-        return await iot_relay("GET", f"/api/machines/{quote(machine_id, safe='')}/faults", request)
+        return await iot_relay(
+            "GET", f"/api/machines/{quote(machine_id, safe='')}/faults", request
+        )
 
     @app.post("/api/machines/{machine_id}/faults", include_in_schema=False)
     async def iot_set_faults(machine_id: str, request: Request) -> Response:
         """Tester fault injection on the simulator (the page's "Áp dụng" button)."""
-        return await iot_relay("POST", f"/api/machines/{quote(machine_id, safe='')}/faults", request,
-                               body=await request.body())
+        return await iot_relay(
+            "POST",
+            f"/api/machines/{quote(machine_id, safe='')}/faults",
+            request,
+            body=await request.body(),
+        )
 
     @app.get("/api/stream", include_in_schema=False)
     async def iot_stream(request: Request) -> Response:
         """The page's server-sent events, relayed as they arrive (no read timeout)."""
         if not settings.iot_url:
-            raise HTTPException(status_code=404, detail="Long-agent is not enabled (serve_chat.ps1 -WithIoT)")
+            raise HTTPException(
+                status_code=404,
+                detail="Long-agent is not enabled (serve_chat.ps1 -WithIoT)",
+            )
         if "cf-ray" in request.headers:
             # A Cloudflare quick tunnel holds the event stream back (headers arrive, events never
             # do). Refused, the page's EventSource errors and it polls /api/machines instead.
-            raise HTTPException(status_code=503, detail="live events are not relayed through the tunnel; poll instead")
-        upstream = client.build_request("GET", f"{settings.iot_url}/api/stream", timeout=httpx.Timeout(10, read=None))
+            raise HTTPException(
+                status_code=503,
+                detail="live events are not relayed through the tunnel; poll instead",
+            )
+        upstream = client.build_request(
+            "GET",
+            f"{settings.iot_url}/api/stream",
+            timeout=httpx.Timeout(10, read=None),
+        )
         try:
             r = await client.send(upstream, stream=True)
         except httpx.HTTPError:
-            raise HTTPException(status_code=503, detail="Long-agent is not reachable") from None
+            raise HTTPException(
+                status_code=503, detail="Long-agent is not reachable"
+            ) from None
         if r.status_code != 200:
             body = await r.aread()
             await r.aclose()
-            return Response(body, status_code=r.status_code, media_type=r.headers.get("content-type"))
+            return Response(
+                body,
+                status_code=r.status_code,
+                media_type=r.headers.get("content-type"),
+            )
 
         async def relay():
             try:
@@ -1113,8 +1705,14 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
                 await r.aclose()
 
         # Exactly "text/event-stream" (media_type= would append a charset).
-        return StreamingResponse(relay(), headers={"Content-Type": "text/event-stream",
-                                                   "Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+        return StreamingResponse(
+            relay(),
+            headers={
+                "Content-Type": "text/event-stream",
+                "Cache-Control": "no-cache",
+                "X-Accel-Buffering": "no",
+            },
+        )
 
     async def long_agent_incidents() -> list[dict]:
         try:
@@ -1122,14 +1720,23 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
             r.raise_for_status()
             return factory.incidents_from_state(r.json())
         except (httpx.HTTPError, ValueError):
-            raise HTTPException(status_code=503, detail="Long-agent is not reachable") from None
+            raise HTTPException(
+                status_code=503, detail="Long-agent is not reachable"
+            ) from None
 
     async def incident_for(conversation_id: str) -> dict | None:
         """The Long-agent incident whose conversation this is, else None (also when it is down)."""
         if not settings.iot_url or not conversation_id.startswith("CONV-LA-"):
             return None
         try:
-            return next((i for i in await long_agent_incidents() if i["conversationId"] == conversation_id), None)
+            return next(
+                (
+                    i
+                    for i in await long_agent_incidents()
+                    if i["conversationId"] == conversation_id
+                ),
+                None,
+            )
         except HTTPException:
             return None
 
@@ -1141,7 +1748,11 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
 
     @app.get("/agent/incidents/{incident_id}")
     async def incident(incident_id: str, user: User = Depends(current_user)) -> dict:
-        source = await long_agent_incidents() if settings.iot_url else ops().get("incidents", [])
+        source = (
+            await long_agent_incidents()
+            if settings.iot_url
+            else ops().get("incidents", [])
+        )
         for inc in source:
             if inc.get("id") == incident_id:
                 return inc
@@ -1162,16 +1773,34 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
     async def long_agent_decision(action_id: str, decision: str, user: User) -> dict:
         """A HITL decision passed to Long-agent, which executes approved actions on its simulator."""
         if not user.can_approve:
-            raise HTTPException(status_code=403, detail="this user may not decide on agent actions")
+            raise HTTPException(
+                status_code=403, detail="this user may not decide on agent actions"
+            )
         try:
-            r = await client.post(f"{settings.iot_url}/api/decision", json={"action_id": action_id, "decision": decision},
-                                  timeout=15)
+            r = await client.post(
+                f"{settings.iot_url}/api/decision",
+                json={"action_id": action_id, "decision": decision},
+                timeout=15,
+            )
         except httpx.HTTPError:
-            raise HTTPException(status_code=503, detail="Long-agent is not reachable") from None
+            raise HTTPException(
+                status_code=503, detail="Long-agent is not reachable"
+            ) from None
         if r.status_code >= 400:
-            raise HTTPException(status_code=r.status_code, detail=f"Long-agent: {r.text[:200]}")
-        log_action({"ts": datetime.now(timezone.utc).isoformat(), "action": action_id, "decision": decision.lower(),
-                    "user": user.name, "executed": "by Long-agent (simulator)" if decision == "APPROVE" else False})
+            raise HTTPException(
+                status_code=r.status_code, detail=f"Long-agent: {r.text[:200]}"
+            )
+        log_action(
+            {
+                "ts": datetime.now(timezone.utc).isoformat(),
+                "action": action_id,
+                "decision": decision.lower(),
+                "user": user.name,
+                "executed": "by Long-agent (simulator)"
+                if decision == "APPROVE"
+                else False,
+            }
+        )
         return r.json()
 
     @app.post("/agent/actions/{action_id}/approve")
@@ -1180,9 +1809,17 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
             res = await long_agent_decision(action_id, "APPROVE", user)
             return {"ack": f"{res.get('status', 'APPROVED')} {action_id}"}
         ack = f"ACK-{uuid.uuid4().hex[:6].upper()}"
-        log_action({"ts": datetime.now(timezone.utc).isoformat(), "action": action_id, "decision": "approve",
-                    "user": user.name, "ack": ack, "executed": False,
-                    "note": "recorded only - the gateway never sends PLC commands"})
+        log_action(
+            {
+                "ts": datetime.now(timezone.utc).isoformat(),
+                "action": action_id,
+                "decision": "approve",
+                "user": user.name,
+                "ack": ack,
+                "executed": False,
+                "note": "recorded only - the gateway never sends PLC commands",
+            }
+        )
         return {"ack": ack}
 
     @app.post("/agent/actions/{action_id}/reject")
@@ -1190,8 +1827,15 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
         if settings.iot_url:
             await long_agent_decision(action_id, "REJECT", user)
             return {"status": "rejected"}
-        log_action({"ts": datetime.now(timezone.utc).isoformat(), "action": action_id, "decision": "reject",
-                    "user": user.name, "executed": False})
+        log_action(
+            {
+                "ts": datetime.now(timezone.utc).isoformat(),
+                "action": action_id,
+                "decision": "reject",
+                "user": user.name,
+                "executed": False,
+            }
+        )
         return {"status": "rejected"}
 
     return app
@@ -1201,7 +1845,9 @@ def main() -> None:
     import uvicorn
 
     port = int(os.environ.get("DENSO_GATEWAY_PORT", "9700"))
-    host = os.environ.get("DENSO_GATEWAY_HOST", "127.0.0.1")  # 0.0.0.0 inside a container only
+    host = os.environ.get(
+        "DENSO_GATEWAY_HOST", "127.0.0.1"
+    )  # 0.0.0.0 inside a container only
     uvicorn.run(create_app(Settings.from_env()), host=host, port=port, log_level="info")
 
 

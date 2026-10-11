@@ -43,31 +43,62 @@ class AmrVehicle(BaseMachine):
         # 3. Khai báo lỗi
         self.active_faults = {
             "BATTERY_CELL_DEGRADATION": False,  # Chai pin, nội trở cao
-            "LIDAR_OPTICAL_DIRT": False,        # Bụi bẩn che lăng kính LiDAR
-            "WHEEL_MOTOR_RESISTANCE": False,    # Kẹt cơ cấu bánh xe
+            "LIDAR_OPTICAL_DIRT": False,  # Bụi bẩn che lăng kính LiDAR
+            "WHEEL_MOTOR_RESISTANCE": False,  # Kẹt cơ cấu bánh xe
         }
 
     @classmethod
     def command_specs(cls) -> Dict[str, CommandSpec]:
-        specs = cmd.control_commands(hold_desc="Dừng xe tại chỗ, giữ lộ trình",
-                                     resume_from=frozenset({cmd.HOLD, cmd.CHARGING}))
+        specs = cmd.control_commands(
+            hold_desc="Dừng xe tại chỗ, giữ lộ trình",
+            resume_from=frozenset({cmd.HOLD, cmd.CHARGING}),
+        )
         for spec in (
-            cmd.repair("REPLACE_BATTERY_MODULE", "BATTERY_CELL_DEGRADATION",
-                       "Thay cụm cell pin LiFePO4 mới (module mới sạc sẵn 95%)", 60,
-                       ("REPLACE_BATTERY", "CHANGE_BATTERY", "THAY_PIN")),
-            cmd.repair("CLEAN_LIDAR_OPTICS", "LIDAR_OPTICAL_DIRT", "Lau sạch ống kính LiDAR", 20,
-                       ("CLEAN_LIDAR", "CLEAN_LIDAR_LENS")),
-            cmd.repair("SERVICE_DRIVE_MOTOR", "WHEEL_MOTOR_RESISTANCE", "Kiểm tra, bôi trơn cụm động cơ bánh xe", 45,
-                       ("REPAIR_DRIVE_MOTOR", "SERVICE_WHEEL_MOTOR", "LUBRICATE_WHEEL")),
-            CommandSpec("RETURN_TO_CHARGER", "control",
-                        "Về đế sạc để nạp pin (chỉ bù pin cạn do vận hành; không sửa được pin chai)",
-                        frozenset({cmd.RUNNING, cmd.HOLD, cmd.STOPPED}), cmd.CHARGING, risk="LOW",
-                        aliases=("GO_CHARGE", "CHARGE", "VE_SAC")),
-            CommandSpec("NAVIGATE_TO", "setpoint", "Chạy tới trạm chỉ định",
-                        frozenset({cmd.RUNNING, cmd.HOLD, cmd.CHARGING}), cmd.RUNNING, risk="LOW",
-                        params={"station": ParamSpec("str", default="BUFFER_STATION", desc_vi="mã trạm"),
-                                "speed_m_s": ParamSpec("float", 0, 1.4, 1.2, "tốc độ m/s")},
-                        aliases=("GOTO", "GO_TO_STATION")),
+            cmd.repair(
+                "REPLACE_BATTERY_MODULE",
+                "BATTERY_CELL_DEGRADATION",
+                "Thay cụm cell pin LiFePO4 mới (module mới sạc sẵn 95%)",
+                60,
+                ("REPLACE_BATTERY", "CHANGE_BATTERY", "THAY_PIN"),
+            ),
+            cmd.repair(
+                "CLEAN_LIDAR_OPTICS",
+                "LIDAR_OPTICAL_DIRT",
+                "Lau sạch ống kính LiDAR",
+                20,
+                ("CLEAN_LIDAR", "CLEAN_LIDAR_LENS"),
+            ),
+            cmd.repair(
+                "SERVICE_DRIVE_MOTOR",
+                "WHEEL_MOTOR_RESISTANCE",
+                "Kiểm tra, bôi trơn cụm động cơ bánh xe",
+                45,
+                ("REPAIR_DRIVE_MOTOR", "SERVICE_WHEEL_MOTOR", "LUBRICATE_WHEEL"),
+            ),
+            CommandSpec(
+                "RETURN_TO_CHARGER",
+                "control",
+                "Về đế sạc để nạp pin (chỉ bù pin cạn do vận hành; không sửa được pin chai)",
+                frozenset({cmd.RUNNING, cmd.HOLD, cmd.STOPPED}),
+                cmd.CHARGING,
+                risk="LOW",
+                aliases=("GO_CHARGE", "CHARGE", "VE_SAC"),
+            ),
+            CommandSpec(
+                "NAVIGATE_TO",
+                "setpoint",
+                "Chạy tới trạm chỉ định",
+                frozenset({cmd.RUNNING, cmd.HOLD, cmd.CHARGING}),
+                cmd.RUNNING,
+                risk="LOW",
+                params={
+                    "station": ParamSpec(
+                        "str", default="BUFFER_STATION", desc_vi="mã trạm"
+                    ),
+                    "speed_m_s": ParamSpec("float", 0, 1.4, 1.2, "tốc độ m/s"),
+                },
+                aliases=("GOTO", "GO_TO_STATION"),
+            ),
         ):
             specs[spec.name] = spec
         return specs
@@ -86,7 +117,9 @@ class AmrVehicle(BaseMachine):
 
     def on_repaired(self, name: str) -> None:
         if name == "REPLACE_BATTERY_MODULE":
-            self.battery_pct = 95.0   # the new module's own charge, not a reset of the old one
+            self.battery_pct = (
+                95.0  # the new module's own charge, not a reset of the old one
+            )
 
     def at_rest(self) -> bool:
         return self.current_velocity_m_s < 0.05
@@ -107,10 +140,14 @@ class AmrVehicle(BaseMachine):
                 desired = self.target_speed_m_s
                 if self.active_faults["WHEEL_MOTOR_RESISTANCE"]:
                     desired *= 0.5  # Kẹt bánh làm tốc độ tụt mạnh
-                self.current_velocity_m_s = self.approach(self.current_velocity_m_s, desired, dt, 4.0)
+                self.current_velocity_m_s = self.approach(
+                    self.current_velocity_m_s, desired, dt, 4.0
+                )
             else:
                 decel = 5.0 if self.state == cmd.E_STOP else 2.5
-                self.current_velocity_m_s = max(0.0, self.current_velocity_m_s - decel * dt)
+                self.current_velocity_m_s = max(
+                    0.0, self.current_velocity_m_s - decel * dt
+                )
 
             # --- TIÊU HAO & NHIỆT ĐỘ PIN ---
             if self.running:
@@ -122,36 +159,55 @@ class AmrVehicle(BaseMachine):
                 self.battery_pct = max(0.0, self.battery_pct - drain * dt)
                 heat_gen = drain * 5.0
                 self.battery_temp_c = self.approach(
-                    self.battery_temp_c, self.ambient_temp_c + heat_gen / 0.03, dt, 1 / 0.03
+                    self.battery_temp_c,
+                    self.ambient_temp_c + heat_gen / 0.03,
+                    dt,
+                    1 / 0.03,
                 )
             elif self.state == cmd.CHARGING:
                 self.battery_pct = min(100.0, self.battery_pct + 0.4 * dt)
                 cooling = (self.battery_temp_c - self.ambient_temp_c) * 0.08 * dt
-                self.battery_temp_c = max(self.ambient_temp_c, self.battery_temp_c - cooling)
+                self.battery_temp_c = max(
+                    self.ambient_temp_c, self.battery_temp_c - cooling
+                )
             else:
                 self.battery_pct = max(0.0, self.battery_pct - 0.001 * dt)
                 cooling = (self.battery_temp_c - self.ambient_temp_c) * 0.05 * dt
-                self.battery_temp_c = max(self.ambient_temp_c, self.battery_temp_c - cooling)
+                self.battery_temp_c = max(
+                    self.ambient_temp_c, self.battery_temp_c - cooling
+                )
 
             # --- ĐỘ TIN CẬY LIDAR SLAM ---
             if self.active_faults["LIDAR_OPTICAL_DIRT"]:
-                self.lidar_confidence_pct = max(40.0, self.lidar_confidence_pct - 2.0 * dt)
+                self.lidar_confidence_pct = max(
+                    40.0, self.lidar_confidence_pct - 2.0 * dt
+                )
             else:
-                self.lidar_confidence_pct = min(99.5, self.lidar_confidence_pct + 2.0 * dt)
+                self.lidar_confidence_pct = min(
+                    99.5, self.lidar_confidence_pct + 2.0 * dt
+                )
 
-            noise_v = random.uniform(-0.02, 0.02) if self.current_velocity_m_s > 0.05 else 0.0
+            noise_v = (
+                random.uniform(-0.02, 0.02) if self.current_velocity_m_s > 0.05 else 0.0
+            )
             noise_lidar = random.uniform(-0.2, 0.2)
             noise_bat = random.uniform(-0.05, 0.05)
             noise_btemp = random.uniform(-0.1, 0.1)
 
             return {
                 "Controller_Execution": self.state,
-                "Battery_Pct": round(max(0.0, min(100.0, self.battery_pct + noise_bat)), 2),
+                "Battery_Pct": round(
+                    max(0.0, min(100.0, self.battery_pct + noise_bat)), 2
+                ),
                 "Battery_Temp_C": round(self.battery_temp_c + noise_btemp, 1),
-                "Current_Velocity_m_s": round(max(0.0, self.current_velocity_m_s + noise_v), 2),
+                "Current_Velocity_m_s": round(
+                    max(0.0, self.current_velocity_m_s + noise_v), 2
+                ),
                 "Payload_Weight_Kg": round(self.payload_weight_kg, 1),
                 "Current_Station": self.current_station,
                 "Target_Station": self.target_station,
-                "Lidar_Confidence_Pct": round(max(0.0, min(100.0, self.lidar_confidence_pct + noise_lidar)), 1),
+                "Lidar_Confidence_Pct": round(
+                    max(0.0, min(100.0, self.lidar_confidence_pct + noise_lidar)), 1
+                ),
                 "Simulated_Active_Faults": self.get_active_faults(),
             }

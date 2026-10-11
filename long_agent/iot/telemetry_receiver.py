@@ -44,7 +44,8 @@ for machine_type, metrics in MACHINE_METRICS.items():
 # Below this a reading is still on its way up to the operating point: nominal minus three times
 # the sensor noise.
 WARM_UP_BELOW: Dict[str, Dict[str, float]] = {
-    t: {m["key"]: m["nominal"] - 3 * m.get("noise", 0) for m in metrics} for t, metrics in MACHINE_METRICS.items()
+    t: {m["key"]: m["nominal"] - 3 * m.get("noise", 0) for m in metrics}
+    for t, metrics in MACHINE_METRICS.items()
 }
 
 
@@ -84,7 +85,9 @@ class TelemetryReceiver:
         now_iso = datetime.now().isoformat()
 
         # 1. Phát hiện toàn bộ bất thường (ngưỡng tĩnh + tốc độ thay đổi ROC)
-        raw_anomalies = self._detect_anomalies(machine_id, machine_type, payload, now_mono)
+        raw_anomalies = self._detect_anomalies(
+            machine_id, machine_type, payload, now_mono
+        )
 
         # 2. Bộ lọc chống spam (Cooldown)
         active_anomalies: List[Dict[str, Any]] = []
@@ -133,7 +136,11 @@ class TelemetryReceiver:
         return None
 
     def _detect_anomalies(
-        self, machine_id: str, machine_type: str, payload: Dict[str, Any], now_mono: float
+        self,
+        machine_id: str,
+        machine_type: str,
+        payload: Dict[str, Any],
+        now_mono: float,
     ) -> List[Dict[str, Any]]:
         threshold_config = MACHINE_THRESHOLDS.get(machine_type, {})
         if not threshold_config:
@@ -151,9 +158,14 @@ class TelemetryReceiver:
             self._running_since.pop(machine_id, None)
         elif machine_id not in self._running_since:
             self._running_since[machine_id] = now_mono
-        settled = state == "RUNNING" and now_mono - self._running_since[machine_id] >= self.settle_sec
+        settled = (
+            state == "RUNNING"
+            and now_mono - self._running_since[machine_id] >= self.settle_sec
+        )
         if not settled:
-            self._history.pop(machine_id, None)   # rate of change restarts from settled readings
+            self._history.pop(
+                machine_id, None
+            )  # rate of change restarts from settled readings
         if state in ("LOCKED_OUT", "MAINTENANCE", "E_STOP"):
             return []
 
@@ -173,18 +185,22 @@ class TelemetryReceiver:
             # 1. So khớp ngưỡng tĩnh cứng
             static_violated = False
             if "max" in limits and current_val > limits["max"]:
-                anomalies.append({
-                    "param": param,
-                    "value": current_val,
-                    "reason": f"Vượt ngưỡng trần cho phép ({current_val} > {limits['max']})",
-                })
+                anomalies.append(
+                    {
+                        "param": param,
+                        "value": current_val,
+                        "reason": f"Vượt ngưỡng trần cho phép ({current_val} > {limits['max']})",
+                    }
+                )
                 static_violated = True
             elif settled and "min" in limits and current_val < limits["min"]:
-                anomalies.append({
-                    "param": param,
-                    "value": current_val,
-                    "reason": f"Dưới ngưỡng sàn quy định ({current_val} < {limits['min']})",
-                })
+                anomalies.append(
+                    {
+                        "param": param,
+                        "value": current_val,
+                        "reason": f"Dưới ngưỡng sàn quy định ({current_val} < {limits['min']})",
+                    }
+                )
                 static_violated = True
 
             # 2. So khớp tốc độ biến thiên theo thời gian (ROC)
@@ -214,11 +230,13 @@ class TelemetryReceiver:
                         floor = WARM_UP_BELOW.get(machine_type, {}).get(param)
                         warming_up = floor is not None and oldest_val < floor
                         if roc_per_min > max_roc and not warming_up:
-                            anomalies.append({
-                                "param": param,
-                                "value": current_val,
-                                "roc_per_min": round(roc_per_min, 2),
-                                "reason": f"Tốc độ tăng quá nhanh (+{round(roc_per_min, 2)}/phút > {max_roc}/phút)",
-                            })
+                            anomalies.append(
+                                {
+                                    "param": param,
+                                    "value": current_val,
+                                    "roc_per_min": round(roc_per_min, 2),
+                                    "reason": f"Tốc độ tăng quá nhanh (+{round(roc_per_min, 2)}/phút > {max_roc}/phút)",
+                                }
+                            )
 
         return anomalies

@@ -26,22 +26,65 @@ CHUNK_LANG = re.compile(r"ngôn ngữ: ([a-z]{2}(?:-[a-z]{2})?)")
 # Language names (English and Vietnamese) -> langdetect codes. A question naming a language
 # other than its own ("the Russian section", "tiếng Đức") is cross-lingual: keep vector order.
 LANGUAGE_CODES = {
-    "english": "en", "russian": "ru", "german": "de", "french": "fr", "spanish": "es", "italian": "it",
-    "polish": "pl", "portuguese": "pt", "romanian": "ro", "dutch": "nl", "greek": "el", "czech": "cs",
-    "slovak": "sk", "hungarian": "hu", "swedish": "sv", "bulgarian": "bg", "croatian": "hr", "serbian": "sr",
-    "turkish": "tr", "chinese": "zh-cn", "japanese": "ja", "korean": "ko", "vietnamese": "vi",
-    "tiếng anh": "en", "tiếng nga": "ru", "tiếng đức": "de", "tiếng pháp": "fr", "tiếng tây ban nha": "es",
-    "tiếng ý": "it", "tiếng ba lan": "pl", "tiếng bồ đào nha": "pt", "tiếng rumani": "ro",
-    "tiếng hà lan": "nl", "tiếng hy lạp": "el", "tiếng séc": "cs", "tiếng hungary": "hu",
-    "tiếng thụy điển": "sv", "tiếng bulgaria": "bg", "tiếng thổ nhĩ kỳ": "tr", "tiếng trung": "zh-cn",
-    "tiếng nhật": "ja", "tiếng hàn": "ko", "tiếng việt": "vi",
+    "english": "en",
+    "russian": "ru",
+    "german": "de",
+    "french": "fr",
+    "spanish": "es",
+    "italian": "it",
+    "polish": "pl",
+    "portuguese": "pt",
+    "romanian": "ro",
+    "dutch": "nl",
+    "greek": "el",
+    "czech": "cs",
+    "slovak": "sk",
+    "hungarian": "hu",
+    "swedish": "sv",
+    "bulgarian": "bg",
+    "croatian": "hr",
+    "serbian": "sr",
+    "turkish": "tr",
+    "chinese": "zh-cn",
+    "japanese": "ja",
+    "korean": "ko",
+    "vietnamese": "vi",
+    "tiếng anh": "en",
+    "tiếng nga": "ru",
+    "tiếng đức": "de",
+    "tiếng pháp": "fr",
+    "tiếng tây ban nha": "es",
+    "tiếng ý": "it",
+    "tiếng ba lan": "pl",
+    "tiếng bồ đào nha": "pt",
+    "tiếng rumani": "ro",
+    "tiếng hà lan": "nl",
+    "tiếng hy lạp": "el",
+    "tiếng séc": "cs",
+    "tiếng hungary": "hu",
+    "tiếng thụy điển": "sv",
+    "tiếng bulgaria": "bg",
+    "tiếng thổ nhĩ kỳ": "tr",
+    "tiếng trung": "zh-cn",
+    "tiếng nhật": "ja",
+    "tiếng hàn": "ko",
+    "tiếng việt": "vi",
 }
-LANGUAGE_NAMES = re.compile(r"\b(" + "|".join(sorted(map(re.escape, LANGUAGE_CODES), key=len, reverse=True)) + r")\b",
-                            re.IGNORECASE)
+LANGUAGE_NAMES = re.compile(
+    r"\b("
+    + "|".join(sorted(map(re.escape, LANGUAGE_CODES), key=len, reverse=True))
+    + r")\b",
+    re.IGNORECASE,
+)
 # Wording that asks about several languages at once, whatever language is named.
-MULTI_LANGUAGE = re.compile(r"\b(multilingual|translations?|language versions?|other languages?)\b|"
-                            r"ngôn ngữ (khác|nào)|đa ngôn ngữ", re.IGNORECASE)
-LANG_BOOST = 2.0  # tiers: question language > English (FALLBACK_BOOST) > other translations
+MULTI_LANGUAGE = re.compile(
+    r"\b(multilingual|translations?|language versions?|other languages?)\b|"
+    r"ngôn ngữ (khác|nào)|đa ngôn ngữ",
+    re.IGNORECASE,
+)
+LANG_BOOST = (
+    2.0  # tiers: question language > English (FALLBACK_BOOST) > other translations
+)
 FALLBACK_BOOST = 1.0
 TEXT_FLOOR = 1.0
 MAX_SCORE = TEXT_FLOOR + 1.0 + LANG_BOOST
@@ -85,7 +128,9 @@ def rank(query: str, documents: list[str]) -> list[tuple[int, float]]:
         # "Do the German and French sections agree?": the named sections, in vector order.
         # English is left out: every catalogue is English, and boosting it pushed the Russian
         # section of "Russian vs English" out of the context.
-        wanted = {LANGUAGE_CODES[m.group(1).lower()] for m in LANGUAGE_NAMES.finditer(query)} - {FALLBACK_LANG}
+        wanted = {
+            LANGUAGE_CODES[m.group(1).lower()] for m in LANGUAGE_NAMES.finditer(query)
+        } - {FALLBACK_LANG}
         lang = None
     elif lang and not any(lang in chunk_languages(d) for d in documents):
         # No section in the question's language (a Vietnamese question over English/multilingual
@@ -95,7 +140,9 @@ def rank(query: str, documents: list[str]) -> list[tuple[int, float]]:
     for i, doc in enumerate(documents):
         score = 1.0 - i / n
         if is_image_text(doc):
-            score *= 0.5  # in [0, 0.5]: below every text chunk, still usable if room is left
+            score *= (
+                0.5  # in [0, 0.5]: below every text chunk, still usable if room is left
+            )
             if wanted & chunk_languages(doc):
                 # The SCV guide's Russian section reaches the pool only as its pages' OCR text.
                 score += TEXT_FLOOR + LANG_BOOST
@@ -138,8 +185,13 @@ def create_app() -> FastAPI:
             order = order[: req.top_n]
         return {
             "id": "denso-lang-pref",
-            "results": [{"index": i, "relevance_score": s / MAX_SCORE} for i, s in order],  # scale to [0, 1]
-            "meta": {"model": req.model or "denso-lang-pref", "cross_lingual": is_cross_lingual(req.query)},
+            "results": [
+                {"index": i, "relevance_score": s / MAX_SCORE} for i, s in order
+            ],  # scale to [0, 1]
+            "meta": {
+                "model": req.model or "denso-lang-pref",
+                "cross_lingual": is_cross_lingual(req.query),
+            },
         }
 
     @app.get("/health")
@@ -152,7 +204,9 @@ def create_app() -> FastAPI:
 def main() -> None:
     import uvicorn
 
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=7998)
     args = ap.parse_args()

@@ -1,4 +1,5 @@
 """Drive simulated machines on a fake clock, through the same procedures the agent's tickets run."""
+
 from __future__ import annotations
 
 from typing import Any, Dict, Optional
@@ -19,7 +20,9 @@ def simulate(machine, seconds: float, step: float = 1.0) -> Dict[str, Any]:
     return telemetry
 
 
-def command(machine, name: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def command(
+    machine, name: str, params: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
     """Send a command at the machine's own simulated time; returns the result payload."""
     with patch("time.time", return_value=machine.last_update_time):
         return machine.receive_plc_command(name, params)["payload"]
@@ -32,11 +35,15 @@ def run_steps(machine, steps, max_wait_s: int = 900) -> None:
             res = command(machine, step["command"], step.get("params"))
             if res["status"] == "OK":
                 break
-            assert res["retryable"], f"{step['command']} refused: {res['execution_detail']}"
+            assert res["retryable"], (
+                f"{step['command']} refused: {res['execution_detail']}"
+            )
             simulate(machine, 1)
         else:
             raise AssertionError(f"{step['command']} never accepted")
-        waiting = {"repair": "MAINTENANCE"}.get(step.get("kind")) or ("STARTING" if step["command"] == "START" else None)
+        waiting = {"repair": "MAINTENANCE"}.get(step.get("kind")) or (
+            "STARTING" if step["command"] == "START" else None
+        )
         for _ in range(max_wait_s):
             if machine.state != waiting:
                 break

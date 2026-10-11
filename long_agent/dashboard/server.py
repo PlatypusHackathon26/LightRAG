@@ -1,5 +1,6 @@
 # dashboard/server.py
 """FastAPI dashboard: SSE telemetry + manual faults + chat + upload + HITL."""
+
 from __future__ import annotations
 
 import asyncio
@@ -22,7 +23,10 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 def _save_multipart(body: bytes, content_type: str) -> list[Dict[str, Any]]:
     """Parse multipart/form-data bang email.parser (stdlib)."""
     msg = BytesParser(policy=policy.default).parsebytes(
-        b"Content-Type: " + content_type.encode() + b"\r\nMIME-Version: 1.0\r\n\r\n" + body
+        b"Content-Type: "
+        + content_type.encode()
+        + b"\r\nMIME-Version: 1.0\r\n\r\n"
+        + body
     )
     saved: list[Dict[str, Any]] = []
     if msg.is_multipart():
@@ -48,7 +52,10 @@ def create_app(
 ) -> FastAPI:
     app = FastAPI(title="Industrial Fleet Monitor")
     app.add_middleware(
-        CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
     html_file = Path(__file__).parent / "index.html"
 
@@ -56,10 +63,15 @@ def create_app(
         out = {}
         for mid, machine in state_store.get_all_machines().items():
             live = (machines_dict or {}).get(mid)
-            out[mid] = {**machine, "metrics": MACHINE_METRICS.get(machine.get("machine_type"), [])}
+            out[mid] = {
+                **machine,
+                "metrics": MACHINE_METRICS.get(machine.get("machine_type"), []),
+            }
             if live is not None:
                 out[mid]["state"] = live.state
-                out[mid]["maintenance_remaining_s"] = round(live.maintenance_remaining_s(), 1)
+                out[mid]["maintenance_remaining_s"] = round(
+                    live.maintenance_remaining_s(), 1
+                )
             if procedures is not None:
                 out[mid]["procedure_phase"] = procedures.phase(mid)
         return out
@@ -70,16 +82,23 @@ def create_app(
 
     @app.get("/api/state")
     def api_state():
-        snap = state_store.get_snapshot() if hasattr(state_store, "get_snapshot") else {}
+        snap = (
+            state_store.get_snapshot() if hasattr(state_store, "get_snapshot") else {}
+        )
         snap["machines"] = machine_snapshot()
         if approval is not None and hasattr(approval, "get_pending_actions"):
             snap["actions"] = [
-                {"action_id": a.get("approval_id", a.get("action_id")),
-                 "status": "pending", **a}
+                {
+                    "action_id": a.get("approval_id", a.get("action_id")),
+                    "status": "pending",
+                    **a,
+                }
                 for a in approval.get_pending_actions()
             ]
             snap["pending_approvals"] = approval.get_pending_actions()
-            snap["history"] = approval.get_history() if hasattr(approval, "get_history") else []
+            snap["history"] = (
+                approval.get_history() if hasattr(approval, "get_history") else []
+            )
         return snap
 
     @app.get("/api/machines")
@@ -113,6 +132,7 @@ def create_app(
                 data = json.dumps(machine_snapshot())
                 yield f"data: {data}\n\n"
                 await asyncio.sleep(1.0)
+
         return StreamingResponse(event_generator(), media_type="text/event-stream")
 
     @app.post("/api/chat")
@@ -151,6 +171,7 @@ def create_app(
     async def api_decision(request: Request):
         """{action_id, decision}: 404 unknown/expired ticket, 400 bad decision, 409 the machine refused."""
         from iot.action_approval import ActionDispatchError
+
         try:
             body = await request.json()
         except Exception:
@@ -163,7 +184,10 @@ def create_app(
         try:
             result = decide(action_id, decision)
         except KeyError:
-            return JSONResponse({"error": f"Vé {action_id} không tồn tại hoặc đã hết hạn"}, status_code=404)
+            return JSONResponse(
+                {"error": f"Vé {action_id} không tồn tại hoặc đã hết hạn"},
+                status_code=404,
+            )
         except ValueError as exc:
             return JSONResponse({"error": str(exc)}, status_code=400)
         except ActionDispatchError as exc:
@@ -171,8 +195,11 @@ def create_app(
         if hasattr(state_store, "remove_approval"):
             state_store.remove_approval(action_id, status=decision)
         st = str(result.get("status", ""))
-        return {"status": st.upper() if st in ("approved", "rejected") else st,
-                "action_id": action_id, "detail": result}
+        return {
+            "status": st.upper() if st in ("approved", "rejected") else st,
+            "action_id": action_id,
+            "detail": result,
+        }
 
     @app.post("/api/actions/{action_id}/approve")
     def api_approve_action(action_id: str, request: Request):
@@ -188,8 +215,10 @@ def create_app(
             return JSONResponse({"error": str(exc)}, status_code=404)
         if hasattr(state_store, "remove_approval"):
             state_store.remove_approval(action_id, status="APPROVE")
-        return {"action": {"action_id": action_id, "status": "approved"},
-                "detail": result}
+        return {
+            "action": {"action_id": action_id, "status": "approved"},
+            "detail": result,
+        }
 
     @app.post("/api/plc/fix")
     async def api_plc_fix(request: Request):
@@ -202,12 +231,16 @@ def create_app(
         params = body.get("params") or body.get("payload") or {}
         if approval is None:
             return JSONResponse({"error": "Khong co Approval service"}, status_code=500)
-        result = approval.process_action_request({
-            "machine_id": machine_id, "command": command,
-            "params": params, "payload": params,
-            "risk_level": body.get("risk_level", ""),
-            "reason": body.get("reason", "Ky su bam nut sua loi tren Dashboard"),
-        })
+        result = approval.process_action_request(
+            {
+                "machine_id": machine_id,
+                "command": command,
+                "params": params,
+                "payload": params,
+                "risk_level": body.get("risk_level", ""),
+                "reason": body.get("reason", "Ky su bam nut sua loi tren Dashboard"),
+            }
+        )
         return result
 
     return app
