@@ -92,3 +92,24 @@ def test_every_command_can_be_made_to_wait_for_an_engineer():
     upstream = ActionApproval(dispatcher_callback=dispatch)  # default: LOW runs at once
     upstream.process_action_request({"machine_id": "MC-AMR-01", "command": "RETURN_TO_CHARGER", "risk_level": "LOW"})
     assert len(dispatched) == 2
+
+
+def test_one_fault_tripping_several_metrics_is_diagnosed_once_then_again_when_it_spreads():
+    rag = MagicMock()
+    rag.query_with_schema.return_value = {"diagnosis": "x", "actions": []}
+    brain = AgentBrain(rag_engine=rag, tools=MagicMock(), event_bus=MagicMock(), repeat_window_s=120)
+    brain.handle_alert(_alert(param="Spindle_Load_Pct"))      # diagnosed
+    brain.handle_alert(_alert(param="Spindle_Load_Pct"))      # same metric: skipped
+    brain.handle_alert(_alert(param="Vibration_RMS_mm_s"))    # a new metric joins: diagnosed again
+    brain.handle_alert(_alert(param="Spindle_Load_Pct"))      # already covered: skipped
+    assert rag.query_with_schema.call_count == 2
+
+
+def test_the_prompt_names_the_metrics_out_of_their_limits():
+    prompt = RAGEngine().build_format_prompt("MC-MILL-01", "CNC_MILLING",
+                                             {"Spindle_RotaryVelocity_RPM": 11994.0, "Coolant_Pressure_Bar": 0.0,
+                                              "Spindle_Temp_C": 139.9})
+    section = prompt.split("--- CHỈ SỐ ĐANG VƯỢT NGƯỠNG ---")[1].split("---")[0]
+    assert "Coolant_Pressure_Bar (Áp suất tưới nguội) = 0.0 Bar < tối thiểu 5" in section
+    assert "Spindle_Temp_C (Nhiệt độ trục chính) = 139.9 °C > tối đa 75" in section
+    assert "RPM" not in section  # within noise: not a deviation

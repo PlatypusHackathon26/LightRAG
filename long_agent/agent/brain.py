@@ -23,10 +23,11 @@ class AgentBrain:
         self.execute_actions = execute_actions
         # Bộ nhớ lưu trạng thái gần nhất của các máy
         self.machine_states: Dict[str, Dict[str, Any]] = {}
-        # Cùng máy + cùng nhóm chỉ số bất thường trong cửa sổ này thì không chẩn đoán lại: với LLM thật,
-        # mỗi cảnh báo lặp là một lượt gọi API và một đề xuất trùng. 0 = luôn chẩn đoán (như bản gốc).
+        # Trong cửa sổ này, một máy chỉ được chẩn đoán lại khi có THÊM chỉ số bất thường mới: với LLM thật,
+        # mỗi cảnh báo lặp (kể cả từng chỉ số của cùng một sự cố đến lệch nhau vài giây) là một lượt gọi API
+        # và một chẩn đoán trùng. 0 = luôn chẩn đoán (như bản gốc).
         self.repeat_window_s = repeat_window_s
-        self._last_diagnosed: Dict[Tuple[str, Tuple[str, ...]], float] = {}
+        self._diagnosed: Dict[str, Tuple[float, set]] = {}  # máy -> (thời điểm, các chỉ số đã chẩn đoán)
 
     def handle_heartbeat(self, event: Dict[str, Any]) -> None:
         """Gói tin 'normal' (chu kỳ định kỳ): chỉ cập nhật trạng thái sống, không gọi RAG."""
@@ -43,13 +44,15 @@ class AgentBrain:
         machine_type = event.get("machine_type", "")
         payload = event.get("payload", {})
 
-        params = tuple(sorted({str(a.get("param")) for a in event.get("anomalies") or [] if isinstance(a, dict)}))
-        key = (machine_id, params)
+        params = {str(a.get("param")) for a in event.get("anomalies") or [] if isinstance(a, dict)}
         now = time.monotonic()
-        if self.repeat_window_s and now - self._last_diagnosed.get(key, float("-inf")) < self.repeat_window_s:
-            logger.info(f"[Brain] Bỏ qua cảnh báo lặp {machine_id} {params} (đã chẩn đoán gần đây)")
-            return
-        self._last_diagnosed[key] = now
+        if self.repeat_window_s:
+            since, seen = self._diagnosed.get(machine_id, (float("-inf"), set()))
+            if now - since < self.repeat_window_s and params <= seen:
+                logger.info(f"[Brain] Bỏ qua cảnh báo lặp {machine_id} {sorted(params)} (đã chẩn đoán gần đây)")
+                return
+            # Chỉ số mới tham gia: chẩn đoán lại với toàn bộ telemetry hiện tại.
+            self._diagnosed[machine_id] = (now, (seen | params) if now - since < self.repeat_window_s else params)
 
         logger.info(f"[Brain] Bắt đầu xử lý cảnh báo cho máy {machine_id} ({machine_type})")
 

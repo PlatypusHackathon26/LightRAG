@@ -712,3 +712,14 @@ def test_a_chat_in_a_long_agent_alert_carries_the_machine_state(tmp_path):
     tc.post("/agent/chat", json={"conversationId": "CONV-LIVE", "message": "SCV bolt torque?"})
     last = [json.loads(x.content) for x in seen if x.url.path == "/query"][-1]
     assert last["query"] == "SCV bolt torque?" and "NOT from the documents" not in (last.get("user_prompt") or "")
+
+
+def test_only_the_latest_long_agent_diagnosis_is_shown():
+    from long_agent import incidents_from_state
+    conv = {"category": "system_alert", "machine_id": "MC-MILL-01", "messages": [
+        {"role": "assistant", "text": "Early guess on the first readings.", "timestamp": "2026-10-11T12:41:25"},
+        {"role": "assistant", "text": "Coolant pump failure: pressure 0 bar, spindle 139.9 °C.", "timestamp": "2026-10-11T12:41:27"},
+    ]}
+    (inc,) = incidents_from_state({**LA_STATE, "conversations": [conv]})
+    diagnoses = [m["content"] for m in inc["messages"] if m["role"] == "assistant"]
+    assert diagnoses == ["**Chẩn đoán của agent giám sát (Long-agent):** Coolant pump failure: pressure 0 bar, spindle 139.9 °C."]

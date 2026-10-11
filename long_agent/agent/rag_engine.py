@@ -252,6 +252,24 @@ def _limits_text(machine_type: str) -> str:
     return "\n".join(lines) or "(không có bảng ngưỡng)"
 
 
+def _deviations_text(machine_type: str, telemetry: Dict[str, Any]) -> str:
+    """Các chỉ số đang ngoài [tối thiểu, tối đa], để LLM không lạc vào nhiễu quanh danh nghĩa."""
+    try:
+        from machines.specifications import MACHINE_METRICS
+    except ImportError:
+        return "(không xác định)"
+    out = []
+    for m in MACHINE_METRICS.get(machine_type, []):
+        value = telemetry.get(m["key"])
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
+            continue
+        if "max" in m and value > m["max"]:
+            out.append(f"- {m['key']} ({m['label']}) = {value} {m['unit']} > tối đa {m['max']}")
+        elif "min" in m and value < m["min"]:
+            out.append(f"- {m['key']} ({m['label']}) = {value} {m['unit']} < tối thiểu {m['min']}")
+    return "\n".join(out) or "- Chưa chỉ số nào vượt ngưỡng tĩnh (cảnh báo do tốc độ biến thiên): xét chỉ số đang đổi nhanh."
+
+
 class RAGEngine:
     """RAG Engine phục vụ truy vấn cẩm nang và chuẩn hóa output hành động IoT."""
 
@@ -283,7 +301,9 @@ class RAGEngine:
             f"- Dòng máy: {machine_type}\n"
             f"- Telemetry cảm biến hiện tại:\n{json.dumps(telemetry, ensure_ascii=False, indent=2)}\n\n"
             f"--- GIÁ TRỊ DANH NGHĨA VÀ NGƯỠNG VẬN HÀNH ---\n{_limits_text(machine_type)}\n"
-            "So sánh từng chỉ số với ngưỡng: nguyên nhân phải giải thích được chính các chỉ số đang lệch.\n\n"
+            f"--- CHỈ SỐ ĐANG VƯỢT NGƯỠNG ---\n{_deviations_text(machine_type, telemetry)}\n"
+            "Nguyên nhân phải giải thích được chính các chỉ số đang vượt ngưỡng; chênh lệch nhỏ quanh danh nghĩa "
+            "là nhiễu, không nêu.\n\n"
             f"--- DANH MỤC LỆNH PLC HỢP LỆ CHO DÒNG MÁY NÀY (BẮT BUỘC TUÂN THỦ) ---\n"
             f"{json.dumps(available_cmds, ensure_ascii=False, indent=2)}\n\n"
             "--- QUY TẮC ĐỊNH DẠNG ĐẦU RA (JSON SCHEMA BẮT BUỘC) ---\n"

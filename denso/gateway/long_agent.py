@@ -38,8 +38,9 @@ def _point(metric: dict, value: float) -> tuple[dict, bool, bool]:
 
 
 def _messages(machine_id: str, raw: list[dict]) -> list[dict]:
-    """The latest alerts and every distinct diagnosis, oldest first. Long-agent appends an alert on
-    each edge-filter trigger and its mock RAG repeats the same diagnosis, so the raw tail is noise."""
+    """The latest alerts and the latest diagnosis, oldest first. Long-agent appends an alert on each
+    edge-filter trigger and a diagnosis each time it diagnoses; an older diagnosis was written on
+    earlier readings, so only the newest is shown."""
     alerts, diagnoses = [], {}
     for m in raw:
         text = (m.get("text") or "").strip()
@@ -49,8 +50,9 @@ def _messages(machine_id: str, raw: list[dict]) -> list[dict]:
             diagnoses[text] = m.get("timestamp")  # keeps the latest time a diagnosis was given
         else:
             alerts.append({"role": "system", "content": f"⚠ {text}", "timestamp": m.get("timestamp")})
-    shown = alerts[-3:] + [{"role": "assistant", "content": f"**Chẩn đoán của agent giám sát (Long-agent):** {t}",
-                            "timestamp": ts} for t, ts in diagnoses.items()]
+    latest = max(diagnoses.items(), key=lambda kv: kv[1] or "", default=None)
+    shown = alerts[-3:] + ([{"role": "assistant", "content": f"**Chẩn đoán của agent giám sát (Long-agent):** {latest[0]}",
+                             "timestamp": latest[1]}] if latest else [])
     shown = sorted(shown, key=lambda m: m["timestamp"] or "")[-SHOWN_MESSAGES:]
     for i, m in enumerate(shown):
         m["id"] = f"la-{machine_id}-{i}"
