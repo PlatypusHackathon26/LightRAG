@@ -1,45 +1,61 @@
+import { useEffect, useState } from 'react'
 import { useAgenticStore } from '../stores/agenticStore'
 import { agentClient } from '../../../api/agent'
-import { DatabaseIcon, CpuIcon, BookOpenIcon, ActivityIcon } from 'lucide-react'
+import { ActivityIcon, UploadIcon } from 'lucide-react'
+
+const pad = (n: number) => String(n).padStart(2, '0')
+const stamp = (d: Date) =>
+  `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+
+function useClock(): string {
+  const [now, setNow] = useState(() => stamp(new Date()))
+  useEffect(() => {
+    const id = setInterval(() => setNow(stamp(new Date())), 1000)
+    return () => clearInterval(id)
+  }, [])
+  return now
+}
 
 export default function AgentTopBar() {
-  const { knowledgeDrawerOpen, setKnowledgeDrawerOpen, documents } = useAgenticStore()
+  const { knowledgeDrawerOpen, setKnowledgeDrawerOpen, documents, isLive, liveError } = useAgenticStore()
   const vectorizedCount = documents.filter((d) => d.indexStatus === 'vectorized').length
+  const clock = useClock()
+  const online = !(isLive && liveError)
 
   return (
     <header
       className="ag-topbar flex items-center justify-between px-4 shrink-0"
-      style={{ height: 56, background: '#0B1220', borderBottom: '1px solid #1E293B' }}
+      style={{ height: 48, background: 'rgba(15,23,42,0.8)', borderBottom: '1px solid #1E293B', backdropFilter: 'blur(6px)' }}
     >
-      {/* Left: Brand */}
+      {/* Left: brand */}
       <div className="flex items-center gap-3 min-w-0">
-        <div className="flex items-center gap-2">
-          <div
-            className="flex items-center justify-center rounded"
-            style={{ width: 28, height: 28, background: '#E60012', boxShadow: '0 0 10px #E6001260' }}
-          >
-            <CpuIcon size={16} color="#FFFFFF" />
-          </div>
-          <div className="leading-tight">
-            <div className="font-bold uppercase tracking-wider" style={{ fontSize: 14, color: '#F1F5F9', fontFamily: 'Inter, sans-serif' }}>
-              <span style={{ color: '#E60012', fontWeight: 900 }}>DENSO</span> Monozukuri Intelligent Hub
-            </div>
-            <div style={{ fontSize: 11, color: '#94A3B8', fontFamily: 'Roboto Mono, monospace' }}>
-              Line A – CNC Station
-            </div>
-          </div>
+        <span className="relative flex" style={{ width: 10, height: 10 }} aria-hidden>
+          <span className="absolute inline-flex h-full w-full rounded-full animate-ping" style={{ background: '#10B981', opacity: 0.6 }} />
+          <span className="relative inline-flex rounded-full" style={{ width: 10, height: 10, background: '#10B981' }} />
+        </span>
+        <h1 className="font-bold uppercase tracking-wider truncate" style={{ fontSize: 16, color: '#F1F5F9', fontFamily: 'Inter, sans-serif' }}>
+          <span style={{ color: '#E60012', fontWeight: 900 }}>DENSO</span> AI-Agent 2026
+        </h1>
+        <span
+          className="rounded px-2 py-0.5 shrink-0"
+          style={{ fontSize: 10, background: '#1E293B', color: '#94A3B8', border: '1px solid #334155' }}
+        >
+          IIoT · RAG · HITL
+        </span>
+      </div>
+
+      {/* Right: status, clock, dashboard, knowledge upload */}
+      <div className="flex items-center gap-4" style={{ fontSize: 12, color: '#94A3B8' }}>
+        <div className="hidden md:block">
+          Hệ thống:{' '}
+          <span className="font-medium" style={{ color: online ? '#34D399' : '#F87171' }}>
+            {online ? 'TRỰC TUYẾN' : 'MẤT KẾT NỐI'}
+          </span>
         </div>
-      </div>
+        <div className="hidden lg:block font-mono" style={{ color: '#E2E8F0' }} aria-label="Giờ hệ thống">
+          {clock}
+        </div>
 
-      {/* Center: Status indicators */}
-      <div className="flex items-center gap-4">
-        <StatusPill label="MQTT" sublabel="Live" color="#06B6D4" pulse />
-        <StatusPill label="PLC Bridge" sublabel="Online" color="#10B981" pulse />
-        <StatusPill label="OPC-UA" sublabel="Connected" color="#10B981" />
-      </div>
-
-      {/* Right: IoT dashboard + Knowledge Hub + User */}
-      <div className="flex items-center gap-3">
         {/* Always shown with a live gateway: without Long-agent the gateway answers with its own message. */}
         {agentClient.live && (
           <a
@@ -49,8 +65,8 @@ export default function AgentTopBar() {
             rel="noopener noreferrer"
             aria-label="Mở dashboard giám sát nhà xưởng trong tab mới"
             title="Dashboard giám sát nhà xưởng (Long-agent, tab mới)"
-            className="flex items-center gap-2 rounded px-3 py-1.5 font-medium transition-all hover:bg-[#475569] focus-visible:outline-2 focus-visible:outline-[#06B6D4]"
-            style={{ fontSize: 13, background: '#334155', color: '#CBD5E1', border: '1px solid #475569', fontFamily: 'Inter, sans-serif' }}
+            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-medium transition hover:bg-[#1E293B] focus-visible:outline-2 focus-visible:outline-[#06B6D4]"
+            style={{ color: '#E2E8F0', border: '1px solid #334155' }}
           >
             <ActivityIcon size={14} />
             <span>Dashboard</span>
@@ -58,74 +74,23 @@ export default function AgentTopBar() {
         )}
         <button
           id="knowledge-hub-button"
-          aria-label={`Knowledge Hub, ${vectorizedCount} documents`}
+          aria-label={`Upfile lên RAG, ${vectorizedCount} tài liệu`}
+          aria-pressed={knowledgeDrawerOpen}
           onClick={() => setKnowledgeDrawerOpen(!knowledgeDrawerOpen)}
-          className="flex items-center gap-2 rounded px-3 py-1.5 font-medium transition-all focus-visible:outline-2 focus-visible:outline-[#06B6D4]"
+          className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-semibold transition hover:bg-[#06B6D4] focus-visible:outline-2 focus-visible:outline-[#22D3EE]"
           style={{
-            fontSize: 13,
             background: knowledgeDrawerOpen ? '#06B6D4' : '#0891B2',
             color: '#FFFFFF',
-            border: '1px solid #0891B2',
-            boxShadow: '0 4px 14px rgba(8,51,68,0.6)',
-            fontWeight: 600,
-            fontFamily: 'Inter, sans-serif',
+            boxShadow: '0 10px 15px -3px rgba(22,78,99,0.4)',
           }}
         >
-          <BookOpenIcon size={14} />
-          <span>Knowledge Hub</span>
-          <span
-            className="rounded px-1.5 py-0.5 font-bold"
-            style={{ fontSize: 10, background: '#FFFFFF30', color: '#FFFFFF' }}
-          >
+          <UploadIcon size={14} />
+          <span>Upfile lên RAG</span>
+          <span className="rounded px-1.5 font-bold" style={{ fontSize: 10, background: '#FFFFFF30' }}>
             {vectorizedCount}
           </span>
         </button>
-
-        <div
-          className="flex items-center gap-2 rounded px-3 py-1.5"
-          style={{ background: '#334155', border: '1px solid #475569' }}
-        >
-          <DatabaseIcon size={13} style={{ color: '#94A3B8' }} />
-          <span style={{ fontSize: 12, color: '#CBD5E1', fontFamily: 'Roboto Mono, monospace' }}>
-            OPR-01
-          </span>
-          <div className="size-2 rounded-full" style={{ background: '#10B981' }} />
-        </div>
       </div>
     </header>
-  )
-}
-
-function StatusPill({
-  label,
-  sublabel,
-  color,
-  pulse,
-}: {
-  label: string
-  sublabel: string
-  color: string
-  pulse?: boolean
-}) {
-  return (
-    <div className="flex items-center gap-1.5">
-      <div className="relative flex items-center justify-center" style={{ width: 8, height: 8 }}>
-        <div className="rounded-full size-2" style={{ background: color }} />
-        {pulse && (
-          <div
-            className="absolute rounded-full size-3 animate-ping"
-            style={{ background: color, opacity: 0.4, animationDuration: '2s' }}
-          />
-        )}
-      </div>
-      <div className="leading-tight">
-        <div className="font-medium" style={{ fontSize: 10, color: '#94A3B8', fontFamily: 'Roboto Mono, monospace' }}>
-          {label}
-        </div>
-        <div className="font-bold" style={{ fontSize: 10, color, fontFamily: 'Roboto Mono, monospace' }}>
-          {sublabel}
-        </div>
-      </div>
-    </div>
   )
 }

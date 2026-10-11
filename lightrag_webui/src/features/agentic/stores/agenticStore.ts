@@ -4,6 +4,7 @@ import { mockIncidents } from '../mock/incidents'
 import { mockConversations } from '../mock/conversations'
 import { agentConfig } from '../agentConfig'
 import { mergeLiveIncidents } from '../liveIncidents'
+import { NEW_CONVERSATION_TITLE, isBlank, loadHistory, newConversation, saveHistory, titleFrom } from '../chatHistory'
 import { agentClient } from '../../../api/agent'
 import type {
   AgentEvent,
@@ -19,18 +20,19 @@ import type {
 
 const DEMO_MODE = import.meta.env.VITE_DEMO_MODE !== 'false'
 
-// Live mode (VITE_AGENT_LIVE=true): start from one empty Q&A session; documents and
-// incidents are loaded from the Agent Gateway by loadLiveData() instead of the mocks.
-export const LIVE_CONVERSATION_ID = 'CONV-LIVE'
-const liveConversation = (): Conversation => ({
-  id: LIVE_CONVERSATION_ID,
-  type: 'manual',
-  title: 'Hỏi đáp tài liệu kỹ thuật DENSO',
-  timestamp: new Date().toISOString(),
-  messages: [],
-  agentState: 'idle',
-  agentEvents: [],
-})
+// Live mode (VITE_AGENT_LIVE=true): open on a new, empty Q&A session above the saved history;
+// documents and incidents are loaded from the Agent Gateway by loadLiveData() instead of the mocks.
+const browserStorage = (): Storage | undefined => {
+  try {
+    return typeof window === 'undefined' ? undefined : window.localStorage
+  } catch {
+    return undefined  // storage blocked: run without history
+  }
+}
+const firstConversation = newConversation()
+const initialConversations: Conversation[] = agentConfig.live
+  ? [firstConversation, ...loadHistory(browserStorage())]
+  : mockConversations
 
 const clock = (iso?: string): string =>
   (iso ? new Date(iso) : new Date()).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
@@ -57,6 +59,10 @@ interface AgenticStore {
 
   // ── Conversations ──────────────────────────────────────────────────────────
   conversations: Conversation[]
+  /** "Cuộc trò chuyện mới": open an empty Q&A session (reuses one that is still empty). */
+  startNewConversation: () => void
+  /** Remove a Q&A session from the history. */
+  deleteConversation: (id: string) => void
   addUserMessage: (conversationId: string, content: string) => void
   addAssistantMessage: (conversationId: string, content: string, citations?: ChatMessage['citations']) => void
   setAgentState: (conversationId: string, state: AgentState) => void
@@ -125,7 +131,7 @@ export const useAgenticStore = create<AgenticStore>((set, get) => ({
   setSidebarFilter: (f) => set({ sidebarFilter: f }),
 
   // ── Active conversation ────────────────────────────────────────────────────
-  activeConversationId: agentConfig.live ? LIVE_CONVERSATION_ID : 'CONV-001',
+  activeConversationId: agentConfig.live ? firstConversation.id : 'CONV-001',
   setActiveConversationId: (id) => {
     set({ activeConversationId: id })
     // Sync activeIncident
@@ -139,7 +145,19 @@ export const useAgenticStore = create<AgenticStore>((set, get) => ({
   },
 
   // ── Conversations ──────────────────────────────────────────────────────────
-  conversations: agentConfig.live ? [liveConversation()] : mockConversations,
+  conversations: initialConversations,
+  startNewConversation: () => {
+    const { conversations, activeConversationId, sidebarFilter } = get()
+    const blank = conversations.find((c) => c.id === activeConversationId && isBlank(c)) ?? conversations.find(isBlank)
+    const conversation = blank ?? newConversation()
+    if (!blank) set({ conversations: [conversation, ...conversations] })
+    if (sidebarFilter === 'alerts') set({ sidebarFilter: 'all' })
+    get().setActiveConversationId(conversation.id)
+  },
+  deleteConversation: (id) => {
+    set((s) => ({ conversations: s.conversations.filter((c) => c.id !== id || c.type !== 'manual') }))
+    if (get().activeConversationId === id) get().startNewConversation()
+  },
   addUserMessage: (conversationId, content) => {
     const now = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
     const msg: ChatMessage = {
@@ -149,11 +167,20 @@ export const useAgenticStore = create<AgenticStore>((set, get) => ({
       timestamp: now,
       at: new Date().toISOString(),
     }
-    set((s) => ({
-      conversations: s.conversations.map((c) =>
-        c.id === conversationId ? { ...c, messages: [...c.messages, msg] } : c
-      ),
-    }))
+    set((s) => {
+      const target = s.conversations.find((c) => c.id === conversationId)
+      if (!target) return {}
+      // A Q&A session is named after its first question and moves to the top of the history.
+      const named = target.type === 'manual' && target.title === NEW_CONVERSATION_TITLE && target.messages.length === 0
+      const updated: Conversation = {
+        ...target,
+        title: named ? titleFrom(content) : target.title,
+        timestamp: target.type === 'manual' ? msg.at! : target.timestamp,
+        messages: [...target.messages, msg],
+      }
+      const rest = s.conversations.filter((c) => c.id !== conversationId)
+      return { conversations: target.type === 'manual' ? [updated, ...rest] : s.conversations.map((c) => (c.id === conversationId ? updated : c)) }
+    })
   },
   addAssistantMessage: (conversationId, content, citations) => {
     const now = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
@@ -325,3 +352,10 @@ export const useAgenticStore = create<AgenticStore>((set, get) => ({
   previewDocumentId: null,
   setPreviewDocumentId: (id) => set({ previewDocumentId: id }),
 }))
+
+// Live mode: remember the Q&A sessions in this browser (alert threads come back from the gateway).
+if (agentConfig.live) {
+  useAgenticStore.subscribe((s, prev) => {
+    if (s.conversations !== prev.conversations) saveHistory(browserStorage(), s.conversations)
+  })
+}

@@ -23,3 +23,7 @@ export function actionCommand(items: { type: string; params: Record<string, stri
   const plc = items.find((i) => i.type === 'plc_command')
   return plc?.params['Lệnh'] ?? plc?.params.Command ?? undefined
 }
+
+/** A sensor reading for the telemetry tiles: 11999 -> "11,999", 37.42 -> "37.4". */
+export const formatReading = (value: number): string =>
+  value.toLocaleString('en-US', { maximumFractionDigits: Number.isInteger(value) ? 0 : 1 })

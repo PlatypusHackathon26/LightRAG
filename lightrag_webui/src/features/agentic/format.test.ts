@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { actionCommand, firstPage, formatImportedAt } from './format'
+import { actionCommand, firstPage, formatImportedAt, formatReading } from './format'
 
 describe('agentic display helpers', () => {
   test('an ISO timestamp becomes a short local date and time', () => {
@@ -29,5 +29,11 @@ describe('approve button command', () => {
       { type: 'plc_command', params: { Command: 'S=50' } },
     ])).toBe('S=50')
     expect(actionCommand([{ type: 'inventory', params: {} }])).toBe(undefined)
+  })
+
+  test('a sensor reading is grouped and rounded for the telemetry tiles', () => {
+    expect(formatReading(11999)).toBe('11,999')
+    expect(formatReading(37.42)).toBe('37.4')
+    expect(formatReading(20)).toBe('20')
   })
 })

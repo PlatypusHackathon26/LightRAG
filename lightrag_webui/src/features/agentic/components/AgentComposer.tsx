@@ -40,18 +40,15 @@ export default function AgentComposer({ onSend, disabled }: AgentComposerProps) 
   }
 
   return (
-    <div
-      className="shrink-0 px-4 py-3"
-      style={{ borderTop: '1px solid #263347', background: '#0B1220' }}
-    >
+    <div className="shrink-0 px-4 md:px-8 pb-4 pt-2" style={{ borderTop: '1px solid #1E293B', background: '#0F172A' }}>
       <div
-        className="flex items-end gap-2 rounded"
-        style={{ background: '#0F172A', border: '1px solid #334155', borderRadius: 16 }}
+        className="flex items-end gap-2 rounded-2xl px-2 py-2 transition focus-within:border-[#06B6D4]"
+        style={{ background: '#0F172A', border: '1px solid #334155' }}
       >
         {/* Attachment */}
         <button
           aria-label="Attach file"
-          className="p-2.5 rounded-l transition-colors hover:bg-[#1E293B] focus-visible:outline-2 focus-visible:outline-[#06B6D4]"
+          className="p-1.5 rounded-lg transition-colors hover:bg-[#1E293B] focus-visible:outline-2 focus-visible:outline-[#06B6D4]"
           style={{ color: '#64748B' }}
         >
           <PaperclipIcon size={16} />
@@ -65,41 +62,37 @@ export default function AgentComposer({ onSend, disabled }: AgentComposerProps) 
           onChange={handleInput}
           onKeyDown={handleKeyDown}
           disabled={disabled}
-          placeholder="Chat với Agent hoặc ra lệnh..."
+          placeholder="Hỏi Agent về sự cố máy... (Enter gửi · Shift+Enter xuống dòng)"
           rows={1}
-          className="flex-1 resize-none bg-transparent py-2.5 outline-none disabled:opacity-50"
+          className="flex-1 resize-none bg-transparent py-1.5 outline-none disabled:opacity-50"
           style={{
-            fontSize: 15,
-            color: '#E2E8F0',
+            fontSize: 14,
+            color: '#F1F5F9',
             fontFamily: 'Inter, sans-serif',
             lineHeight: 1.5,
             maxHeight: 140,
-            minHeight: 36,
+            minHeight: 32,
           }}
-          aria-label="Message input. Press Enter to send, Shift+Enter for newline."
+          aria-label="Nội dung tin nhắn. Enter để gửi, Shift+Enter để xuống dòng."
         />
 
         {/* Send */}
         <button
           id="agent-send-button"
-          aria-label="Send message"
+          aria-label="Gửi tin nhắn"
           onClick={handleSend}
           disabled={!value.trim() || disabled}
-          className="p-2.5 rounded-r transition-all focus-visible:outline-2 focus-visible:outline-[#06B6D4] disabled:opacity-40 disabled:cursor-not-allowed"
-          style={{
-            color: value.trim() ? '#E60012' : '#64748B',
-          }}
+          className="flex items-center justify-center shrink-0 rounded-xl font-bold transition hover:bg-[#DC2626] focus-visible:outline-2 focus-visible:outline-[#F87171] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-[#E60012]"
+          style={{ width: 36, height: 36, background: '#E60012', color: '#FFFFFF' }}
         >
-          <SendIcon size={16} />
+          <SendIcon size={15} />
         </button>
       </div>
 
-      <div
-        className="text-center mt-1.5"
-        style={{ fontSize: 11, color: '#64748B', fontFamily: 'Roboto Mono, monospace' }}
-      >
-        Enter to send · Shift+Enter for newline · {agentConfig.live ? 'LIVE · Agent Gateway' : 'DEMO MODE (mock data)'}
-      </div>
+      <p className="text-center mt-1.5" style={{ fontSize: 10, color: '#475569' }}>
+        Agent trả lời theo tài liệu trong kho tri thức · Lệnh tới máy cần kỹ sư duyệt
+        {agentConfig.live ? '' : ' · DEMO (dữ liệu mẫu)'}
+      </p>
     </div>
   )
 }

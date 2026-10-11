@@ -5,8 +5,23 @@ import AgentActivityTrace from './AgentActivityTrace'
 import HITLActionCard from './HITLActionCard'
 import TelemetryStrip from './TelemetryStrip'
 import AgentComposer from './AgentComposer'
-import { MessageSquareIcon, AlertTriangleIcon } from 'lucide-react'
+import { AlertTriangleIcon } from 'lucide-react'
 import { agentClient } from '@/api/agent'
+import { isBlank } from '../chatHistory'
+
+/** What a new conversation shows before the first question (the original Long-agent welcome). */
+function Welcome() {
+  return (
+    <div className="h-full flex flex-col items-center justify-center text-center px-6 gap-3" style={{ opacity: 0.9 }}>
+      <div style={{ fontSize: 48, lineHeight: 1 }} aria-hidden>🏭</div>
+      <h2 className="font-bold" style={{ fontSize: 18, color: '#E2E8F0' }}>DENSO Smart Maintenance Agent</h2>
+      <p className="max-w-md" style={{ fontSize: 14, color: '#94A3B8', lineHeight: 1.6 }}>
+        Chọn một cuộc trò chuyện bên trái, hỏi trực tiếp Agent về sự cố máy, hoặc chờ hệ thống tạo thread{' '}
+        <span style={{ color: '#FBBF24' }}>System Alert</span> khi phát hiện bất thường.
+      </p>
+    </div>
+  )
+}
 
 // Simulated agent responses for demo mode
 const DEMO_RESPONSES = [
@@ -92,13 +107,8 @@ export default function ChatWorkspace() {
 
   if (!conversation) {
     return (
-      <div className="flex-1 flex items-center justify-center" style={{ background: '#111A2C' }}>
-        <div className="text-center">
-          <MessageSquareIcon size={32} style={{ color: '#64748B', margin: '0 auto 8px' }} />
-          <div style={{ fontSize: 15, color: '#94A3B8', fontFamily: 'Inter, sans-serif' }}>
-            Select a session from the sidebar
-          </div>
-        </div>
+      <div className="flex-1 overflow-hidden" style={{ background: '#0F172A' }}>
+        <Welcome />
       </div>
     )
   }
@@ -108,20 +118,20 @@ export default function ChatWorkspace() {
     : undefined
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden" style={{ background: '#111A2C' }}>
+    <div className="flex-1 flex flex-col overflow-hidden" style={{ background: '#0F172A' }}>
       {/* Workspace header */}
       <div
-        className="px-4 py-2.5 shrink-0 flex items-center justify-between"
-        style={{ borderBottom: '1px solid #263347', background: '#0B1220' }}
+        className="px-6 py-3 shrink-0 flex items-center justify-between gap-3"
+        style={{ borderBottom: '1px solid #1E293B', background: '#0F172A' }}
       >
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           {incident && (
             <AlertTriangleIcon
               size={14}
               style={{ color: incident.severity === 'critical' ? '#EF4444' : '#F59E0B' }}
             />
           )}
-          <span className="font-semibold" style={{ fontSize: 16, color: '#E2E8F0', fontFamily: 'Inter, sans-serif' }}>
+          <span className="font-semibold truncate" style={{ fontSize: 14, color: '#CBD5E1', fontFamily: 'Inter, sans-serif' }}>
             {conversation.title}
           </span>
           {incident && (
@@ -165,6 +175,7 @@ export default function ChatWorkspace() {
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto scrollbar-thin py-2">
+        {isBlank(conversation) && <Welcome />}
         {conversation.messages.map((msg) => (
           <ChatMessage key={msg.id} message={msg} />
         ))}
