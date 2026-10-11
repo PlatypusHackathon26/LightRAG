@@ -213,6 +213,7 @@ trích hướng dẫn SCV trang 4.
 | Khởi động lại sau khi sửa `.env`, prompt hay code gateway | `serve_chat.ps1 -Restart` |
 | Cho người ngoài vào (link công khai) | `serve_chat.ps1 -Tunnel` – dòng `demo link` dùng được ngay |
 | Cho khách upload / xoá (cả nhóm test) | thêm `-GuestUpload` – **ai có link cũng xoá được tài liệu** |
+| Bật Long-agent (5 máy nhà xưởng mô phỏng, nút Dashboard) | thêm `-WithIoT` (lần đầu thêm cả `-Restart`) – xem mục 4.4 |
 | Cho phép tên miền giao diện khác | thêm `-CorsRegex '<regex>'` |
 | Bật Docling (cần khi upload) | `denso\start.ps1 -DoclingOnly` |
 | Tắt Docling (trả lại ~2 GB RAM) | `docker stop docling-serve` |
@@ -229,6 +230,7 @@ Dịch vụ đang chạy thì `serve_chat.ps1` giữ nguyên, chỉ bật nhữn
 | 7998 | reranker ngôn ngữ |
 | 5001 | Docling |
 | 11434 | Ollama |
+| 8085 | Long-agent (`-WithIoT`); bảng tester mở qua gateway: http://localhost:9700/dashboard/ |
 
 ### 4.2. Upload và xoá tài liệu
 
@@ -242,6 +244,25 @@ Vercel chỉ chứa giao diện; backend vẫn chạy trên máy có `serve_chat
 Root Directory `lightrag_webui` và hai biến `VITE_DEMO_MODE=true`, `VITE_AGENT_LIVE=true`
 (thêm biến xong phải **Redeploy**). Mở link kèm `?gateway=<link tunnel>`; tên miền Vercel ngoài
 project gốc phải được cho phép bằng `-CorsRegex`.
+
+---
+
+### 4.4. Long-agent – giám sát nhà xưởng (`long_agent/`)
+
+Code của Long (repo `Long-agent`, nhánh `Phuc_update`), đưa vào bằng `git subtree` nên giữ lịch sử:
+5 máy mô phỏng (CNC, robot, ép nhựa, AOI, AMR), edge gateway lọc bất thường, agent đề xuất lệnh.
+`serve_chat.ps1 -WithIoT` bật nó trên `127.0.0.1:8085`; gateway chuyển tiếp **bảng tester** của nó tại
+`/dashboard/`, nên nút **Dashboard** trên giao diện (cả bản Vercel qua tunnel) mở được. Trên bảng tester,
+bấm vào một máy để bật / tắt lỗi mô phỏng. Qua tunnel, trang tự hỏi lại mỗi 1,5 giây thay cho luồng SSE.
+
+Chỉ trang, danh sách máy và hộp chọn lỗi đi qua gateway; các route ghi khác của Long-agent (quyết định,
+lệnh PLC, upload) không có xác thực nên chỉ nghe trên máy. Agent của Long-agent vẫn dùng RAG giả lập.
+
+Cập nhật từ repo của Long:
+
+```powershell
+git subtree pull --prefix=long_agent git@github.com:PlatypusHackathon26/Long-agent.git Phuc_update
+```
 
 ---
 
@@ -354,6 +375,7 @@ không bao giờ gọi LightRAG trực tiếp. Đặc tả đầy đủ: `docs/A
 | "Tài khoản này không có quyền upload tài liệu" | token có `can_upload` trong `.env.development.local`, hoặc gateway chạy `-GuestUpload` |
 | Trình duyệt báo lỗi CORS | tên miền giao diện chưa được cho phép: `-CorsRegex` |
 | Máy chậm / treo | đóng bớt ứng dụng, tắt Docling khi không upload |
+| Nút Dashboard báo "Long-agent is not enabled" | chạy `serve_chat.ps1 -WithIoT -Restart` |
 
 Nên thoát Docker bằng **Quit** ở khay hệ thống, không tắt ngang.
 

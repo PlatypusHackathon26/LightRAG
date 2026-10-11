@@ -5,8 +5,8 @@ Dự án cho đề A3 – DENSO Factory Hacks 2026:
 - **Chatbot tài liệu kỹ thuật**: đọc tài liệu nhiều định dạng (PDF, bản scan, ảnh chụp, DOCX, XLSX, TXT;
   tiếng Việt, Anh, Nhật), trả lời bằng ngôn ngữ người hỏi, **luôn kèm tài liệu và số trang**, và nói rõ
   khi tài liệu không có câu trả lời.
-- **Giám sát nhà xưởng (Long-agent, đang tích hợp)**: 5 máy mô phỏng, phát hiện bất thường, agent đề xuất
-  lệnh chờ người duyệt. Lệnh chỉ đi tới máy mô phỏng, không tới PLC thật.
+- **Giám sát nhà xưởng (Long-agent)**: 5 máy mô phỏng, phát hiện bất thường, agent đề xuất lệnh; bảng tester
+  để bật lỗi mô phỏng, mở từ nút **Dashboard**. Lệnh chỉ đi tới máy mô phỏng, không tới PLC thật.
 
 ## Cấu trúc
 
@@ -25,10 +25,11 @@ Chi tiết từng bước (cài đặt, dữ liệu, `.env`, giao diện) ở [d
 ```powershell
 uv sync --extra api
 uv pip install --python .venv\Scripts\python.exe -r denso\requirements.txt
-powershell -ExecutionPolicy Bypass -File denso\scripts\serve_chat.ps1 -WithUI
+powershell -ExecutionPolicy Bypass -File denso\scripts\serve_chat.ps1 -WithUI            # chatbot
+powershell -ExecutionPolicy Bypass -File denso\scripts\serve_chat.ps1 -WithUI -WithIoT   # + Long-agent
 ```
 
-Giao diện: http://localhost:5173
+Giao diện: http://localhost:5173 · Bảng tester Long-agent: http://localhost:9700/dashboard/
 
 ## Nguồn gốc và giấy phép
 

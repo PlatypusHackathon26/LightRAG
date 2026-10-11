@@ -135,6 +135,13 @@ Tài liệu phải nằm trên server ở cấp của người gọi, và không
 `404` khi tài liệu không thuộc cấp của người gọi hoặc máy chủ không còn giữ file gốc. Giao diện gửi kèm
 `Authorization` nên tải bằng `fetch` rồi mở PDF ở trang được trích dẫn.
 
+### 4.3c Bảng tester của Long-agent (`DENSO_IOT_URL`)
+
+`GET /dashboard/` (trang gốc của Long-agent), `GET /api/machines`, `GET`/`POST /api/machines/{id}/faults` và
+`GET /api/stream` (SSE) được chuyển tiếp sang Long-agent. Qua Cloudflare (`CF-Ray`) luồng SSE bị từ chối
+(503) để trang chuyển sang hỏi `/api/machines`. Các route khác của Long-agent không được chuyển tiếp.
+Không có `DENSO_IOT_URL` thì các route này trả 404.
+
 ### 4.4 `GET /agent/incidents`, `GET /agent/incidents/{id}`, `GET /agent/telemetry/{id}`
 
 Đọc từ `denso/gateway/sample_ops.json` (dữ liệu mẫu, đúng kiểu `Incident` / `TelemetrySnapshot`).
