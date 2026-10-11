@@ -1,3 +1,0 @@
-"""
-IoT Service Application Package
-"""

@@ -7,7 +7,7 @@ import HITLActionCard from './HITLActionCard'
 
 /**
  * The approve button names the command the operator is approving. It used to read
- * "CONFIRM SPINDLE DERATE" (the CNC demo) even for the compressor bench's SET_RPM.
+ * "CONFIRM SPINDLE DERATE" (the CNC demo) whatever the proposed command was.
  */
 const action = (params: Record<string, string>): ProposedAction => ({
   id: 'ACT-TEST',
@@ -23,7 +23,7 @@ const action = (params: Record<string, string>): ProposedAction => ({
 afterEach(cleanup)
 
 describe('HITL approve button', () => {
-  test('names the IoT service command', () => {
+  test('names the proposed command', () => {
     renderWithProviders(<HITLActionCard action={action({ 'Lệnh': 'SET_RPM', 'Thiết bị': 'COMP-TB-02' })} />)
     const approve = screen.getByRole('button', { name: 'Approve the proposed command SET_RPM' })
     expect(approve.textContent).toBe('✓ DUYỆT LỆNH SET_RPM')

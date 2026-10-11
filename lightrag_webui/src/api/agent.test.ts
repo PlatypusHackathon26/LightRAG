@@ -25,16 +25,6 @@ const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 
 describe('agent client', () => {
-  test('the IoT dashboard opens on the same gateway (tunnel) as the chat', async () => {
-    const { calls, fetchImpl } = stubFetch(() => json({ backends: { iot: { ok: true } } }))
-    const client = createAgentClient({ live: true, baseUrl: 'https://abc.trycloudflare.com' }, fetchImpl)
-    expect(client.dashboardUrl()).toBe('https://abc.trycloudflare.com/dashboard/')
-    expect((await client.fetchHealth()).backends?.iot?.ok).toBe(true)
-    expect(calls[0].url).toBe('https://abc.trycloudflare.com/agent/health')
-    const mock = createAgentClient({ live: false, baseUrl: '' }, fetchImpl)
-    expect(await mock.fetchHealth()).toEqual({})
-  })
-
   test('the original file is fetched with the bearer token, and a 404 is an AgentApiError', async () => {
     const { calls, fetchImpl } = stubFetch((url) =>
       url.includes('doc-1')

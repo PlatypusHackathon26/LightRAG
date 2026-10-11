@@ -1,8 +1,8 @@
 # Start the chat backend: LLM proxy :8899, reranker :7998, LightRAG :9621 / lookup :9631,
-# gateway :9700 (+ Vite UI :5173 with -WithUI, IoT service :9710 with -WithIoT, Cloudflare tunnel with -Tunnel).
-# Running services are kept; -Restart restarts LightRAG, the gateway and the IoT service (after a .env change).
+# gateway :9700 (+ Vite UI :5173 with -WithUI, Cloudflare tunnel with -Tunnel).
+# Running services are kept; -Restart restarts LightRAG and the gateway (after a .env change).
 #
-#   powershell -ExecutionPolicy Bypass -File denso\scripts\serve_chat.ps1 [-Restart] [-WithUI] [-WithIoT] [-Tunnel]
+#   powershell -ExecutionPolicy Bypass -File denso\scripts\serve_chat.ps1 [-Restart] [-WithUI] [-Tunnel]
 param(
     [string]$Upstream = "https://integrate.api.nvidia.com/v1",
     [string]$KeyVar = "NVIDIA_API_KEY",
@@ -25,10 +25,6 @@ param(
     # Visitors without a token (the hosted demo) may upload and delete documents. For team testing only.
     [switch]$GuestUpload,
     [switch]$WithUI,
-    # iot_service :9710 (test-bench simulator, monitor, IoT agent; needs iot_service\.venv) behind the
-    # gateway. Mosquitto + TimescaleDB come from iot_service\docker-compose.yml when Docker runs;
-    # without Docker there is no MQTT (no telemetry) and the service keeps its data in memory.
-    [switch]$WithIoT,
     # Expose the gateway through a Cloudflare quick tunnel (public URL, guest = level 1) for the hosted demo.
     [switch]$Tunnel
 )
@@ -51,8 +47,8 @@ function Wait-Url([string]$Url, [int]$Tries = 60) {
     foreach ($i in 1..$Tries) { try { return Invoke-RestMethod $Url -TimeoutSec 15 } catch { Start-Sleep 3 } }
     throw "not reachable: $Url"
 }
-function Start-Bg([string]$Exe, [string[]]$ArgList, [string]$Log, [string]$Dir = $repo) {
-    $p = @{ FilePath = $Exe; WorkingDirectory = $Dir; WindowStyle = "Hidden"
+function Start-Bg([string]$Exe, [string[]]$ArgList, [string]$Log) {
+    $p = @{ FilePath = $Exe; WorkingDirectory = $repo; WindowStyle = "Hidden"
             RedirectStandardOutput = "$logs\$Log.out.log"; RedirectStandardError = "$logs\$Log.err.log" }
     if ($ArgList) { $p.ArgumentList = $ArgList }
     Start-Process @p
@@ -72,7 +68,7 @@ if (-not (Test-Port 8899)) {
 if (-not (Test-Port 7998)) { Start-Bg $py @("denso\tools\lang_rerank.py") "lang_rerank"; Wait-Url "http://127.0.0.1:7998/health" | Out-Null }
 "reranker   :7998"
 
-if ($Restart) { Stop-Port 9621; Stop-Port 9631; Stop-Port 9700; if ($WithIoT) { Stop-Port 9710 }; Start-Sleep 3 }
+if ($Restart) { Stop-Port 9621; Stop-Port 9631; Stop-Port 9700; Start-Sleep 3 }
 if (-not $ExtraBody -and $Upstream -match 'nvidia') { $ExtraBody = '{"chat_template_kwargs": {"enable_thinking": false}}' }
 if ($ExtraBody -eq 'none') { $ExtraBody = '' }
 # EXTRACT too: a (re-)ingest through this server must not ask the proxy for a model its upstream lacks.
@@ -101,46 +97,11 @@ if (-not (Test-Port 9700)) {
     $env:DENSO_LOOKUP_LLM_MODEL = $Model           # keyword-matched catalogue rows are answered by the same model
     $env:DENSO_LOOKUP_LLM_EXTRA_BODY = $ExtraBody
     $env:DENSO_GUEST_CAN_UPLOAD = $(if ($GuestUpload) { '1' } else { '0' })
-    # Incidents, telemetry and approvals from the IoT service instead of sample_ops.json.
-    $env:DENSO_IOT_URL = $(if ($WithIoT) { 'http://127.0.0.1:9710' } else { '' })
     Start-Bg $py @("denso\gateway\app.py") "gateway"
     Wait-Url "http://127.0.0.1:9700/agent/health" 20 | Out-Null
 }
 if ($GuestUpload) { "WARNING    guests may upload and DELETE documents (-GuestUpload); restart without it after testing" }
 "gateway    :9700 knowledge mode=$(if ($env:DENSO_KNOWLEDGE_MODE) { $env:DENSO_KNOWLEDGE_MODE } else { 'naive' })"
-
-if ($WithIoT) {
-    $iot = "$repo\iot_service"
-    $iotPy = "$iot\.venv\Scripts\python.exe"
-    if (-not (Test-Path $iotPy)) {
-        # Its own venv: iot_service pins older fastapi/pydantic than LightRAG needs.
-        throw "iot_service has no venv. Create it once:  uv venv iot_service\.venv --python 3.11 ; uv pip install --python iot_service\.venv\Scripts\python.exe -r iot_service\requirements.txt"
-    }
-    if (-not ((Test-Port 1883) -and (Test-Port 5433))) {
-        cmd /c "docker info >nul 2>&1"
-        if ($LASTEXITCODE -eq 0) {
-            # Mosquitto + TimescaleDB, localhost only (iot_service\docker-compose.yml); first run pulls the images.
-            cmd /c "docker rm -f denso-mosquitto >nul 2>&1"   # the standalone broker earlier versions started
-            cmd /c "docker compose -f ""$iot\docker-compose.yml"" up -d --wait"
-        }
-    }
-    $mqtt = Test-Port 1883
-    if (-not (Test-Port 9710)) {
-        # Set only now: LightRAG reads LLM_* too, and its servers are already up.
-        $env:GATEWAY_HOST = "127.0.0.1"; $env:GATEWAY_PORT = "9710"
-        $env:DB_MODE = $(if (Test-Port 5433) { 'timescale' } else { 'memory' })
-        $env:RAG_GATEWAY_URL = "http://127.0.0.1:9700"
-        $env:LLM_BASE_URL = "http://127.0.0.1:8899/v1"; $env:LLM_MODEL = $Model   # never a local LLM (see README)
-        $env:WEBUI_URL = "http://localhost:5173"
-        $env:PYTHONPATH = "."
-        Start-Bg $iotPy @("run.py") "iot_service" $iot
-        Wait-Url "http://127.0.0.1:9710/health" 20 | Out-Null
-        if ($mqtt) { Start-Bg $iotPy @("-m", "simulator.cli", "run") "iot_simulator" $iot }
-    }
-    "iot        :9710 db=$($env:DB_MODE) mqtt=$(if ($mqtt) { 'ok, simulator running' } else { 'MISSING - start Docker Desktop for live telemetry' })"
-    "dashboard  http://localhost:9700/dashboard/  (relayed by the gateway; also <tunnel>/dashboard/)"
-    if (-not $env:DENSO_IOT_URL) { "NOTE       the gateway was already running without the IoT service: add -Restart" }
-}
 
 if ($WithUI -and -not (Test-Port 5173)) {
     $bun = Get-Command bun -ErrorAction SilentlyContinue

@@ -244,25 +244,18 @@ export default defineConfig(({ mode }) => {
       }
     },
     server: {
-      proxy: {
-        ...(env.VITE_API_PROXY === 'true' && env.VITE_API_ENDPOINTS
-          ? Object.fromEntries(
-            env.VITE_API_ENDPOINTS.split(',').map(endpoint => [
-              devApiPrefix + endpoint,
-              {
-                target: env.VITE_BACKEND_URL || 'http://localhost:9621',
-                changeOrigin: true
-                // No rewrite: the backend already understands its own prefix
-                // via FastAPI's root_path, so forward the path verbatim.
-              }
-            ])
-          )
-          : {}),
-        '/agent': {
-          target: env.VITE_GATEWAY_URL || 'http://localhost:9700',
-          changeOrigin: true
-        }
-      }
+      proxy: env.VITE_API_PROXY === 'true' && env.VITE_API_ENDPOINTS ?
+        Object.fromEntries(
+          env.VITE_API_ENDPOINTS.split(',').map(endpoint => [
+            devApiPrefix + endpoint,
+            {
+              target: env.VITE_BACKEND_URL || 'http://localhost:9621',
+              changeOrigin: true
+              // No rewrite: the backend already understands its own prefix
+              // via FastAPI's root_path, so forward the path verbatim.
+            }
+          ])
+        ) : {}
     }
   }
 })

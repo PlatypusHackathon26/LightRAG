@@ -22,7 +22,7 @@ describe('agentic display helpers', () => {
 })
 
 describe('approve button command', () => {
-  test('names the PLC command of the IoT service and of the demo data', () => {
+  test('names the PLC command, in Vietnamese or English params', () => {
     expect(actionCommand([{ type: 'plc_command', params: { 'Lệnh': 'SET_RPM', 'Thiết bị': 'COMP-TB-02' } }])).toBe('SET_RPM')
     expect(actionCommand([
       { type: 'inventory', params: { Action: 'Reserve 1 unit' } },
