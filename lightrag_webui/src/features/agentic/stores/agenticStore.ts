@@ -3,6 +3,7 @@ import { mockDocuments } from '../mock/knowledge'
 import { mockIncidents } from '../mock/incidents'
 import { mockConversations } from '../mock/conversations'
 import { agentConfig } from '../agentConfig'
+import { mergeLiveIncidents } from '../liveIncidents'
 import type {
   AgentEvent,
   AgentState,
@@ -42,6 +43,8 @@ interface AgenticStore {
   setLiveError: (message: string | null) => void
   /** Live mode: load documents and incidents from the gateway (no-op with mocks). */
   loadLiveData: (load: { documents: () => Promise<KnowledgeDocument[]>; incidents: () => Promise<Incident[]> }) => Promise<void>
+  /** Live mode: replace the incidents and rebuild their sidebar threads (polled by the workspace). */
+  syncLiveIncidents: (incidents: Incident[]) => void
 
   // ── Sidebar ────────────────────────────────────────────────────────────────
   sidebarFilter: SidebarFilter
@@ -99,10 +102,21 @@ export const useAgenticStore = create<AgenticStore>((set, get) => ({
     if (!get().isLive) return
     try {
       const [documents, incidents] = await Promise.all([load.documents(), load.incidents()])
-      set({ documents, incidents, liveError: null })
+      set({ documents, liveError: null })
+      get().syncLiveIncidents(incidents)
     } catch (e) {
       set({ liveError: e instanceof Error ? e.message : String(e) })
     }
+  },
+  syncLiveIncidents: (incidents) => {
+    set((s) => {
+      const active = s.conversations.find((c) => c.id === s.activeConversationId)
+      return {
+        incidents,
+        conversations: mergeLiveIncidents(s.conversations, incidents),
+        activeIncident: active?.incidentId ? (incidents.find((i) => i.id === active.incidentId) ?? null) : s.activeIncident,
+      }
+    })
   },
 
   // ── Sidebar ────────────────────────────────────────────────────────────────

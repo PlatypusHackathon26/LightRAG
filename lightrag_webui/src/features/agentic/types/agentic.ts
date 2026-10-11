@@ -159,6 +159,8 @@ export interface Incident {
   proposedAction?: ProposedAction
   actionExecution?: ActionExecution
   tags?: string[]
+  /** Live (Long-agent): the alert thread - edge-filter alerts and the monitoring agent's diagnoses. */
+  messages?: { id: string; role: 'system' | 'assistant'; content: string; timestamp: string }[]
 }
 
 // ─── Knowledge Document ───────────────────────────────────────────────────────

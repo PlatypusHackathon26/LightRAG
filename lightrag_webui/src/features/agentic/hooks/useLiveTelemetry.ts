@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useAgenticStore } from '../stores/agenticStore'
+import { agentConfig } from '../agentConfig'
 import type { TelemetryPoint } from '../types/agentic'
 
 // Jitter a value by ±maxPct percent of its base
@@ -39,6 +40,8 @@ export function useLiveTelemetry() {
   const { updateLiveTelemetry, incidents } = useAgenticStore()
 
   useEffect(() => {
+    // Mock data only: live incidents carry real readings, refreshed by the workspace's polling.
+    if (agentConfig.live) return
     // Only drive telemetry for active incidents with telemetry
     const activeIncidents = incidents.filter(
       (i) => (i.status === 'active' || i.status === 'awaiting_approval') && i.telemetry

@@ -30,6 +30,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
+import long_agent as factory  # noqa: E402  (sibling module)
 import lookup as catalogue  # noqa: E402  (sibling module; app.py runs as a script)
 from jobs import JobRunner  # noqa: E402
 from language import language_instruction, named_languages, question_language, small_talk_reply  # noqa: E402
@@ -531,6 +532,16 @@ def raw_file(file_path: str, data_dir: Path, max_level: int = MAX_LEVEL) -> Path
     return None
 
 
+def incident_query(message: str, inc: dict) -> str:
+    """Retrieval text for a chat in an alert: a short question ("what do I check next?") retrieves nothing
+    on its own, so the alarm is added - in Vietnamese questions only, as the alarms are Vietnamese
+    and the reranker reads the question's language from the query."""
+    if question_language(message) != "vi":
+        return message
+    fault = (inc.get("alarm") or "").split(":", 1)[-1].strip()
+    return f"{message}\n({fault})" if fault and fault.lower() not in message.lower() else message
+
+
 def classify_target(message: str) -> str:
     return "lookup" if LOOKUP_QUESTION.search(message) else "knowledge"
 
@@ -623,6 +634,8 @@ class User:
     name: str
     level: int
     can_upload: bool = False
+    # Approve / reject an action Long-agent then executes (on its simulator).
+    can_approve: bool = False
 
 
 class ChatRequest(BaseModel):
@@ -699,14 +712,17 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
     def current_user(authorization: str | None = Header(default=None)) -> User:
         token = (authorization or "").removeprefix("Bearer ").strip()
         if not token:
-            return User(name="guest", level=settings.guest_level, can_upload=settings.guest_can_upload)
+            # -GuestUpload is the team-testing mode: guests get every right, approvals included.
+            return User(name="guest", level=settings.guest_level, can_upload=settings.guest_can_upload,
+                        can_approve=settings.guest_can_upload)
         info = settings.users.get(token)
         if info is None:
             raise HTTPException(status_code=401, detail="unknown token")
         level = int(info.get("level", 1))
         if not 1 <= level <= MAX_LEVEL:
             raise HTTPException(status_code=500, detail="misconfigured user level")
-        return User(name=info.get("name", "user"), level=level, can_upload=bool(info.get("can_upload")))
+        return User(name=info.get("name", "user"), level=level, can_upload=bool(info.get("can_upload")),
+                    can_approve=bool(info.get("can_approve")))
 
     def ops() -> dict:
         if settings.ops_file.exists():
@@ -740,6 +756,9 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
 
     @app.post("/agent/chat")
     async def chat(req: ChatRequest, user: User = Depends(current_user)) -> dict:
+        # In a Long-agent alert's conversation the question is answered from the documents like any
+        # other, with the machine's live state in the prompt.
+        inc = await incident_for(req.conversationId)
         reply = small_talk_reply(req.message)
         if reply:
             # A greeting is not a question about the documents: no retrieval, no sources.
@@ -751,7 +770,7 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
         # History is per user, not per client-chosen id: a guest sending a level-3 user's
         # conversationId would otherwise get that conversation's answers as context.
         conversation = (user.level, user.name, req.conversationId)
-        target = req.target or classify_target(req.message)
+        target = "knowledge" if inc else (req.target or classify_target(req.message))
         unknown = catalogue.unknown_names(lookup_rows, req.message) if target == "lookup" and lookup_rows else set()
         if unknown:
             # No catalogue row mentions this vehicle: vector search still found a look-alike row
@@ -785,16 +804,19 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
             target, url, mode = "knowledge", settings.level_servers[user.level - 1], settings.knowledge_mode
         past = list(history[conversation])
         payload = {
-            "query": req.message,
+            "query": incident_query(req.message, inc) if inc else req.message,
             "mode": mode,
             "include_references": True,
             "include_chunk_content": True,
             "conversation_history": past or None,
         }
         instruction = language_instruction(req.message)
+        extra = [factory.incident_context(inc)] if inc else []
         if instruction:
+            extra.append(instruction)
+        if extra:
             # Appended to the server's answer prompt (denso_answer.md): the prefix ends with a newline.
-            payload["user_prompt"] = "\n" + instruction
+            payload["user_prompt"] = "\n" + "\n".join(extra)
         try:
             r = await client.post(f"{url}/query", json=payload)
         except httpx.TimeoutException:
@@ -830,7 +852,8 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
             [{"role": "user", "content": req.message}, {"role": "assistant", "content": content}]
         )
         now = datetime.now(timezone.utc).isoformat()
-        events = [
+        events = ([{"id": f"ev-{uuid.uuid4().hex[:8]}", "timestamp": now, "type": "correlation",
+                    "label": f"Incident context added ({inc['id']}, {inc['device']})"}] if inc else []) + [
             {"id": f"ev-{uuid.uuid4().hex[:8]}", "timestamp": now, "type": "knowledge_retrieved",
              "label": (f"Retrieved {len(citations)} source document(s) ({target}, {mode}, level {user.level})"
                        if grounded else
@@ -1074,26 +1097,69 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
         return StreamingResponse(relay(), headers={"Content-Type": "text/event-stream",
                                                    "Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
+    async def long_agent_incidents() -> list[dict]:
+        try:
+            r = await client.get(f"{settings.iot_url}/api/state", timeout=10)
+            r.raise_for_status()
+            return factory.incidents_from_state(r.json())
+        except (httpx.HTTPError, ValueError):
+            raise HTTPException(status_code=503, detail="Long-agent is not reachable") from None
+
+    async def incident_for(conversation_id: str) -> dict | None:
+        """The Long-agent incident whose conversation this is, else None (also when it is down)."""
+        if not settings.iot_url or not conversation_id.startswith("CONV-LA-"):
+            return None
+        try:
+            return next((i for i in await long_agent_incidents() if i["conversationId"] == conversation_id), None)
+        except HTTPException:
+            return None
+
     @app.get("/agent/incidents")
     async def incidents(user: User = Depends(current_user)) -> list[dict]:
+        if settings.iot_url:
+            return await long_agent_incidents()
         return ops().get("incidents", [])
 
     @app.get("/agent/incidents/{incident_id}")
     async def incident(incident_id: str, user: User = Depends(current_user)) -> dict:
-        for inc in ops().get("incidents", []):
+        source = await long_agent_incidents() if settings.iot_url else ops().get("incidents", [])
+        for inc in source:
             if inc.get("id") == incident_id:
                 return inc
         raise HTTPException(status_code=404, detail="incident not found")
 
     @app.get("/agent/telemetry/{device_id}")
     async def telemetry(device_id: str, user: User = Depends(current_user)) -> dict:
+        if settings.iot_url:
+            for inc in await long_agent_incidents():
+                if device_id in (inc["id"], inc["device"]):
+                    return inc["telemetry"]
+            raise HTTPException(status_code=404, detail="no telemetry for this device")
         snap = ops().get("telemetry", {}).get(device_id)
         if snap is None:
             raise HTTPException(status_code=404, detail="no telemetry for this device")
         return snap
 
+    async def long_agent_decision(action_id: str, decision: str, user: User) -> dict:
+        """A HITL decision passed to Long-agent, which executes approved actions on its simulator."""
+        if not user.can_approve:
+            raise HTTPException(status_code=403, detail="this user may not decide on agent actions")
+        try:
+            r = await client.post(f"{settings.iot_url}/api/decision", json={"action_id": action_id, "decision": decision},
+                                  timeout=15)
+        except httpx.HTTPError:
+            raise HTTPException(status_code=503, detail="Long-agent is not reachable") from None
+        if r.status_code >= 400:
+            raise HTTPException(status_code=r.status_code, detail=f"Long-agent: {r.text[:200]}")
+        log_action({"ts": datetime.now(timezone.utc).isoformat(), "action": action_id, "decision": decision.lower(),
+                    "user": user.name, "executed": "by Long-agent (simulator)" if decision == "APPROVE" else False})
+        return r.json()
+
     @app.post("/agent/actions/{action_id}/approve")
     async def approve(action_id: str, user: User = Depends(current_user)) -> dict:
+        if settings.iot_url:
+            res = await long_agent_decision(action_id, "APPROVE", user)
+            return {"ack": f"{res.get('status', 'APPROVED')} {action_id}"}
         ack = f"ACK-{uuid.uuid4().hex[:6].upper()}"
         log_action({"ts": datetime.now(timezone.utc).isoformat(), "action": action_id, "decision": "approve",
                     "user": user.name, "ack": ack, "executed": False,
@@ -1102,6 +1168,9 @@ def create_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = 
 
     @app.post("/agent/actions/{action_id}/reject")
     async def reject(action_id: str, user: User = Depends(current_user)) -> dict:
+        if settings.iot_url:
+            await long_agent_decision(action_id, "REJECT", user)
+            return {"status": "rejected"}
         log_action({"ts": datetime.now(timezone.utc).isoformat(), "action": action_id, "decision": "reject",
                     "user": user.name, "executed": False})
         return {"status": "rejected"}

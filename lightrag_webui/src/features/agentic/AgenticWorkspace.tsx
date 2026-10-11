@@ -13,9 +13,18 @@ export default function AgenticWorkspace() {
 
   // Live mode: replace the mock documents/incidents with the Agent Gateway's.
   const loadLiveData = useAgenticStore((s) => s.loadLiveData)
+  const syncLiveIncidents = useAgenticStore((s) => s.syncLiveIncidents)
   useEffect(() => {
     void loadLiveData({ documents: agentClient.fetchDocuments, incidents: agentClient.fetchIncidents })
   }, [loadLiveData])
+  // Live mode: alerts raised while the page is open (Long-agent) appear within a few seconds.
+  useEffect(() => {
+    if (!agentClient.live) return
+    const id = setInterval(() => {
+      agentClient.fetchIncidents().then(syncLiveIncidents, () => { /* gateway or Long-agent down: keep what is shown */ })
+    }, 4000)
+    return () => clearInterval(id)
+  }, [syncLiveIncidents])
 
   return (
     <div

@@ -599,3 +599,116 @@ def test_no_dashboard_without_long_agent(tmp_path):
     tc = TestClient(create_app(settings, transport=httpx.MockTransport(lambda r: httpx.Response(500))))
     for path in ("/dashboard/", "/api/machines", "/api/stream"):
         assert tc.get(path).status_code == 404, path
+
+
+# ---------------------------------------------------------------- Long-agent alerts as incidents
+
+LA_STATE = {
+    "machines": {
+        "MC-MILL-01": {
+            "machine_id": "MC-MILL-01", "machine_type": "CNC_MILLING", "label": "alert",
+            "telemetry": {"Spindle_Temp_C": 78.6, "Coolant_Pressure_Bar": 0.0, "Spindle_Load_Pct": 59.9},
+            # Ground truth for the tester: must never surface as the alarm.
+            "active_faults": ["COOLANT_PUMP_FAILURE"],
+            "metrics": [
+                {"key": "Spindle_Load_Pct", "label": "Tải động cơ", "unit": "%", "max": 120},
+                {"key": "Spindle_Temp_C", "label": "Nhiệt độ trục chính", "unit": "°C", "max": 75, "critical_max": 90},
+                {"key": "Coolant_Pressure_Bar", "label": "Áp suất tưới nguội", "unit": "Bar", "min": 5},
+            ],
+        },
+        "MC-AMR-01": {"machine_id": "MC-AMR-01", "machine_type": "AMR_VEHICLE", "label": "normal",
+                      "telemetry": {}, "metrics": []},
+    },
+    "conversations": [
+        {"category": "system_alert", "machine_id": "MC-MILL-01", "messages": [
+            {"role": "system", "text": "[MC-MILL-01] Canh bao: Spindle_Temp_C=77.8", "timestamp": "2026-10-11T12:04:03"},
+            {"role": "assistant", "text": "Thiếu bôi trơn bạc đạn.", "timestamp": "2026-10-11T12:04:03"},
+            {"role": "system", "text": "[MC-MILL-01] Canh bao: Coolant_Pressure_Bar=0.1", "timestamp": "2026-10-11T12:05:00"},
+            {"role": "assistant", "text": "Thiếu bôi trơn bạc đạn.", "timestamp": "2026-10-11T12:05:00"},
+        ]},
+        {"category": "user", "machine_id": None, "messages": []},
+    ],
+    "alerts": [{"machine_id": "MC-MILL-01", "timestamp": "2026-10-11T12:05:00",
+                "anomalies": [{"param": "Coolant_Pressure_Bar", "value": 0.1}, {"param": "Spindle_Temp_C", "value": 78.0}]}],
+    "pending_approvals": [],
+}
+
+
+def test_long_agent_alerts_become_incidents():
+    from long_agent import incidents_from_state
+    (inc,) = incidents_from_state(LA_STATE)  # the AMR has no alert thread: no incident
+    assert inc["id"] == "LA-MC-MILL-01" and inc["conversationId"] == "CONV-LA-MC-MILL-01"
+    assert inc["alarm"] == "Bất thường: Áp suất tưới nguội, Nhiệt độ trục chính"
+    assert "COOLANT_PUMP_FAILURE" not in json.dumps(inc)  # the tester's answer key stays hidden
+    assert inc["status"] == "active" and inc["severity"] == "high"
+    flagged = {p["label"]: p["isAnomalous"] for p in inc["telemetry"]["points"]}
+    assert flagged == {"Tải động cơ": False, "Nhiệt độ trục chính": True, "Áp suất tưới nguội": True}
+    assert inc["telemetry"]["deviceName"] == "Máy phay CNC"
+    roles = [(m["role"], m["content"][:12]) for m in inc["messages"]]
+    assert roles == [("system", "⚠ [MC-MILL-0"), ("system", "⚠ [MC-MILL-0"), ("assistant", "**Chẩn đoán ")]
+    assert inc["messages"][-1]["id"].startswith("la-")
+
+
+def test_a_pending_long_agent_action_becomes_a_hitl_proposal():
+    from long_agent import incidents_from_state
+    state = {**LA_STATE, "pending_approvals": [{"approval_id": "APR-1", "machine_id": "MC-MILL-01",
+                                                 "command": "REFILL_SPINDLE_LUBRICANT", "reason": "Ổ bi nóng"}]}
+    (inc,) = incidents_from_state(state)
+    assert inc["status"] == "awaiting_approval"
+    action = inc["proposedAction"]
+    assert action["id"] == "APR-1" and action["items"][0]["params"]["Lệnh"] == "REFILL_SPINDLE_LUBRICANT"
+
+
+def _la_gateway(tmp_path, state=None):
+    seen = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        if request.url.host == "long":
+            if request.url.path == "/api/state":
+                return httpx.Response(200, json=state or LA_STATE)
+            if request.url.path == "/api/decision":
+                return httpx.Response(200, json={"status": "APPROVED", "action_id": json.loads(request.content)["action_id"]})
+            return httpx.Response(404)
+        if request.url.path == "/query":
+            return httpx.Response(200, json={"response": "From the documents.", "references": [], "llm_generated": True})
+        return httpx.Response(404)
+
+    settings = Settings(level_servers=SERVERS, actions_log=tmp_path / "a.jsonl", ops_file=tmp_path / "m.json",
+                        upload_pipeline=False, iot_url="http://long",
+                        users={"tok-eng": {"name": "eng", "level": 1, "can_approve": True}})
+    return seen, TestClient(create_app(settings, transport=httpx.MockTransport(handler)))
+
+
+def test_incidents_and_telemetry_come_from_long_agent(tmp_path):
+    _, tc = _la_gateway(tmp_path)
+    (inc,) = tc.get("/agent/incidents").json()
+    assert inc["device"] == "MC-MILL-01"
+    assert tc.get("/agent/incidents/LA-MC-MILL-01").json()["id"] == "LA-MC-MILL-01"
+    assert tc.get("/agent/telemetry/MC-MILL-01").json()["deviceId"] == "MC-MILL-01"
+    assert tc.get("/agent/telemetry/LA-MC-MILL-01").json()["deviceId"] == "MC-MILL-01"
+
+
+def test_decisions_on_long_agent_actions_need_the_right(tmp_path):
+    seen, tc = _la_gateway(tmp_path)
+    assert tc.post("/agent/actions/APR-1/approve").status_code == 403  # guest without -GuestUpload
+    assert not [x for x in seen if x.url.path == "/api/decision"]
+    r = tc.post("/agent/actions/APR-1/approve", headers={"Authorization": "Bearer tok-eng"})
+    assert r.status_code == 200 and "APR-1" in r.json()["ack"]
+    (decision,) = [json.loads(x.content) for x in seen if x.url.path == "/api/decision"]
+    assert decision == {"action_id": "APR-1", "decision": "APPROVE"}
+
+
+def test_a_chat_in_a_long_agent_alert_carries_the_machine_state(tmp_path):
+    seen, tc = _la_gateway(tmp_path)
+    r = tc.post("/agent/chat", json={"conversationId": "CONV-LA-MC-MILL-01", "message": "Cần kiểm tra gì tiếp theo?"})
+    assert r.json()["events"][0]["label"] == "Incident context added (LA-MC-MILL-01, MC-MILL-01)"
+    (query,) = [json.loads(x.content) for x in seen if x.url.path == "/query"]
+    assert query["query"] == "Cần kiểm tra gì tiếp theo?\n(Áp suất tưới nguội, Nhiệt độ trục chính)"
+    assert "NOT from the documents" in query["user_prompt"]
+    assert "Nhiệt độ trục chính 78.6 °C, limit 75, OUT OF RANGE" in query["user_prompt"]
+    assert "unverified" in query["user_prompt"]  # Long-agent's mock diagnosis is a guess, not a source
+    # Other conversations are plain document questions.
+    tc.post("/agent/chat", json={"conversationId": "CONV-LIVE", "message": "SCV bolt torque?"})
+    last = [json.loads(x.content) for x in seen if x.url.path == "/query"][-1]
+    assert last["query"] == "SCV bolt torque?" and "NOT from the documents" not in (last.get("user_prompt") or "")
