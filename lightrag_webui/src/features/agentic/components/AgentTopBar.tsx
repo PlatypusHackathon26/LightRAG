@@ -9,20 +9,20 @@ export default function AgentTopBar() {
   return (
     <header
       className="ag-topbar flex items-center justify-between px-4 shrink-0"
-      style={{ height: 56, background: '#1E293B', borderBottom: '1px solid #0F172A' }}
+      style={{ height: 56, background: '#0B1220', borderBottom: '1px solid #1E293B' }}
     >
       {/* Left: Brand */}
       <div className="flex items-center gap-3 min-w-0">
         <div className="flex items-center gap-2">
           <div
             className="flex items-center justify-center rounded"
-            style={{ width: 28, height: 28, background: '#00A896', boxShadow: '0 0 10px #00A89680' }}
+            style={{ width: 28, height: 28, background: '#E60012', boxShadow: '0 0 10px #E6001260' }}
           >
             <CpuIcon size={16} color="#FFFFFF" />
           </div>
           <div className="leading-tight">
-            <div className="font-bold tracking-wide" style={{ fontSize: 14, color: '#F1F5F9', fontFamily: 'Inter, sans-serif' }}>
-              DENSO Monozukuri Intelligent Hub
+            <div className="font-bold uppercase tracking-wider" style={{ fontSize: 14, color: '#F1F5F9', fontFamily: 'Inter, sans-serif' }}>
+              <span style={{ color: '#E60012', fontWeight: 900 }}>DENSO</span> Monozukuri Intelligent Hub
             </div>
             <div style={{ fontSize: 11, color: '#94A3B8', fontFamily: 'Roboto Mono, monospace' }}>
               Line A – CNC Station
@@ -33,7 +33,7 @@ export default function AgentTopBar() {
 
       {/* Center: Status indicators */}
       <div className="flex items-center gap-4">
-        <StatusPill label="MQTT" sublabel="Live" color="#00A896" pulse />
+        <StatusPill label="MQTT" sublabel="Live" color="#06B6D4" pulse />
         <StatusPill label="PLC Bridge" sublabel="Online" color="#10B981" pulse />
         <StatusPill label="OPC-UA" sublabel="Connected" color="#10B981" />
       </div>
@@ -49,7 +49,7 @@ export default function AgentTopBar() {
             rel="noopener noreferrer"
             aria-label="Mở dashboard giám sát nhà xưởng trong tab mới"
             title="Dashboard giám sát nhà xưởng (Long-agent, tab mới)"
-            className="flex items-center gap-2 rounded px-3 py-1.5 font-medium transition-all hover:bg-[#475569] focus-visible:outline-2 focus-visible:outline-[#00A896]"
+            className="flex items-center gap-2 rounded px-3 py-1.5 font-medium transition-all hover:bg-[#475569] focus-visible:outline-2 focus-visible:outline-[#06B6D4]"
             style={{ fontSize: 13, background: '#334155', color: '#CBD5E1', border: '1px solid #475569', fontFamily: 'Inter, sans-serif' }}
           >
             <ActivityIcon size={14} />
@@ -60,12 +60,14 @@ export default function AgentTopBar() {
           id="knowledge-hub-button"
           aria-label={`Knowledge Hub, ${vectorizedCount} documents`}
           onClick={() => setKnowledgeDrawerOpen(!knowledgeDrawerOpen)}
-          className="flex items-center gap-2 rounded px-3 py-1.5 font-medium transition-all focus-visible:outline-2 focus-visible:outline-[#00A896]"
+          className="flex items-center gap-2 rounded px-3 py-1.5 font-medium transition-all focus-visible:outline-2 focus-visible:outline-[#06B6D4]"
           style={{
             fontSize: 13,
-            background: knowledgeDrawerOpen ? '#00A896' : '#334155',
-            color: knowledgeDrawerOpen ? '#FFFFFF' : '#CBD5E1',
-            border: '1px solid #475569',
+            background: knowledgeDrawerOpen ? '#06B6D4' : '#0891B2',
+            color: '#FFFFFF',
+            border: '1px solid #0891B2',
+            boxShadow: '0 4px 14px rgba(8,51,68,0.6)',
+            fontWeight: 600,
             fontFamily: 'Inter, sans-serif',
           }}
         >
@@ -73,7 +75,7 @@ export default function AgentTopBar() {
           <span>Knowledge Hub</span>
           <span
             className="rounded px-1.5 py-0.5 font-bold"
-            style={{ fontSize: 10, background: knowledgeDrawerOpen ? '#FFFFFF30' : '#00A89630', color: knowledgeDrawerOpen ? '#FFFFFF' : '#00A896' }}
+            style={{ fontSize: 10, background: '#FFFFFF30', color: '#FFFFFF' }}
           >
             {vectorizedCount}
           </span>

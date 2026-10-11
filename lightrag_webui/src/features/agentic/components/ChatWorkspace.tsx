@@ -92,10 +92,10 @@ export default function ChatWorkspace() {
 
   if (!conversation) {
     return (
-      <div className="flex-1 flex items-center justify-center" style={{ background: '#F8FAFC' }}>
+      <div className="flex-1 flex items-center justify-center" style={{ background: '#111A2C' }}>
         <div className="text-center">
-          <MessageSquareIcon size={32} style={{ color: '#C2CDD9', margin: '0 auto 8px' }} />
-          <div style={{ fontSize: 15, color: '#5B6575', fontFamily: 'Inter, sans-serif' }}>
+          <MessageSquareIcon size={32} style={{ color: '#64748B', margin: '0 auto 8px' }} />
+          <div style={{ fontSize: 15, color: '#94A3B8', fontFamily: 'Inter, sans-serif' }}>
             Select a session from the sidebar
           </div>
         </div>
@@ -108,11 +108,11 @@ export default function ChatWorkspace() {
     : undefined
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden" style={{ background: '#F8FAFC' }}>
+    <div className="flex-1 flex flex-col overflow-hidden" style={{ background: '#111A2C' }}>
       {/* Workspace header */}
       <div
         className="px-4 py-2.5 shrink-0 flex items-center justify-between"
-        style={{ borderBottom: '1px solid #D9E1E8', background: '#FFFFFF' }}
+        style={{ borderBottom: '1px solid #263347', background: '#0B1220' }}
       >
         <div className="flex items-center gap-2">
           {incident && (
@@ -121,7 +121,7 @@ export default function ChatWorkspace() {
               style={{ color: incident.severity === 'critical' ? '#EF4444' : '#F59E0B' }}
             />
           )}
-          <span className="font-semibold" style={{ fontSize: 16, color: '#172033', fontFamily: 'Inter, sans-serif' }}>
+          <span className="font-semibold" style={{ fontSize: 16, color: '#E2E8F0', fontFamily: 'Inter, sans-serif' }}>
             {conversation.title}
           </span>
           {incident && (
@@ -142,7 +142,7 @@ export default function ChatWorkspace() {
         <div className="flex items-center gap-1.5">
           <div
             className="rounded px-2 py-0.5 font-medium"
-            style={{ fontSize: 11, background: '#EBF5F4', color: '#00A896', border: '1px solid #00A89630', fontFamily: 'Roboto Mono, monospace' }}
+            style={{ fontSize: 11, background: '#083344', color: '#06B6D4', border: '1px solid #06B6D430', fontFamily: 'Roboto Mono, monospace' }}
           >
             Agent: {conversation.agentState.replace(/_/g, ' ').toUpperCase()}
           </div>
@@ -150,7 +150,7 @@ export default function ChatWorkspace() {
       </div>
 
       {isLive && liveError && (
-        <div className="px-4 py-1.5 shrink-0" style={{ fontSize: 12, background: '#FEF2F2', color: '#B91C1C', borderBottom: '1px solid #FECACA' }}>
+        <div className="px-4 py-1.5 shrink-0" style={{ fontSize: 12, background: '#2A1215', color: '#F87171', borderBottom: '1px solid #7F1D1D' }}>
           Agent Gateway: {liveError}
         </div>
       )}

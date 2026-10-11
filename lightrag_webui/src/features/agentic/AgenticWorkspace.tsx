@@ -32,7 +32,7 @@ export default function AgenticWorkspace() {
       style={{
         height: '100vh',
         width: '100vw',
-        background: '#F5F7FA',
+        background: '#0F172A',
         fontFamily: 'Inter, sans-serif',
       }}
     >

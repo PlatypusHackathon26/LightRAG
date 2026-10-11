@@ -14,7 +14,7 @@ const SEVERITY_COLOR: Record<string, string> = {
   high: '#F59E0B',
   medium: '#3B82F6',
   low: '#10B981',
-  info: '#6B7280',
+  info: '#94A3B8',
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -37,7 +37,7 @@ function IncidentCardComp({
   onClick: () => void
 }) {
   const isUnresolved = incident.status === 'active' || incident.status === 'awaiting_approval'
-  const sevColor = SEVERITY_COLOR[incident.severity] ?? '#6B7280'
+  const sevColor = SEVERITY_COLOR[incident.severity] ?? '#94A3B8'
 
   const ts = new Date(incident.timestamp)
   const timeStr = ts.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
@@ -50,12 +50,12 @@ function IncidentCardComp({
       aria-pressed={isActive}
       onClick={onClick}
       className={cn(
-        'w-full text-left px-3 py-2.5 rounded transition-all focus-visible:outline-2 focus-visible:outline-[#00A896] relative overflow-hidden',
-        isActive ? '' : 'hover:bg-[#EEF2F7]'
+        'w-full text-left px-3 py-2.5 rounded transition-all focus-visible:outline-2 focus-visible:outline-[#06B6D4] relative overflow-hidden',
+        isActive ? '' : 'hover:bg-[#1E293B]'
       )}
       style={{
-        background: isActive ? '#EBF5F4' : 'transparent',
-        borderLeft: `3px solid ${isUnresolved ? sevColor : '#D9E1E8'}`,
+        background: isActive ? '#083344' : 'transparent',
+        borderLeft: `3px solid ${isUnresolved ? sevColor : '#263347'}`,
         marginBottom: 2,
       }}
     >
@@ -75,14 +75,14 @@ function IncidentCardComp({
           />
           <span
             className="font-semibold truncate"
-            style={{ fontSize: 13, color: isUnresolved ? '#172033' : '#5B6575', fontFamily: 'Inter, sans-serif' }}
+            style={{ fontSize: 13, color: isUnresolved ? '#E2E8F0' : '#94A3B8', fontFamily: 'Inter, sans-serif' }}
           >
             {incident.device}
           </span>
         </div>
         <span
           className="shrink-0"
-          style={{ fontSize: 10, color: '#5B6575', fontFamily: 'Roboto Mono, monospace' }}
+          style={{ fontSize: 10, color: '#94A3B8', fontFamily: 'Roboto Mono, monospace' }}
         >
           {timeStr}
           <br />
@@ -92,7 +92,7 @@ function IncidentCardComp({
 
       <div
         className="mt-0.5 leading-snug"
-        style={{ fontSize: 12, color: isUnresolved ? '#172033' : '#5B6575', fontFamily: 'Roboto Mono, monospace' }}
+        style={{ fontSize: 12, color: isUnresolved ? '#E2E8F0' : '#94A3B8', fontFamily: 'Roboto Mono, monospace' }}
       >
         {incident.alarm}
       </div>
@@ -112,7 +112,7 @@ function IncidentCardComp({
         <span
           style={{
             fontSize: 10,
-            color: isUnresolved ? sevColor : '#5B6575',
+            color: isUnresolved ? sevColor : '#94A3B8',
             fontFamily: 'Roboto Mono, monospace',
           }}
         >
@@ -152,28 +152,28 @@ function QACardComp({
       aria-pressed={isActive}
       onClick={onClick}
       className={cn(
-        'w-full text-left px-3 py-2.5 rounded transition-all focus-visible:outline-2 focus-visible:outline-[#00A896]',
-        isActive ? '' : 'hover:bg-[#EEF2F7]'
+        'w-full text-left px-3 py-2.5 rounded transition-all focus-visible:outline-2 focus-visible:outline-[#06B6D4]',
+        isActive ? '' : 'hover:bg-[#1E293B]'
       )}
       style={{
-        background: isActive ? '#EBF5F4' : 'transparent',
-        borderLeft: '3px solid #D9E1E8',
+        background: isActive ? '#083344' : 'transparent',
+        borderLeft: '3px solid #263347',
         marginBottom: 2,
       }}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-1.5 min-w-0 flex-1">
-          <MessageSquareIcon size={11} style={{ color: '#00A896', flexShrink: 0 }} />
+          <MessageSquareIcon size={11} style={{ color: '#06B6D4', flexShrink: 0 }} />
           <span
             className="font-medium truncate"
-            style={{ fontSize: 13, color: '#172033', fontFamily: 'Inter, sans-serif' }}
+            style={{ fontSize: 13, color: '#E2E8F0', fontFamily: 'Inter, sans-serif' }}
           >
             {conversation.title}
           </span>
         </div>
         <span
           className="shrink-0"
-          style={{ fontSize: 10, color: '#5B6575', fontFamily: 'Roboto Mono, monospace' }}
+          style={{ fontSize: 10, color: '#94A3B8', fontFamily: 'Roboto Mono, monospace' }}
         >
           {timeStr}
           <br />
@@ -205,14 +205,14 @@ export default function IncidentSidebar() {
       style={{
         width: '25%',
         minWidth: 300,
-        background: '#FFFFFF',
-        borderRight: '1px solid #D9E1E8',
+        background: '#0B1220',
+        borderRight: '1px solid #263347',
       }}
     >
       {/* Sidebar Header */}
-      <div className="px-4 pt-3 pb-2 shrink-0" style={{ borderBottom: '1px solid #D9E1E8' }}>
+      <div className="px-4 pt-3 pb-2 shrink-0" style={{ borderBottom: '1px solid #263347' }}>
         <div className="flex items-center justify-between mb-2">
-          <span className="font-semibold uppercase tracking-widest" style={{ fontSize: 11, color: '#5B6575', fontFamily: 'Roboto Mono, monospace' }}>
+          <span className="font-semibold uppercase tracking-widest" style={{ fontSize: 11, color: '#94A3B8', fontFamily: 'Roboto Mono, monospace' }}>
             Sessions
           </span>
           {unresolvedCount > 0 && (
@@ -234,13 +234,13 @@ export default function IncidentSidebar() {
               aria-label={`Filter: ${FILTER_LABELS[f]}`}
               aria-pressed={sidebarFilter === f}
               onClick={() => setSidebarFilter(f)}
-              className="flex-1 rounded text-center font-medium py-1 px-1 transition-all focus-visible:outline-2 focus-visible:outline-[#00A896]"
+              className="flex-1 rounded text-center font-medium py-1 px-1 transition-all focus-visible:outline-2 focus-visible:outline-[#06B6D4]"
               style={{
                 fontSize: 11,
-                background: sidebarFilter === f ? '#00A896' : '#F0F4F8',
-                color: sidebarFilter === f ? '#FFFFFF' : '#5B6575',
+                background: sidebarFilter === f ? '#0891B2' : '#1E293B',
+                color: sidebarFilter === f ? '#FFFFFF' : '#94A3B8',
                 fontFamily: 'Inter, sans-serif',
-                border: `1px solid ${sidebarFilter === f ? '#00A896' : '#D9E1E8'}`,
+                border: `1px solid ${sidebarFilter === f ? '#0891B2' : '#263347'}`,
               }}
             >
               {FILTER_LABELS[f]}
@@ -252,7 +252,7 @@ export default function IncidentSidebar() {
       {/* Session List */}
       <div className="flex-1 overflow-y-auto scrollbar-thin px-2 py-2">
         {displayItems.length === 0 && (
-          <div className="text-center py-8" style={{ fontSize: 12, color: '#5B6575', fontFamily: 'Roboto Mono, monospace' }}>
+          <div className="text-center py-8" style={{ fontSize: 12, color: '#94A3B8', fontFamily: 'Roboto Mono, monospace' }}>
             No sessions
           </div>
         )}

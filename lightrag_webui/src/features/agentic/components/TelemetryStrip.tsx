@@ -11,7 +11,7 @@ export default function TelemetryStrip({ telemetry }: { telemetry: TelemetrySnap
   return (
     <div
       className="flex items-center gap-3 px-4 py-2 shrink-0 flex-wrap"
-      style={{ background: '#FFFFFF', borderBottom: '1px solid #D9E1E8' }}
+      style={{ background: '#0B1220', borderBottom: '1px solid #263347' }}
     >
       <div className="flex items-center gap-1.5 mr-2">
         <div
@@ -20,7 +20,7 @@ export default function TelemetryStrip({ telemetry }: { telemetry: TelemetrySnap
         >
           LIVE
         </div>
-        <span className="font-medium" style={{ fontSize: 12, color: '#5B6575', fontFamily: 'Roboto Mono, monospace' }}>
+        <span className="font-medium" style={{ fontSize: 12, color: '#94A3B8', fontFamily: 'Roboto Mono, monospace' }}>
           {telemetry.deviceName}
         </span>
       </div>
@@ -33,12 +33,12 @@ export default function TelemetryStrip({ telemetry }: { telemetry: TelemetrySnap
             key={p.key}
             className="flex items-center gap-1.5 rounded px-2.5 py-1"
             style={{
-              background: p.isAnomalous ? '#FEF2F2' : '#F0F4F8',
-              border: `1px solid ${p.isAnomalous ? '#EF444440' : '#D9E1E8'}`,
+              background: p.isAnomalous ? '#2A1215' : '#1E293B',
+              border: `1px solid ${p.isAnomalous ? '#EF444440' : '#263347'}`,
               boxShadow: p.isAnomalous ? '0 0 8px #EF444415' : 'none',
             }}
           >
-            <span style={{ fontSize: 11, color: '#5B6575', fontFamily: 'Roboto Mono, monospace' }}>
+            <span style={{ fontSize: 11, color: '#94A3B8', fontFamily: 'Roboto Mono, monospace' }}>
               {p.label}:
             </span>
             <span

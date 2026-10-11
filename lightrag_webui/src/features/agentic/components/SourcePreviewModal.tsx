@@ -21,12 +21,12 @@ function kindOf(type: string, name: string): Kind {
   return 'other'
 }
 
-const MUTED = { color: '#5B6575', fontSize: 13, fontFamily: 'Inter, sans-serif' }
+const MUTED = { color: '#94A3B8', fontSize: 13, fontFamily: 'Inter, sans-serif' }
 
 function Loading({ label }: { label: string }) {
   return (
     <div className="flex items-center justify-center py-8">
-      <LoaderIcon size={24} className="animate-spin" style={{ color: '#00A896' }} />
+      <LoaderIcon size={24} className="animate-spin" style={{ color: '#06B6D4' }} />
       <span className="ml-2" style={MUTED}>{label}</span>
     </div>
   )
@@ -50,7 +50,7 @@ function PdfView({ file, page }: { file: Blob; page?: number }) {
         <div
           key={n}
           className="mb-4"
-          style={n === page ? { outline: '2px solid #00A896', outlineOffset: 2 } : undefined}
+          style={n === page ? { outline: '2px solid #06B6D4', outlineOffset: 2 } : undefined}
         >
           <Page
             pageNumber={n}
@@ -89,7 +89,7 @@ function FileView({ file, name, page }: { file: Blob; name: string; page?: numbe
   if (kind === 'pdf') return <PdfView file={file} page={page} />
   if (kind === 'text') {
     return (
-      <pre className="leading-relaxed whitespace-pre-wrap" style={{ fontSize: 13, color: '#172033', fontFamily: 'Roboto Mono, monospace' }}>
+      <pre className="leading-relaxed whitespace-pre-wrap" style={{ fontSize: 13, color: '#E2E8F0', fontFamily: 'Roboto Mono, monospace' }}>
         {text ?? ''}
       </pre>
     )
@@ -98,9 +98,9 @@ function FileView({ file, name, page }: { file: Blob; name: string; page?: numbe
   if (kind === 'image') return <img src={url} alt={name} style={{ maxWidth: '100%', margin: '0 auto' }} />
   return (
     <div className="text-center py-8" style={MUTED}>
-      <FileTextIcon size={32} style={{ color: '#00A896', margin: '0 auto 8px' }} />
+      <FileTextIcon size={32} style={{ color: '#06B6D4', margin: '0 auto 8px' }} />
       <p>Trình duyệt không xem trực tiếp được định dạng này.</p>
-      <a href={url} download={name} style={{ color: '#00A896' }}>Tải file gốc</a>
+      <a href={url} download={name} style={{ color: '#06B6D4' }}>Tải file gốc</a>
     </div>
   )
 }
@@ -108,14 +108,14 @@ function FileView({ file, name, page }: { file: Blob; name: string; page?: numbe
 function Fallback({ doc, reason }: { doc: KnowledgeDocument; reason: string }) {
   return (
     <div className="text-center py-8" style={MUTED}>
-      <FileTextIcon size={32} style={{ color: '#00A896', margin: '0 auto 8px' }} />
+      <FileTextIcon size={32} style={{ color: '#06B6D4', margin: '0 auto 8px' }} />
       <p>{reason}</p>
       {doc.extractedText && (
         <details className="mt-4 text-left">
-          <summary className="cursor-pointer" style={{ color: '#00A896' }}>Xem nội dung đã trích</summary>
+          <summary className="cursor-pointer" style={{ color: '#06B6D4' }}>Xem nội dung đã trích</summary>
           <pre
             className="mt-2 p-3 rounded leading-relaxed whitespace-pre-wrap"
-            style={{ fontSize: 12, color: '#172033', fontFamily: 'Roboto Mono, monospace', background: '#F0F4F8', border: '1px solid #D9E1E8' }}
+            style={{ fontSize: 12, color: '#E2E8F0', fontFamily: 'Roboto Mono, monospace', background: '#1E293B', border: '1px solid #263347' }}
           >
             {doc.extractedText}
           </pre>
@@ -180,20 +180,20 @@ export default function SourcePreviewModal({
           maxWidth: 900,
           width: '95vw',
           height: '90vh',
-          background: '#FFFFFF',
-          border: '1px solid #D9E1E8',
+          background: '#0B1220',
+          border: '1px solid #263347',
           boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid #D9E1E8' }}>
+        <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid #263347' }}>
           <div className="flex items-center gap-2 min-w-0">
-            <FileTextIcon size={14} style={{ color: '#00A896', flexShrink: 0 }} />
-            <span className="font-semibold truncate" style={{ fontSize: 15, color: '#172033', fontFamily: 'Inter, sans-serif' }}>
+            <FileTextIcon size={14} style={{ color: '#06B6D4', flexShrink: 0 }} />
+            <span className="font-semibold truncate" style={{ fontSize: 15, color: '#E2E8F0', fontFamily: 'Inter, sans-serif' }}>
               {doc.name}
             </span>
             {page && (
-              <span style={{ fontSize: 12, color: '#5B6575', fontFamily: 'Roboto Mono, monospace', flexShrink: 0 }}>
+              <span style={{ fontSize: 12, color: '#94A3B8', fontFamily: 'Roboto Mono, monospace', flexShrink: 0 }}>
                 · trang {page}
               </span>
             )}
@@ -201,12 +201,12 @@ export default function SourcePreviewModal({
           <button
             aria-label="Close preview"
             onClick={onClose}
-            className="rounded p-1 hover:bg-[#F0F4F8] transition-colors focus-visible:outline-2 focus-visible:outline-[#00A896]"
+            className="rounded p-1 hover:bg-[#1E293B] transition-colors focus-visible:outline-2 focus-visible:outline-[#06B6D4]"
           >
-            <XIcon size={14} style={{ color: '#5B6575' }} />
+            <XIcon size={14} style={{ color: '#94A3B8' }} />
           </button>
         </div>
-        <div className="flex-1 overflow-auto p-4" style={{ background: '#F8FAFC' }}>
+        <div className="flex-1 overflow-auto p-4" style={{ background: '#111A2C' }}>
           {/* keyed: a new document starts from a clean load state */}
           <PreviewBody key={`${doc.id}:${page ?? ''}`} doc={doc} page={page} />
         </div>
