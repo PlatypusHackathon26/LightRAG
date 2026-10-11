@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Giám sát Nhà máy Thông minh - Bảng kiểm chứng Tester</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen p-6 font-sans">
+    <header class="mb-6 flex flex-wrap justify-between items-center gap-4 border-b border-slate-700/80 pb-4">
+        <div>
+            <div class="flex items-center gap-3">
+                <h1 class="text-2xl font-bold text-sky-400">GIÁM SÁT NHÀ MÁY THÔNG MINH</h1>
+                <span class="text-xs px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30 font-mono">GÓC NHÌN KIỂM CHỨNG CỦA TESTER</span>
+            </div>
+            <p class="text-xs text-slate-400 mt-1">Chọn lỗi thủ công · Chỉ số tăng/giảm dần · Agent phân tích và đề xuất</p>
+        </div>
+
+    </header>
+
+    <!-- Grid máy móc -->
+    <div id="machines-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <p class="text-slate-500">Đang đồng bộ dữ liệu cảm biến từ trạm IoT...</p>
+    </div>
+
+    <dialog id="fault-dialog" aria-labelledby="fault-dialog-title" class="w-full max-w-lg rounded-xl border border-slate-600 bg-slate-900 text-slate-100 p-6 backdrop:bg-black/70">
+        <h2 id="fault-dialog-title" class="text-lg font-bold text-sky-400"></h2>
+        <p class="text-sm text-slate-400 mt-2">Chọn một hoặc nhiều lỗi để áp dụng. Bỏ chọn để hủy lỗi đang áp dụng trên máy.</p>
+        <form id="fault-form" class="mt-4">
+            <fieldset id="fault-options" class="space-y-2"></fieldset>
+            <p id="fault-message" role="status" class="text-sm text-amber-400 mt-3 min-h-5"></p>
+            <div class="flex flex-wrap justify-between gap-3 mt-4">
+                <button type="button" id="fault-clear" class="text-sm text-rose-300 hover:text-rose-200 disabled:opacity-50">Bỏ chọn tất cả</button>
+                <div class="flex gap-2">
+                    <button type="button" id="fault-close" class="px-3 py-2 rounded bg-slate-700 hover:bg-slate-600 text-sm disabled:opacity-50">Đóng</button>
+                    <button type="submit" id="fault-apply" class="px-3 py-2 rounded bg-sky-600 hover:bg-sky-500 text-sm font-semibold disabled:opacity-50">Áp dụng</button>
+                </div>
+            </div>
+        </form>
+    </dialog>
+
+    <script>
+        const container = document.getElementById("machines-container");
+
+        // ===== Bảng tra cứu tiếng Việt cho các mã hiển thị từ backend =====
+        const MACHINE_TYPE_VI = {
+            CNC_MILLING: "Máy phay CNC",
+            ROBOT_ARM: "Cánh tay Robot",
+            AMR_VEHICLE: "Xe tự hành AMR",
+            AOI_INSPECTION: "Máy kiểm tra quang AOI",
+            INJECTION_MOLDING: "Máy ép phun"
+        };
+
+        const STATE_VI = {
+            RUNNING: "ĐANG CHẠY",
+            NAVIGATING: "ĐANG DI CHUYỂN",
+            CHARGING: "ĐANG SẠC",
+            PAUSED: "TẠM DỪNG",
+            FEED_HOLD: "GIỮ BƯỚC",
+            LINE_PAUSED: "DÂY DỪNG",
+            PURGING: "ĐÙN XẢ",
+            MOLD_MAINTENANCE: "BẢO TRÌNH KHUÔN",
+            MAINTENANCE: "ĐANG BẢO TRÌ",
+            EMERGENCY_STOP: "NGẮT KHẨN CẤP",
+            E_STOP: "NGẮT KHẨN CẤP",
+            COLLISION_STOP: "DỪNG DO VA CHẠM",
+            IDLE: "NGHỈ",
+            offline: "NGOẠI TUYẾN",
+            command_received: "ĐÃ NHẬN LỆNH"
+        };
+
+        const FAULT_VI = {
+            SPINDLE_BEARING_LACK_OF_LUBE: "Thiếu dầu bôi trơn ổ bi trục chính",
+            COOLANT_PUMP_FAILURE: "Hỏng bơm làm mát",
+            TOOL_CHIPPING_OR_WEAR: "Dao phay mẻ/mòn",
+            GUIDEWAY_LUBRICATION_ISSUE: "Thiếu dầu trượt ray trượt",
+            GEARBOX_LACK_OF_GREASE: "Khô mỡ hộp số giảm tốc",
+            GRIPPER_PNEUMATIC_LEAK: "Rò khí nén tay gắp",
+            PAYLOAD_OVERLOAD: "Quá tải trọng gắp",
+            BATTERY_CELL_DEGRADATION: "Pin chai lão hóa",
+            LIDAR_OPTICAL_DIRT: "Bụi bẩn ống kính LiDAR",
+            WHEEL_MOTOR_RESISTANCE: "Kẹt cơ cấu bánh xe",
+            OPTICAL_LENS_CONTAMINATION: "Bẩn lăng kính quang học",
+            LED_DRIVER_DEGRADATION: "Nguồn LED suy hao",
+            SMEMA_CONVEYOR_JAM: "Kẹt bảng mạch trên băng chuyền",
+            HEATER_BAND_RUNAWAY: "Rơ-le vòng nhiệt kẹt (quá nhiệt đầu phun)",
+            HYDRAULIC_PROPORTIONAL_VALVE_LEAK: "Rò van tỉ lệ thủy lực kẹp khuôn",
+            NOZZLE_CLOGGING: "Nghẹt nhựa nòng phun"
+        };
+
+        const viType = t => MACHINE_TYPE_VI[t] || t;
+        const viState = s => STATE_VI[s] || s;
+        const viFault = f => FAULT_VI[f] || f;
+        const reading = (value, digits = null) => {
+            if (typeof value !== 'number' || !Number.isFinite(value)) return "—";
+            const number = value;
+            return digits === null ? number : number.toFixed(digits);
+        };
+
+        const faultDialog = document.getElementById('fault-dialog');
+        const faultOptions = document.getElementById('fault-options');
+        const faultMessage = document.getElementById('fault-message');
+        const faultApply = document.getElementById('fault-apply');
+        let editingMachine = null;
+        let faultRequest = 0;
+        let savingFaults = false;
+
+        function setFaultBusy(busy) {
+            faultOptions.disabled = busy;
+            faultApply.disabled = busy;
+            document.getElementById('fault-clear').disabled = busy;
+            document.getElementById('fault-close').disabled = savingFaults;
+        }
+
+        async function openFaults(machineId) {
+            if (savingFaults) return;
+            const requestId = ++faultRequest;
+            editingMachine = machineId;
+            document.getElementById('fault-dialog-title').textContent = `Lỗi mô phỏng · ${machineId}`;
+            faultOptions.replaceChildren();
+            faultMessage.textContent = 'Đang tải danh sách lỗi...';
+            setFaultBusy(true);
+            if (!faultDialog.open) faultDialog.showModal();
+            try {
+                const response = await fetch(`/api/machines/${encodeURIComponent(machineId)}/faults`);
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Không tải được danh sách lỗi');
+                if (requestId !== faultRequest || !faultDialog.open) return;
+                for (const fault of data.available_faults) {
+                    const label = document.createElement('label');
+                    label.className = 'flex items-start gap-3 p-3 rounded bg-slate-800 cursor-pointer hover:bg-slate-700';
+                    const input = document.createElement('input');
+                    input.type = 'checkbox';
+                    input.name = 'fault';
+                    input.value = fault;
+                    input.checked = data.active_faults.includes(fault);
+                    input.className = 'mt-1 accent-sky-500';
+                    const text = document.createElement('span');
+                    text.textContent = viFault(fault);
+                    label.append(input, text);
+                    faultOptions.append(label);
+                }
+                faultMessage.textContent = `${data.active_faults.length} lỗi đang áp dụng`;
+                setFaultBusy(false);
+            } catch (error) {
+                if (requestId === faultRequest && faultDialog.open) faultMessage.textContent = error.message;
+            }
+        }
+
+        container.addEventListener('click', event => {
+            const card = event.target.closest('[data-machine-id]');
+            if (card) openFaults(card.dataset.machineId);
+        });
+        container.addEventListener('keydown', event => {
+            const card = event.target.closest('[data-machine-id]');
+            if (card && (event.key === 'Enter' || event.key === ' ')) {
+                event.preventDefault();
+                openFaults(card.dataset.machineId);
+            }
+        });
+        document.getElementById('fault-close').addEventListener('click', () => faultDialog.close());
+        faultDialog.addEventListener('cancel', event => {
+            if (savingFaults) event.preventDefault();
+        });
+        faultDialog.addEventListener('close', () => {
+            // A queued close event may arrive after another machine has been opened.
+            if (!faultDialog.open) { ++faultRequest; editingMachine = null; }
+        });
+        document.getElementById('fault-clear').addEventListener('click', () => {
+            faultOptions.querySelectorAll('input').forEach(input => { input.checked = false; });
+            faultMessage.textContent = 'Bấm Áp dụng để hủy tất cả lỗi trên máy này';
+        });
+        document.getElementById('fault-form').addEventListener('submit', async event => {
+            event.preventDefault();
+            if (savingFaults || faultApply.disabled || !editingMachine) return;
+            const machineId = editingMachine;
+            const faults = [...faultOptions.querySelectorAll('input:checked')].map(input => input.value);
+            savingFaults = true;
+            setFaultBusy(true);
+            faultMessage.textContent = 'Đang áp dụng...';
+            try {
+                const response = await fetch(`/api/machines/${encodeURIComponent(machineId)}/faults`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ active_faults: faults }),
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Không áp dụng được lựa chọn');
+                faultMessage.textContent = `Đã áp dụng ${data.active_faults.length} lỗi. Chỉ số máy sẽ cập nhật theo chu kỳ tiếp theo.`;
+            } catch (error) {
+                faultMessage.textContent = error.message;
+            } finally {
+                savingFaults = false;
+                setFaultBusy(false);
+            }
+        });
+
+        // Nhận dữ liệu Server-Sent Events (SSE) liên tục mỗi giây
+        const evtSource = new EventSource("/api/stream");
+        evtSource.onmessage = function(event) {
+            const machines = JSON.parse(event.data);
+            if (Object.keys(machines).length === 0) return;
+
+
+
+            let html = "";
+            for (const [id, m] of Object.entries(machines)) {
+                const tele = m.telemetry || {};
+                const faults = m.active_faults || [];
+                const hasFault = faults.length > 0;
+                const isAlert = m.label === "alert" || hasFault;
+
+                const borderColor = isAlert ? "border-rose-500/80 bg-rose-950/20" : "border-slate-700 bg-slate-800/80";
+                const badgeColor = isAlert ? "bg-rose-500 text-white font-bold animate-pulse" : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+
+                html += `
+                <div data-machine-id="${id}" role="button" tabindex="0" aria-label="Chọn lỗi cho ${id}" class="border ${borderColor} rounded-xl p-5 shadow-lg transition-all flex flex-col justify-between cursor-pointer hover:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400">
+                    <div>
+                        <div class="flex justify-between items-start mb-3">
+                            <div>
+                                <span class="text-[11px] text-slate-400 font-mono tracking-wider">${viType(m.machine_type)}</span>
+                                <h2 class="text-lg font-bold text-white tracking-tight">${m.machine_id}</h2>
+                            </div>
+                            <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold ${badgeColor}">
+                                ${viState(tele.Controller_Execution || 'RUNNING')}
+                            </span>
+                        </div>
+
+                        <!-- Bảng số đo vật lý gửi cho AI -->
+                        <div class="space-y-1.5 text-xs border-t border-slate-700/60 pt-3">
+                            <div class="text-[10px] text-sky-400 uppercase tracking-wider font-semibold mb-1">Dữ liệu cảm biến gửi cho AI:</div>
+                            ${renderTelemetryRows(m.metrics || [], tele)}
+                        </div>
+                    </div>
+
+                    <!-- Khung đối chứng lỗi cho Tester -->
+                    <div class="mt-4 pt-3 border-t border-slate-700/60">
+                        ${renderFaultStatus(m.machine_id, faults)}
+                        <div class="text-xs text-sky-400 mt-2">Bấm để chọn hoặc hủy lỗi mô phỏng</div>
+                    </div>
+                </div>
+                `;
+            }
+            container.innerHTML = html;
+        };
+
+        function renderTelemetryRows(metrics, tele) {
+            if (!metrics.length) return '<div class="text-xs text-slate-400">Đang nhận dữ liệu...</div>';
+            return metrics.map(metric => {
+                const value = tele[metric.key];
+                const valid = typeof value === 'number' && Number.isFinite(value);
+                const critical = valid && ((metric.critical_max !== undefined && value > metric.critical_max)
+                    || (metric.critical_min !== undefined && value < metric.critical_min));
+                const warning = valid && ((metric.max !== undefined && value > metric.max)
+                    || (metric.min !== undefined && value < metric.min));
+                const color = critical ? 'text-rose-400' : warning ? 'text-amber-400' : 'text-slate-200';
+                const reference = metric.drift
+                    ? `Khởi tạo ${metric.nominal} ${metric.unit} · ${metric.drift}`
+                    : `Danh nghĩa ${metric.nominal} ${metric.unit}${metric.noise ? ` ±${metric.noise}` : ''}`;
+                return `<div data-metric="${metric.key}" class="flex justify-between gap-3 py-1">
+                    <div><div class="text-slate-300">${metric.label}</div><div class="text-[10px] text-slate-500 mt-0.5">${reference}</div></div>
+                    <span data-reading class="font-mono font-semibold whitespace-nowrap ${color}">${reading(value, metric.digits)} ${metric.unit}</span>
+                </div>`;
+            }).join('');
+        }
+
+        function renderFaultStatus(machineId, faults) {
+            if (faults.length === 0) {
+                return `
+                    <div class="text-[11px] text-slate-400 bg-slate-800/50 p-2 rounded border border-slate-700/50 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                        <span>Trạng thái vật lý ngầm: <strong class="text-emerald-400">Bình thường</strong></span>
+                    </div>
+                `;
+            }
+
+            return `
+                <div class="bg-rose-950/40 p-2.5 rounded-lg border border-rose-800/80">
+                    <div class="text-[11px] text-rose-300 font-semibold flex items-center gap-1.5">
+                        <span class="animate-ping inline-block w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                        Sự cố mô phỏng ngầm (dữ liệu gốc của Tester):
+                    </div>
+                    <div class="font-mono text-xs text-rose-400 font-bold mt-1">${faults.map(viFault).join(", ")}</div>
+                </div>
+            `;
+        }
+
+    </script>
+</body>
+</html>
