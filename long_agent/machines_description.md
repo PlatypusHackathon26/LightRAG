@@ -59,12 +59,24 @@ Nhiễu chỉ cộng vào **giá trị xuất ra**, không tích lũy vào trạ
 
 - Máy khởi động không có lỗi; không còn sinh lỗi tự động hoặc bộ đếm tần suất.
 - Bấm thẻ máy để mở danh sách lỗi riêng của máy đó. Các lỗi đang bật được đánh dấu sẵn.
-- Chọn hoặc bỏ chọn một hay nhiều lỗi, rồi bấm **Áp dụng**. **Bỏ chọn tất cả** rồi **Áp dụng** hủy toàn bộ lỗi trên máy; **Đóng** bỏ thay đổi chưa áp dụng.
+- Chọn hoặc bỏ chọn một hay nhiều lỗi, rồi bấm **Áp dụng**. **Reset mô phỏng (tester)** rồi **Áp dụng** xoá toàn bộ lỗi ngay – công cụ dọn máy của tester, không phải sửa chữa; **Đóng** bỏ thay đổi chưa áp dụng.
 - `GET /api/machines/{machine_id}/faults` trả `available_faults` và `active_faults`.
 - `POST /api/machines/{machine_id}/faults` nhận `{"active_faults": ["FAULT_CODE", ...]}` để thay toàn bộ lựa chọn của máy đó. Danh sách rỗng hủy tất cả; mã lỗi không hợp lệ bị từ chối mà không thay đổi máy.
 - Nhiều lỗi có thể cùng hoạt động; tác động cộng hoặc nhân theo công thức của mỗi máy (ví dụ mòn dao ×7×3 khi đồng thời hỏng bơm và mẻ dao).
 - Hủy lỗi chỉ tắt cờ, không đặt lại nhiệt độ, mòn dao hay pin. Các chỉ số hồi phục theo động học hiện tại; muốn đặt lại mòn dao/pin cần lệnh bảo trì tương ứng.
-- Có thể cấu hình lỗi khi máy đang dừng; tác động chỉ số vẫn phụ thuộc trạng thái vận hành. Dashboard kiểm chứng khởi chạy từ `main.py` dùng Agent để phân tích và đề xuất, không tự thực thi lệnh làm thay đổi setpoint hay xóa lỗi người dùng đang thử. Lệnh PLC do kỹ sư gửi vẫn có thể thực thi qua luồng duyệt hiện có.
+- Có thể cấu hình lỗi khi máy đang dừng; triệu chứng chỉ xuất hiện khi bộ phận hỏng hoạt động (mục 1.4). Agent chỉ đề xuất; mọi lệnh tới máy đi qua duyệt của kỹ sư.
+
+### 1.2.1. Trạng thái máy và sửa chữa
+
+- Trạng thái chung: `RUNNING`, `HOLD`, `STARTING`, `STOPPED`, `LOCKED_OUT`, `MAINTENANCE`, `E_STOP` (AMR thêm `CHARGING`).
+  Mỗi máy tự khai báo lệnh của nó trong `command_specs()` (`machines/commands.py`) cùng trạng thái được phép.
+- Số đo đi theo cơ cấu chấp hành: khi dừng, tốc độ / tải / dòng về 0, áp suất bơm xả về 0, nhiệt nguội dần. Tác động của
+  lỗi nhân với mức hoạt động của bộ phận (ma sát ổ bi theo tốc độ trục, dòng hộp số theo chuyển động…), nên dừng máy
+  làm triệu chứng tắt nhưng không sửa lỗi.
+- Lệnh sửa chỉ chạy khi `LOCKED_OUT` (riêng `PURGE_BARREL`: `STOPPED`, nòng ≥ 195°C), chuyển máy sang `MAINTENANCE`
+  trong thời gian sửa, rồi chỉ gỡ đúng lỗi nó khai báo. Không lệnh nào ghi đè số đo triệu chứng.
+- `LOCKOUT` cần bộ phận chuyển động đã đứng yên; `START` qua `STARTING` và kiểm liên động; `E_STOP` cần `RESET_ESTOP`.
+- Quy trình bảo trì chi tiết theo triệu chứng: `docs/maintenance_sop.md`.
 
 ### 1.3. Tách bạch dữ liệu
 
@@ -211,7 +223,7 @@ SỬA LỖI:                 ╲___________/    trượt về mức cũ
 | `boards_inspected_total` (AOI) | +1 board/s ở tốc độ mặc định, dừng khi kẹt/dừng máy | Tích lũy theo `dt`, không theo số lần gọi |
 | `boards_flagged_defect` (AOI) | Tăng ngẫu nhiên với xác suất FRR/100 cho mỗi bo kiểm tra | Không tăng cố định mỗi giây; dừng khi không có bo đi qua |
 
-Sửa lỗi sẽ đưa các chỉ số về mức phù hợp với trạng thái điều khiển hiện tại. Hiệu chuẩn quang học, thay LED, làm sạch LiDAR chỉ thay điều kiện/đích phục hồi; số đo tăng/giảm dần. Thay vật tư là trường hợp riêng: thay dao mới đặt mòn về 0%, thay cụm pin mới đặt mức pin 95%. `PURGE_BARREL` chuyển máy ép sang `PURGING`, cần `RESUME` để chạy lại.
+Sửa lỗi chỉ gỡ nguyên nhân; số đo trở về mức phù hợp với trạng thái điều khiển theo động học sau khi máy chạy lại. Thay vật tư là trường hợp riêng vì chính bộ phận được thay: dao mới có độ mòn 0%, cụm pin mới có sẵn 95%.
 
 Các ngưỡng tĩnh trong mục 2 được dùng thống nhất cho màu cảnh báo Dashboard và Edge (`MACHINE_THRESHOLDS`, lấy từ `machines/specifications.py`). Edge còn có ROC để phát hiện xu hướng tăng nhanh trước khi vượt ngưỡng tĩnh. Kẹt băng AOI và kẹt bánh AMR thể hiện trên tốc độ và danh sách lỗi thủ công; hiện chưa có ngưỡng cảnh báo tốc độ riêng.
 
@@ -222,7 +234,7 @@ Các ngưỡng tĩnh trong mục 2 được dùng thống nhất cho màu cảnh
 Backend trả về code; **lớp hiển thị** dịch sang tiếng Việt qua 3 bảng tra cứu:
 
 - `MACHINE_TYPE_VI` — tên máy: `CNC_MILLING → Máy phay CNC`, ...
-- `STATE_VI` — trạng thái: `RUNNING → ĐANG CHẠY`, `EMERGENCY_STOP → NGẮT KHẨN CẤP`, ...
+- `STATE_VI` — trạng thái: `RUNNING → ĐANG CHẠY`, `STOPPED → ĐÃ DỪNG`, `LOCKED_OUT → KHOÁ AN TOÀN`, `E_STOP → NGẮT KHẨN CẤP`, ...
 - `FAULT_VI` — 16 tên lỗi: `SPINDLE_BEARING_LACK_OF_LUBE → Thiếu dầu bôi trơn ổ bi trục chính`, ...
 
 Giá trị số + unit giữ nguyên; **không đổi dữ liệu backend**, chỉ đổi lớp dịch hiển thị.

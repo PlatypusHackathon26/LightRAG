@@ -113,6 +113,8 @@ if ($WithIoT) {
         # Its agent diagnoses with the same model through the proxy (the proxy adds the API key).
         $env:LONG_AGENT_LLM_BASE = "http://127.0.0.1:8899/v1"; $env:LONG_AGENT_LLM_MODEL = $Model
         $env:LONG_AGENT_LLM_EXTRA_BODY = $ExtraBody
+        # Maintenance documents (long_agent/docs/maintenance_sop.md, ingested at level 1) for the diagnosis.
+        $env:LONG_AGENT_RAG_URL = "http://127.0.0.1:9621"
         Start-Bg $py @("main.py") "long_agent" "$repo\long_agent"
         Wait-Url "http://127.0.0.1:8085/api/machines" 20 | Out-Null
     }

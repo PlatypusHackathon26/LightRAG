@@ -153,7 +153,23 @@ Response thật của `/agent/incidents`:
 ```
 Không tìm thấy → `404` (client trả `undefined`, không ném lỗi).
 
+**Khi có `DENSO_IOT_URL`** các route này đọc `GET /api/state` của Long-agent (`denso/gateway/long_agent.py`):
+mỗi máy có cảnh báo là một incident `LA-<máy>`. Ngoài các trường trên, incident có:
+
+- `messages` – cảnh báo gần nhất, chẩn đoán mới nhất (có nguồn tài liệu) và các bước đã làm: duyệt / từ chối,
+  từng bước quy trình, kết quả xác minh, theo thứ tự thời gian;
+- `proposedAction` – vé đang chờ duyệt của máy. Một quy trình sửa là **một thẻ, mỗi bước một item**
+  (`SAFE_STOP`, `LOCKOUT`, lệnh sửa kèm thời gian, `UNLOCK`); chỉ item chính (lệnh sửa, hoặc `START` của vé khởi
+  động lại) có `params["Lệnh"]`. `timerSeconds` đếm tới hạn của chính vé đó;
+- `machineState` (`RUNNING`, `STOPPED`, `LOCKED_OUT`, `MAINTENANCE`, …) và `procedurePhase`
+  (`repair`, `restart`, `verifying` hoặc `null`). Incident còn `active` khi máy đang dừng, khoá an toàn hay đang sửa.
+
 ### 4.5 `POST /agent/actions/{id}/approve` | `/reject`
+
+**Khi có `DENSO_IOT_URL`**: quyết định được gửi tới Long-agent `POST /api/decision`; người dùng phải có
+`can_approve` (không thì `403`). Duyệt vé sửa chạy quy trình trên máy mô phỏng, xong thì Long-agent tự tạo vé
+"Khởi động lại" chờ duyệt lần hai. Long-agent trả `404` khi vé đã hết hạn và `409` khi máy từ chối lệnh; gateway
+chuyển nguyên mã đó cho client. Không có `DENSO_IOT_URL` thì như dưới đây:
 
 Response thật: `{"ack": "ACK-888057"}` / `{"status": "rejected"}`. Gateway **chỉ ghi log**:
 ```json

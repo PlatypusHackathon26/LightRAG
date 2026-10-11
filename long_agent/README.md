@@ -57,22 +57,40 @@ Trong môi trường sản xuất linh kiện ô tô chính xác của DENSO (bu
 
 ```text
 Tester bật lỗi trên bảng (POST /api/machines/{id}/faults)
-        │  chỉ số trôi dần về giá trị lỗi
+        │  triệu chứng xuất hiện khi bộ phận hỏng hoạt động, chỉ số trôi dần về giá trị lỗi
         ▼
-TelemetryReceiver — ngưỡng tĩnh + ROC + cooldown 60 s/chỉ số
+TelemetryReceiver — ngưỡng tĩnh + ROC + cooldown 60 s/chỉ số, theo trạng thái máy
         │  "alert" (kèm danh sách anomaly)
         ▼
-AgentBrain.handle_alert
-        │  • mỗi máy chỉ chẩn đoán lại khi có chỉ số MỚI vượt ngưỡng (LONG_AGENT_REPEAT_S)
-        │  • RAGEngine.query_with_schema: prompt gồm giới hạn, mục "CHỈ SỐ ĐANG VƯỢT NGƯỠNG",
-        │    danh mục lệnh của loại máy; lệnh đầu tiên phải sửa nguyên nhân gốc
-        │    (REPAIR_*, REPLACE_*, REFILL_*...), tối đa 2 lệnh; lệnh ngoài whitelist bị loại
+AgentBrain.handle_alert           (bỏ qua máy đang có quy trình / vé chờ; chẩn đoán lại khi có chỉ số MỚI)
+        │  RAGEngine.query_with_schema:
+        │    • tra SOP trong LightRAG (agent/retriever.py, LONG_AGENT_RAG_URL)
+        │    • LLM chọn MỘT lệnh sửa trong danh sách máy khai báo (+ lệnh tạm thời tuỳ chọn), kèm nguồn
+        │    • chuẩn hoá tên lệnh; sai hoặc đã thử thất bại → hỏi lại 1 lần; vẫn sai → không đề xuất
         ▼
-ActionApproval (HITL) — mọi lệnh agent đề xuất đều chờ duyệt (lệnh trùng đang chờ thì bỏ qua)
-        │  kỹ sư Duyệt / Từ chối trên web UI → gateway → POST /api/decision
+agent/procedures.py:  SAFE_STOP → LOCKOUT → <lệnh sửa> → UNLOCK   (lập từ đồ thị trạng thái của máy)
         ▼
-ActuatorDispatcher ──► machine.receive_plc_command()  (máy mô phỏng, không có PLC thật)
+ActionApproval — vé 1 "Sửa"  ── kỹ sư duyệt trên web UI → gateway → POST /api/decision
+        ▼
+ProcedureRunner chạy từng bước (chờ máy dừng hẳn trước LOCKOUT, chờ hết thời gian sửa)
+        ▼
+ActionApproval — vé 2 "Khởi động lại" ── kỹ sư duyệt → START (liên động có thể bắt chờ)
+        ▼
+Theo dõi LONG_AGENT_VERIFY_S giây: không cảnh báo → đã xác minh; cảnh báo quay lại → thất bại, chẩn đoán lại
 ```
+
+### Trạng thái máy và lệnh
+
+Mọi máy dùng chung các trạng thái `RUNNING`, `HOLD`, `STARTING`, `STOPPED`, `LOCKED_OUT`, `MAINTENANCE`, `E_STOP`
+(AMR thêm `CHARGING`). Mỗi máy **tự khai báo lệnh** trong `command_specs()` (`machines/commands.py`): loại
+(control / repair / setpoint), tham số và khoảng giá trị, trạng thái được phép, mức rủi ro, lỗi mà lệnh sửa và thời
+gian sửa, các tên gọi khác. Danh mục của agent, mức rủi ro khi duyệt và kiểm tra của dispatcher đều lấy từ đây.
+
+- Dừng máy đưa tốc độ, tải, dòng về 0 và để nhiệt nguội dần. Dừng không sửa lỗi: chạy lại mà chưa sửa thì triệu chứng quay lại.
+- Lệnh sửa chỉ chạy khi `LOCKED_OUT` (riêng `PURGE_BARREL`: `STOPPED` và nòng còn nóng), mất thời gian, chỉ gỡ đúng
+  lỗi của bộ phận đó và **không đổi số đo** – số đo hồi phục theo vật lý sau `START`.
+- `LOCKOUT` chờ bộ phận chuyển động đứng yên; `START` kiểm liên động (quá nhiệt, pin cạn); máy ép phun chỉ vào
+  `RUNNING` khi đầu phun ≥ 195°C; `E_STOP` phải `RESET_ESTOP` trước mọi thao tác.
 
 ## ⚙️ 5. Năm dòng máy mô phỏng (`machines/`)
 
@@ -86,20 +104,21 @@ ActuatorDispatcher ──► machine.receive_plc_command()  (máy mô phỏng, k
 
 Mỗi máy mô hình hóa **phản hồi vật lý thật** (ví dụ CNC: dao mòn → tải tăng → nhiệt tăng → rung theo hàm phi tuyến chuẩn ISO 10816) và **nhận lệnh PLC** qua `receive_plc_command()`.
 
-**Chọn lỗi thủ công:** bấm thẻ máy trên Dashboard để mở danh sách lỗi của máy đó. Chọn/bỏ chọn một hoặc nhiều lỗi rồi bấm **Áp dụng**; **Bỏ chọn tất cả** rồi **Áp dụng** hủy mọi lỗi trên máy. **Đóng** bỏ các thay đổi chưa áp dụng. Máy không tự sinh lỗi theo thời gian. Hủy lỗi giữ nguyên trạng thái vật lý để các chỉ số hồi phục theo mô phỏng.
+**Chọn lỗi thủ công:** bấm thẻ máy trên Dashboard để mở danh sách lỗi của máy đó, chọn lỗi rồi bấm **Áp dụng**. Máy không tự sinh lỗi theo thời gian. Lỗi được sửa thật qua agent và quy trình hai lần duyệt. **Reset mô phỏng (tester)** rồi **Áp dụng** xoá mọi lỗi ngay – chỉ để tester dọn máy giữa các kịch bản, không phải sửa chữa; số đo vẫn hồi phục dần.
 
 API chọn lỗi: `GET /api/machines/{machine_id}/faults` trả danh mục và lỗi đang bật; `POST` cùng đường dẫn nhận `{"active_faults": ["FAULT_CODE", ...]}` để áp dụng toàn bộ lựa chọn. Danh sách rỗng hủy tất cả lỗi trên máy.
 
-Dashboard kiểm chứng dùng mức danh nghĩa, nhiễu, đơn vị và ngưỡng chung từ `machines/specifications.py`, hiển thị đầy đủ chỉ số trong `machines_description.md`. Các chỉ số hội tụ theo thời gian hoặc theo giới hạn tốc độ khi bật/hủy lỗi, không nhảy thẳng sang giá trị đích. Agent trong `main.py` phân tích và đề xuất, không tự thực thi lệnh làm thay đổi kịch bản lỗi thủ công. Lệnh do kỹ sư chủ động gửi vẫn đi qua HITL.
+Dashboard kiểm chứng dùng mức danh nghĩa, nhiễu, đơn vị và ngưỡng chung từ `machines/specifications.py`, hiển thị đầy đủ chỉ số trong `machines_description.md`. Các chỉ số hội tụ theo thời gian hoặc theo giới hạn tốc độ khi bật/hủy lỗi, không nhảy thẳng sang giá trị đích. Agent chỉ đề xuất; mọi lệnh tới máy đi qua HITL, kể cả lệnh kỹ sư gửi qua `/api/plc/fix`.
 
 ## 🌟 6. Điểm nhấn kỹ thuật
 
-- **Edge Anomaly Filtering** — chỉ telemetry vượt ngưỡng hoặc tăng nhanh bất thường (ROC) mới kích hoạt agent; cooldown chống spam LLM.
-- **Chẩn đoán bằng LLM thật** — `agent/llm_client.py` gọi một endpoint OpenAI-compatible; không cấu hình thì `RAGEngine` dùng chẩn đoán giả lập theo từ khóa (đủ cho test offline).
-- **Một chẩn đoán cho một sự cố** — chặn lặp theo từng máy; chỉ chẩn đoán lại khi xuất hiện chỉ số lệch mới.
-- **Sửa gốc trước, giảm thiểu sau** — prompt buộc lệnh đầu là sửa nguyên nhân gốc, không chỉ tăng bơm hay giảm tốc.
-- **HITL cho mọi đề xuất** — không lệnh nào của agent tự chạy; vé chờ duyệt hết hạn nếu bị bỏ quên; lệnh lạ coi là rủi ro cao.
-- **Event Bus bất đồng bộ** — pub/sub in-memory qua `ThreadPoolExecutor`, lỗi một handler không làm sập hệ thống.
+- **Một nguồn lệnh duy nhất** – máy tự khai báo lệnh; không có danh sách chép tay để lệch nhau.
+- **Câu trả lời → lệnh chính xác** – LLM chỉ chọn tên trong danh sách; tên được chuẩn hoá; sai thì hỏi lại; văn bản tự do không bao giờ thành lệnh.
+- **Agent chọn "sửa gì", code quyết định "làm thế nào"** – cùng một lệnh sửa luôn ra cùng một quy trình.
+- **Mô phỏng không gian lận** – sửa chữa cần máy dừng và khoá an toàn, mất thời gian, không reset số đo; sửa sai thì lỗi còn.
+- **Chẩn đoán có tài liệu** – SOP bảo trì (`docs/maintenance_sop.md`) nạp vào LightRAG, agent tra theo triệu chứng và trích nguồn.
+- **Hai lần duyệt + kiểm chứng** – duyệt sửa, duyệt khởi động lại, rồi theo dõi; thất bại thì chẩn đoán lại và không lặp lệnh đã thử.
+- **Edge filter theo trạng thái** – không báo áp suất 0 khi máy đang dừng, không coi việc ấm máy sau khởi động là sự cố.
 
 ---
 
@@ -110,13 +129,20 @@ long_agent/
 ├── main.py                     # Ghép 3 tầng + FastAPI (uvicorn) tại LONG_AGENT_HOST:LONG_AGENT_PORT
 ├── machines_description.md     # Mô tả máy, chỉ số, lỗi — cũng được nạp vào kho tri thức của gateway
 ├── requirements.txt            # fastapi, uvicorn, pydantic, httpx
-├── machines/                   # TẦNG 1 — 5 máy mô phỏng + specifications.py (ngưỡng, nhiễu, đơn vị)
-├── iot/                        # TẦNG 2 — event_bus, telemetry_receiver, action_approval, actuator_dispatcher
+├── docs/maintenance_sop.md     # SOP bảo trì 5 máy – nạp vào LightRAG cho agent tra
+├── machines/                   # TẦNG 1 — 5 máy mô phỏng
+│   ├── commands.py             #   trạng thái chung, CommandSpec, chuẩn hoá tên lệnh, kiểm tham số
+│   ├── base_machine.py         #   máy trạng thái, thực thi lệnh, hoàn tất sửa chữa / khởi động
+│   └── specifications.py       #   danh nghĩa, nhiễu, đơn vị, ngưỡng
+├── iot/                        # TẦNG 2 — event_bus, telemetry_receiver, actuator_dispatcher
+│   ├── action_approval.py      #   vé chờ duyệt (một lệnh hoặc một quy trình), lịch sử quyết định
+│   └── procedure_runner.py     #   chạy quy trình đã duyệt, xin duyệt khởi động lại, kiểm chứng
 ├── agent/                      # TẦNG 3
-│   ├── brain.py                #   alert → chẩn đoán → đề xuất lệnh, chặn chẩn đoán lặp
-│   ├── rag_engine.py           #   prompt, danh mục lệnh (COMMAND_CATALOG), parse + whitelist
-│   ├── llm_client.py           #   gọi LLM từ biến môi trường LONG_AGENT_LLM_*
-│   └── tools.py, knowledge_base.py
+│   ├── brain.py                #   alert → chẩn đoán → đề xuất, chặn chẩn đoán lặp / khi máy đang bận
+│   ├── rag_engine.py           #   tra tài liệu, prompt, chọn một lệnh sửa máy khai báo
+│   ├── procedures.py           #   lập quy trình sửa / khởi động lại từ đồ thị trạng thái
+│   ├── retriever.py            #   lấy đoạn tài liệu từ LightRAG (LONG_AGENT_RAG_URL)
+│   └── llm_client.py           #   gọi LLM từ biến môi trường LONG_AGENT_LLM_*
 ├── dashboard/
 │   ├── server.py               #   create_app(): các route ở mục 9
 │   ├── state_store.py          #   trạng thái máy, cảnh báo, hội thoại, vé chờ duyệt
@@ -150,8 +176,11 @@ python main.py          # bảng tester tại http://127.0.0.1:8085
 | `LONG_AGENT_LLM_BASE`, `LONG_AGENT_LLM_MODEL` | trống | Endpoint OpenAI-compatible và model; trống thì dùng chẩn đoán giả lập |
 | `LONG_AGENT_LLM_KEY` | trống | Khóa API nếu gọi thẳng nhà cung cấp (để trong `.env`, không commit) |
 | `LONG_AGENT_LLM_EXTRA_BODY` | `{}` | JSON thêm vào request (ví dụ tắt thinking) |
+| `LONG_AGENT_RAG_URL` | trống | LightRAG để agent tra SOP (serve_chat đặt `http://127.0.0.1:9621`); trống thì chẩn đoán không có tài liệu |
 | `LONG_AGENT_PROPOSE` | `1` | `0` = chỉ chẩn đoán, không đề xuất lệnh |
-| `LONG_AGENT_AUTO_LOW` | — | `1` = lệnh rủi ro thấp chạy ngay (hành vi gốc); mặc định mọi lệnh chờ duyệt |
+| `LONG_AGENT_APPROVAL_TTL_S` | `1800` | Vé chờ duyệt hết hạn sau bấy nhiêu giây (ghi vào lịch sử) |
+| `LONG_AGENT_VERIFY_S` | `120` | Thời gian theo dõi sau khi khởi động lại để xác minh sửa chữa |
+| `LONG_AGENT_AUTO_LOW` | — | `1` = lệnh máy khai báo rủi ro thấp chạy ngay; mặc định mọi lệnh chờ duyệt |
 | `LONG_AGENT_REPEAT_S` | `120` | Cửa sổ chặn chẩn đoán lặp cho cùng một máy (giây) |
 
 ## 🔌 9. API (`dashboard/server.py`)
@@ -162,8 +191,8 @@ python main.py          # bảng tester tại http://127.0.0.1:8085
 | `GET` | `/api/machines` | Trạng thái + chỉ số từng máy | relay |
 | `GET` / `POST` | `/api/machines/{id}/faults` | Danh mục lỗi / áp dụng `{"active_faults": [...]}` | relay |
 | `GET` | `/api/stream` | SSE trạng thái máy | relay (503 sau Cloudflare tunnel) |
-| `GET` | `/api/state` | Snapshot: máy, cảnh báo, hội thoại, `pending_approvals` | gateway đọc để dựng incident |
-| `POST` | `/api/decision` | `{action_id, decision}` — duyệt/từ chối | gateway gọi khi kỹ sư bấm |
+| `GET` | `/api/state` | Snapshot: máy (kèm `state`, `procedure_phase`), cảnh báo, hội thoại, `pending_approvals`, `history` | gateway đọc để dựng incident |
+| `POST` | `/api/decision` | `{action_id, decision}` — duyệt/từ chối; 404 vé hết hạn, 409 máy từ chối | gateway gọi khi kỹ sư bấm |
 | `POST` | `/api/actions/{id}/approve` | Duyệt (chỉ cùng origin) | không |
 | `POST` | `/api/chat`, `/api/upload`, `/api/plc/fix` | Chat, tải file, lệnh sửa trực tiếp | không |
 
@@ -174,7 +203,15 @@ cd long_agent
 ..\.venv\Scripts\python -m pytest tests -q
 ```
 
-Toàn bộ test chạy offline (FastAPI `TestClient`, LLM giả). `tests/test_denso_integration.py` kiểm phần tích hợp với gateway: LLM client, HITL cho mọi lệnh, chặn chẩn đoán lặp, prompt yêu cầu sửa gốc trước. Phía gateway có test riêng trong `denso/tests/test_gateway.py`.
+Toàn bộ test chạy offline trên đồng hồ giả (FastAPI `TestClient`, LLM giả, LightRAG giả):
+
+- `test_commands.py` – chuẩn hoá tên lệnh, kiểm tham số; SOP và `machines_description.md` khớp với lệnh máy khai báo.
+- `test_realistic_states.py` – dừng máy, khoá an toàn, sửa cần thời gian, không reset số đo, sửa sai thì lỗi còn, liên động khởi động.
+- `test_procedures.py` – lập quy trình từ mọi trạng thái; vòng kín sửa → khởi động lại → xác minh / thất bại.
+- `test_rag_schema_formatter.py` – câu trả lời viết khác nhau ra cùng một lệnh; hỏi lại; tài liệu vào prompt.
+- `test_fault_semantics.py`, `test_machine_dynamics.py`, `test_smooth_telemetry.py` – vật lý của 16 lỗi và hồi phục qua quy trình thật.
+
+Phía gateway có test riêng trong `denso/tests/test_gateway.py`.
 
 ## ⚠️ 11. Giới hạn & lưu ý
 
