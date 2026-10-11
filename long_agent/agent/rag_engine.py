@@ -1,4 +1,15 @@
 # agent/rag_engine.py
+"""Diagnosis: from an alert to ONE repair the machine declares, chosen with the maintenance documents.
+
+Rules:
+- the LLM answers WHAT to repair: a `repair` name from the machine's own catalog (plus an optional
+  temporary `mitigation`). HOW (stop, lock out, repair, restart) is planned in code (agent/procedures.py);
+- every name is normalised against the machine's specs (machines/commands.py). An answer that names
+  no declared command, or a repair already tried without success, is re-asked once with the reason;
+  after that nothing is proposed - free text is never turned into a command;
+- documents come from LightRAG through `retriever` (agent/retriever.py); without them the diagnosis
+  says so instead of pretending to cite.
+"""
 from __future__ import annotations
 
 import json
@@ -6,244 +17,66 @@ import logging
 import re
 from typing import Any, Callable, Dict, List, Optional
 
+from machines.commands import CommandSpec, normalize_command, validate_params
+
 logger = logging.getLogger("RAGEngine")
 
-# =============================================================================
-# DANH MỤC LỆNH PLC CHUẨN CỦA TỪNG DÒNG MÁY (IOT COMMAND WHITELIST)
-# Đồng bộ 100% với hàm receive_plc_command() trong machines/*.py
-# =============================================================================
+
+def _machine_classes() -> Dict[str, Any]:
+    from machines.amr_vehicle import AmrVehicle
+    from machines.aoi_inspection import AoiInspection
+    from machines.cnc_milling import CncMilling
+    from machines.injection_molding import InjectionMolding
+    from machines.robot_arm import RobotArm
+    return {c.MACHINE_TYPE: c for c in (CncMilling, RobotArm, AmrVehicle, AoiInspection, InjectionMolding)}
+
+
+def command_specs(machine_type: str) -> Dict[str, CommandSpec]:
+    cls = _machine_classes().get(machine_type)
+    return cls.command_specs() if cls else {}
+
+
+# What the agent is shown per machine type: derived from the machines, never maintained by hand.
 COMMAND_CATALOG: Dict[str, List[Dict[str, Any]]] = {
-    "CNC_MILLING": [
-        {
-            "command": "SET_FEED_OVERRIDE",
-            "params": {"override_pct": "float (0 - 150)"},
-            "risk_level": "LOW",
-            "desc": "Điều chỉnh tốc độ ăn dao (%) để giảm tải cắt tức thời",
-        },
-        {
-            "command": "COOLANT_BOOST",
-            "params": {},
-            "risk_level": "LOW",
-            "desc": "Kích hoạt bơm tưới nguội áp suất cao (35 Bar)",
-        },
-        {
-            "command": "TOGGLE_COOLANT",
-            "params": {"enabled": "bool"},
-            "risk_level": "LOW",
-            "desc": "Bật/tắt bơm làm mát trục chính",
-        },
-        {
-            "command": "FEED_HOLD",
-            "params": {},
-            "risk_level": "LOW",
-            "desc": "Tạm dừng tiến dao bàn máy, trục chính vẫn duy trì quay",
-        },
-        {
-            "command": "RESUME",
-            "params": {},
-            "risk_level": "LOW",
-            "desc": "Khôi phục chu trình gia công định mức 100%",
-        },
-        {
-            "command": "REFILL_SPINDLE_LUBRICANT",
-            "params": {},
-            "risk_level": "HIGH",
-            "desc": "Bơm dầu bôi trơn trục chính (khắc phục thiếu dầu ổ bi)",
-        },
-        {
-            "command": "REPAIR_COOLANT_SYSTEM",
-            "params": {},
-            "risk_level": "HIGH",
-            "desc": "Sửa chữa hệ thống bơm làm mát và thông ống",
-        },
-        {
-            "command": "REPLACE_TOOL",
-            "params": {},
-            "risk_level": "HIGH",
-            "desc": "Thay cụm dao phay mới (ATC Tool Change, reset mòn về 0%)",
-        },
-        {
-            "command": "LUBRICATE_GUIDEWAYS",
-            "params": {},
-            "risk_level": "HIGH",
-            "desc": "Bôi trơn băng trượt các trục X/Y/Z",
-        },
-        {
-            "command": "EMERGENCY_STOP",
-            "params": {},
-            "risk_level": "HIGH",
-            "desc": "Ngắt khẩn cấp trục chính và khóa trục cơ khí",
-        },
-    ],
-    "ROBOT_ARM": [
-        {
-            "command": "PAUSE_MOTION",
-            "params": {},
-            "risk_level": "LOW",
-            "desc": "Tạm dừng quỹ đạo di chuyển, động cơ giữ phanh an toàn",
-        },
-        {
-            "command": "SET_SPEED_OVERRIDE",
-            "params": {"speed_pct": "float (0 - 100)"},
-            "risk_level": "LOW",
-            "desc": "Hạ giới hạn vận tốc các khớp quay (%)",
-        },
-        {
-            "command": "RESET_PAYLOAD",
-            "params": {},
-            "risk_level": "LOW",
-            "desc": "Đặt lại tải trọng gắp về định mức chuẩn 3.5 kg",
-        },
-        {
-            "command": "RESUME",
-            "params": {},
-            "risk_level": "LOW",
-            "desc": "Khôi phục chu trình gắp đặt tự động",
-        },
-        {
-            "command": "REFILL_GEARBOX_GREASE",
-            "params": {},
-            "risk_level": "HIGH",
-            "desc": "Bơm mỡ bôi trơn chuyên dụng cho hộp số giảm tốc Khớp 3",
-        },
-        {
-            "command": "REPAIR_PNEUMATIC_SYSTEM",
-            "params": {},
-            "risk_level": "HIGH",
-            "desc": "Sửa chữa hệ thống rò rỉ khí nén tay gắp (khôi phục 6 Bar)",
-        },
-        {
-            "command": "EMERGENCY_STOP",
-            "params": {},
-            "risk_level": "HIGH",
-            "desc": "Ngắt khẩn cấp nguồn driver servo, khóa chốt phanh cơ học",
-        },
-    ],
-    "AMR_VEHICLE": [
-        {
-            "command": "RETURN_TO_CHARGER",
-            "params": {},
-            "risk_level": "LOW",
-            "desc": "Điều phối xe tự hành di chuyển về dock sạc tiếp xúc",
-        },
-        {
-            "command": "NAVIGATE_TO",
-            "params": {"station": "str", "speed_m_s": "float"},
-            "risk_level": "LOW",
-            "desc": "Điều hướng xe tới trạm đích theo giao thức VDA 5050",
-        },
-        {
-            "command": "CLEAN_LIDAR_OPTICS",
-            "params": {},
-            "risk_level": "LOW",
-            "desc": "Thổi khí làm sạch ống kính LiDAR (phục hồi SLAM)",
-        },
-        {
-            "command": "RESUME",
-            "params": {},
-            "risk_level": "LOW",
-            "desc": "Tiếp tục lộ trình vận chuyển tự hành",
-        },
-        {
-            "command": "SERVICE_DRIVE_MOTOR",
-            "params": {},
-            "risk_level": "HIGH",
-            "desc": "Kiểm tra và bôi trơn trục động cơ di chuyển bị kẹt",
-        },
-        {
-            "command": "REPLACE_BATTERY_MODULE",
-            "params": {},
-            "risk_level": "HIGH",
-            "desc": "Thay cụm cell pin LiFePO4 mới (sạc lại 95%)",
-        },
-        {
-            "command": "EMERGENCY_STOP",
-            "params": {},
-            "risk_level": "HIGH",
-            "desc": "Phanh điện từ khẩn cấp dừng xe lập tức",
-        },
-    ],
-    "AOI_INSPECTION": [
-        {
-            "command": "RECALIBRATE_OPTICS",
-            "params": {},
-            "risk_level": "LOW",
-            "desc": "Thổi khí tự động và hiệu chuẩn cân bằng trắng buồng quang học",
-        },
-        {
-            "command": "PAUSE_INSPECTION_LINE",
-            "params": {},
-            "risk_level": "LOW",
-            "desc": "Tạm dừng băng tải nạp để ngăn ngừa phế phẩm dây chuyền SMT",
-        },
-        {
-            "command": "RESUME",
-            "params": {},
-            "risk_level": "LOW",
-            "desc": "Tiếp tục chu trình kiểm tra quang học 3D tự động",
-        },
-        {
-            "command": "REPLACE_LED_MODULE",
-            "params": {},
-            "risk_level": "HIGH",
-            "desc": "Bảo trì driver đèn LED; khôi phục cường độ chiếu sáng tiêu chuẩn",
-        },
-        {
-            "command": "CLEAR_CONVEYOR_JAM",
-            "params": {},
-            "risk_level": "HIGH",
-            "desc": "Gỡ kẹt bảng mạch PCB trên băng chuyền nạp",
-        },
-    ],
-    "INJECTION_MOLDING": [
-        {
-            "command": "ADJUST_TEMPERATURE",
-            "params": {"target_temp": "float (180 - 245)"},
-            "risk_level": "LOW",
-            "desc": "Điều chỉnh nhiệt độ đặt đầu phun nhựa Zone 1 (°C)",
-        },
-        {
-            "command": "RESUME",
-            "params": {},
-            "risk_level": "LOW",
-            "desc": "Tiếp tục chu kỳ ép khuôn tự động",
-        },
-        {
-            "command": "PURGE_BARREL",
-            "params": {},
-            "risk_level": "HIGH",
-            "desc": "Thực hiện chu trình đùn xả nhựa cặn thông nòng phun",
-        },
-        {
-            "command": "SERVICE_HEATER_SSR",
-            "params": {},
-            "risk_level": "HIGH",
-            "desc": "Ngắt điện cưỡng bức và thay rơ-le bán dẫn SSR vòng nhiệt kẹt",
-        },
-        {
-            "command": "REPAIR_HYDRAULIC_VALVE",
-            "params": {},
-            "risk_level": "HIGH",
-            "desc": "Thay gioăng phớt van tỉ lệ thủy lực kẹp khuôn",
-        },
-        {
-            "command": "EMERGENCY_STOP",
-            "params": {},
-            "risk_level": "HIGH",
-            "desc": "Dừng khẩn cấp máy ép khuôn",
-        },
-    ],
+    t: [s.catalog_entry() for s in cls.command_specs().values()] for t, cls in _machine_classes().items()
+}
+
+# Offline stand-in for the LLM (no LONG_AGENT_LLM_*): the symptom each repair addresses, checked in
+# order. (metric, "high"|"low", command): a repair, or an operating command when the symptom needs no
+# repair. It reads only the readings, never the hidden fault flags.
+SYMPTOM_RULES: Dict[str, List[tuple]] = {
+    "CNC_MILLING": [("Coolant_Pressure_Bar", "low", "REPAIR_COOLANT_SYSTEM"),
+                    ("Vibration_RMS_mm_s", "high", "REPLACE_TOOL"),
+                    ("Spindle_Temp_C", "high", "REFILL_SPINDLE_LUBRICANT"),
+                    ("Spindle_Load_Pct", "high", "LUBRICATE_GUIDEWAYS")],
+    "ROBOT_ARM": [("Gripper_Pressure_Bar", "low", "REPAIR_PNEUMATIC_SYSTEM"),
+                  ("Payload_Kg", "high", "RESET_PAYLOAD"),
+                  ("Joint_3_Current_A", "high", "REFILL_GEARBOX_GREASE"),
+                  ("Motor_Temp_C", "high", "REFILL_GEARBOX_GREASE")],
+    "AMR_VEHICLE": [("Lidar_Confidence_Pct", "low", "CLEAN_LIDAR_OPTICS"),
+                    ("Battery_Temp_C", "high", "REPLACE_BATTERY_MODULE"),
+                    ("Current_Velocity_m_s", "low", "SERVICE_DRIVE_MOTOR"),
+                    # Low charge at a normal battery temperature is ordinary drain: charge, nothing to repair.
+                    ("Battery_Pct", "low", "RETURN_TO_CHARGER")],
+    "AOI_INSPECTION": [("Conveyor_Speed_m_min", "low", "CLEAR_CONVEYOR_JAM"),
+                       ("Illumination_Intensity_Lux", "low", "REPLACE_LED_MODULE"),
+                       ("Optics_Cleanliness_Pct", "low", "RECALIBRATE_OPTICS"),
+                       ("False_Reject_Rate_Pct", "high", "RECALIBRATE_OPTICS")],
+    "INJECTION_MOLDING": [("Nozzle_Temp_Zone1", "high", "SERVICE_HEATER_SSR"),
+                          ("Clamping_Pressure_Bar", "low", "REPAIR_HYDRAULIC_VALVE"),
+                          ("Injection_Pressure_Bar", "high", "PURGE_BARREL")],
 }
 
 
+def _metrics(machine_type: str) -> List[Dict[str, Any]]:
+    from machines.specifications import MACHINE_METRICS
+    return MACHINE_METRICS.get(machine_type, [])
+
+
 def _limits_text(machine_type: str) -> str:
-    """Danh nghĩa và ngưỡng của từng chỉ số (machines/specifications.py), để LLM biết chỉ số nào đang lệch."""
-    try:
-        from machines.specifications import MACHINE_METRICS
-    except ImportError:
-        return "(không có bảng ngưỡng)"
+    """Danh nghĩa và ngưỡng của từng chỉ số (machines/specifications.py)."""
     lines = []
-    for m in MACHINE_METRICS.get(machine_type, []):
+    for m in _metrics(machine_type):
         limits = ", ".join(f"{name} {m[key]}" for key, name in (
             ("min", "tối thiểu"), ("max", "tối đa"),
             ("critical_min", "nguy hiểm dưới"), ("critical_max", "nguy hiểm trên")) if key in m)
@@ -252,335 +85,221 @@ def _limits_text(machine_type: str) -> str:
     return "\n".join(lines) or "(không có bảng ngưỡng)"
 
 
-def _deviations_text(machine_type: str, telemetry: Dict[str, Any]) -> str:
-    """Các chỉ số đang ngoài [tối thiểu, tối đa], để LLM không lạc vào nhiễu quanh danh nghĩa."""
-    try:
-        from machines.specifications import MACHINE_METRICS
-    except ImportError:
-        return "(không xác định)"
+def _deviations(machine_type: str, telemetry: Dict[str, Any]) -> List[tuple]:
+    """(metric dict, value, "high"|"low") for every reading outside [min, max]."""
     out = []
-    for m in MACHINE_METRICS.get(machine_type, []):
+    for m in _metrics(machine_type):
         value = telemetry.get(m["key"])
         if not isinstance(value, (int, float)) or isinstance(value, bool):
             continue
         if "max" in m and value > m["max"]:
-            out.append(f"- {m['key']} ({m['label']}) = {value} {m['unit']} > tối đa {m['max']}")
+            out.append((m, value, "high"))
         elif "min" in m and value < m["min"]:
-            out.append(f"- {m['key']} ({m['label']}) = {value} {m['unit']} < tối thiểu {m['min']}")
-    return "\n".join(out) or "- Chưa chỉ số nào vượt ngưỡng tĩnh (cảnh báo do tốc độ biến thiên): xét chỉ số đang đổi nhanh."
+            out.append((m, value, "low"))
+    return out
+
+
+def _deviations_text(machine_type: str, telemetry: Dict[str, Any]) -> str:
+    lines = [f"- {m['key']} ({m['label']}) = {v} {m['unit']} "
+             + (f"> tối đa {m['max']}" if d == "high" else f"< tối thiểu {m['min']}")
+             for m, v, d in _deviations(machine_type, telemetry)]
+    return "\n".join(lines) or "- Chưa chỉ số nào vượt ngưỡng tĩnh (cảnh báo do tốc độ biến thiên): xét chỉ số đang đổi nhanh."
+
+
+def _attempts_text(attempts: List[Dict[str, Any]]) -> str:
+    done = [a for a in attempts or [] if a.get("repair")]
+    if not done:
+        return "- (chưa sửa gì)"
+    names = {"failed": "đã khởi động lại nhưng triệu chứng quay lại", "verifying": "triệu chứng quay lại sau khi chạy lại",
+             "awaiting_restart": "đã sửa, chưa khởi động lại"}
+    return "\n".join(f"- {a['repair']}: {names.get(a.get('outcome'), a.get('outcome'))}" for a in done)
 
 
 class RAGEngine:
-    """RAG Engine phục vụ truy vấn cẩm nang và chuẩn hóa output hành động IoT."""
+    """Chẩn đoán sự cố: đọc tài liệu, chọn lệnh sửa trong danh mục của máy."""
 
     def __init__(
         self,
         storage_dir: str = "./lightrag_storage",
         lightrag_instance: Optional[Any] = None,
         llm_callable: Optional[Callable[[str], str]] = None,
+        retriever: Optional[Callable[[str], str]] = None,
     ) -> None:
         self.storage_dir = storage_dir
         self.rag = lightrag_instance
         self.llm_callable = llm_callable
-        logger.info(f"[RAGEngine] Khởi tạo RAG Engine tại: {storage_dir}")
+        self.retriever = retriever
 
-    def build_format_prompt(
-        self,
-        machine_id: str,
-        machine_type: str,
-        telemetry: Dict[str, Any],
-    ) -> str:
-        """Sinh prompt ép LLM đọc hiểu ngữ cảnh và trả về JSON Schema cố định."""
-        available_cmds = COMMAND_CATALOG.get(machine_type, [])
-        return (
-            "Bạn là Kỹ sư AI Điều hành Nhà máy Thông minh DENSO.\n"
-            "Nhiệm vụ: Đối chiếu dữ liệu vận hành thời gian thực của máy móc với tài liệu quy chuẩn kỹ thuật, "
-            "chẩn đoán nguyên nhân sự cố và đề xuất các hành động can thiệp chuẩn hóa cho hệ thống IoT.\n\n"
-            f"--- THÔNG TIN THIẾT BỊ ---\n"
-            f"- Mã thiết bị: {machine_id}\n"
-            f"- Dòng máy: {machine_type}\n"
-            f"- Telemetry cảm biến hiện tại:\n{json.dumps(telemetry, ensure_ascii=False, indent=2)}\n\n"
-            f"--- GIÁ TRỊ DANH NGHĨA VÀ NGƯỠNG VẬN HÀNH ---\n{_limits_text(machine_type)}\n"
-            f"--- CHỈ SỐ ĐANG VƯỢT NGƯỠNG ---\n{_deviations_text(machine_type, telemetry)}\n"
-            "Nguyên nhân phải giải thích được chính các chỉ số đang vượt ngưỡng; chênh lệch nhỏ quanh danh nghĩa "
-            "là nhiễu, không nêu.\n\n"
-            f"--- DANH MỤC LỆNH PLC HỢP LỆ CHO DÒNG MÁY NÀY (BẮT BUỘC TUÂN THỦ) ---\n"
-            f"{json.dumps(available_cmds, ensure_ascii=False, indent=2)}\n\n"
-            "--- QUY TẮC ĐỊNH DẠNG ĐẦU RA (JSON SCHEMA BẮT BUỘC) ---\n"
-            "1. CHỈ ĐƯỢC CHỌN các 'command' có trong danh mục lệnh hợp lệ ở trên. Tuyệt đối không tự đặt tên lệnh mới.\n"
-            "2. 'params' phải đúng kiểu dữ liệu và giá trị quy định.\n"
-            "3. 'risk_level' phải đúng giá trị đã định nghĩa cho lệnh đó ('LOW' hoặc 'HIGH').\n"
-            "3b. Khi nguyên nhân là một hỏng hóc phần cứng (bơm, ổ bi, khí nén, dao, pin, van…), action ĐẦU TIÊN phải là "
-            "lệnh khắc phục tận gốc trong danh mục (REPAIR_*, REPLACE_*, REFILL_*, SERVICE_*, LUBRICATE_*, RECALIBRATE_*, "
-            "CLEAN_*, RETURN_TO_CHARGER…); lệnh giảm nhẹ tạm thời (giảm tốc, tăng làm mát, tạm dừng) chỉ được đi kèm "
-            "phía sau, không thay thế. Tối đa 2 action.\n"
-            "4. Phải trả về DUY NHẤT một đối tượng JSON hợp lệ, không có lời mở đầu hay kết thúc, theo định dạng:\n"
-            "{\n"
-            '  "diagnosis": "<2-3 câu tiếng Việt: chỉ số nào lệch khỏi ngưỡng (kèm giá trị), nguyên nhân khả dĩ nhất, '
-            'khuyến nghị. Không liệt kê các chỉ số bình thường>",\n'
-            '  "actions": [\n'
-            "    {\n"
-            '      "command": "<TÊN_LỆNH_CHUẨN>",\n'
-            '      "params": { ... },\n'
-            '      "risk_level": "<LOW hoặc HIGH>",\n'
-            '      "reason": "<Lý do kỹ thuật cho lệnh này>"\n'
-            "    }\n"
-            "  ]\n"
-            "}"
-        )
-
-    def query_with_schema(
-        self,
-        machine_id: str,
-        machine_type: str,
-        telemetry: Dict[str, Any],
-        mode: str = "hybrid",
-    ) -> Dict[str, Any]:
-        """
-        Tra cứu cẩm nang kỹ thuật và sử dụng LLM để format output
-        thành cấu trúc cố định được quy định trong IoT:
-        {
-            "diagnosis": str,
-            "actions": [
-                {
-                    "command": str,
-                    "params": dict,
-                    "risk_level": "LOW" | "HIGH",
-                    "reason": str
-                }
-            ]
-        }
-        """
-        prompt = self.build_format_prompt(machine_id, machine_type, telemetry)
-        logger.info(f"[RAGEngine] Gửi truy vấn có Schema tới LLM cho {machine_id} ({machine_type})")
-
-        raw_output = self._call_llm_or_rag(prompt, mode=mode)
-        parsed = self._safe_parse_json(raw_output)
-
-        # Hậu kiểm tra danh mục lệnh (Whitelisting check)
-        valid_commands = {cmd["command"] for cmd in COMMAND_CATALOG.get(machine_type, [])}
-        filtered_actions: List[Dict[str, Any]] = []
-        for act in parsed.get("actions", []):
-            cmd_name = act.get("command", "").strip().upper()
-            if cmd_name in valid_commands:
-                act["command"] = cmd_name
-                # Đồng bộ risk_level theo danh mục
-                meta = next(
-                    (c for c in COMMAND_CATALOG[machine_type] if c["command"] == cmd_name),
-                    None,
-                )
-                if meta:
-                    act["risk_level"] = meta["risk_level"]
-                filtered_actions.append(act)
-            else:
-                logger.warning(
-                    f"[RAGEngine] Lệnh '{cmd_name}' không thuộc danh mục hợp lệ của {machine_type}, đã loại bỏ."
-                )
-
-        parsed["actions"] = filtered_actions
-        return parsed
-
-    def query(self, query_text: str, mode: str = "hybrid") -> str:
-        """
-        Hàm tương thích cũ cho ô chat giao diện hoặc truy vấn văn bản tự do.
-        """
-        logger.info(f"[RAGEngine] Tiếp nhận truy vấn tự do: {query_text[:80]}")
-        text_lower = query_text.lower()
-
-        # Nếu có instance LightRAG thật
-        if self.rag and hasattr(self.rag, "query"):
-            try:
-                return str(self.rag.query(query_text))
-            except Exception as e:
-                logger.error(f"[RAGEngine] Lỗi khi gọi LightRAG: {e}")
-
-        # Phản hồi mẫu thông minh theo từ khóa (khi chạy không LLM key)
-        if "cnc_milling" in text_lower or "mc-mill-01" in text_lower:
-            if "spindle_temp_c" in text_lower or "nhiệt" in text_lower or "lube" in text_lower:
-                return (
-                    "Khuyến nghị khẩn cấp từ cẩm nang DMG MORI: Nhiệt độ trục chính vượt ngưỡng an toàn. "
-                    "Yêu cầu kích hoạt dung dịch làm mát tối đa (TOGGLE_COOLANT) và giảm tải tốc độ chạy dao "
-                    "xuống 50% (SET_FEED_OVERRIDE) để bảo vệ cụm bạc đạn số 2."
-                )
-            elif "vibration" in text_lower or "rung" in text_lower:
-                return (
-                    "Cảnh báo rung chấn vượt tiêu chuẩn ISO 10816: Nguy cơ gãy dao hoặc kẹt phôi. "
-                    "Yêu cầu thực hiện dừng máy an toàn (SAFE_STOP) để kiểm tra độ đảo dao."
-                )
-
-        elif "injection_molding" in text_lower or "mc-inj-01" in text_lower:
-            return (
-                "Cảnh báo kỹ thuật FANUC ROBOSHOT: Nhiệt độ nòng phun Zone 1 có xu hướng trôi nhiệt. "
-                "Cần điều chỉnh hạ nhiệt nòng phun về 215°C (ADJUST_TEMPERATURE) và kiểm tra áp suất kẹp khuôn."
-            )
-
-        elif "robot_arm" in text_lower or "mc-robot-01" in text_lower:
-            return (
-                "Cảnh báo quá dòng khớp J3 trên robot DENSO: Xuất hiện lực cản bất thường hoặc va chạm nhẹ. "
-                "Khuyến nghị tạm dừng chuyển động (PAUSE_MOTION) hoặc giảm tốc độ quay còn 50% (SET_SPEED_OVERRIDE)."
-            )
-
-        elif "amr_vehicle" in text_lower or "mc-amr-01" in text_lower:
-            return (
-                "Cảnh báo dung lượng pin AMR xuống dưới ngưỡng 20%: Điều phối xe tự hành di chuyển "
-                "về dock sạc ngay lập tức (RETURN_TO_CHARGER)."
-            )
-
-        elif "aoi_inspection" in text_lower or "mc-aoi-01" in text_lower:
-            return (
-                "Tỷ lệ từ chối giả (False Reject) tăng cao do bụi bám lăng kính quang học: "
-                "Cần thực hiện chu trình thổi khí tự động và hiệu chuẩn camera (RECALIBRATE_OPTICS)."
-            )
-
-        return (
-            "Hệ thống phát hiện biến động thông số ngoài dải tiêu chuẩn. "
-            "Khuyến nghị kỹ thuật viên kiểm tra trực tiếp và duy trì chế độ an toàn."
-        )
-
-    def _call_llm_or_rag(self, prompt: str, mode: str = "hybrid") -> str:
-        """Thực thi gọi LLM từ LightRAG hoặc hàm callable được cung cấp."""
-        if self.llm_callable:
-            try:
-                return self.llm_callable(prompt)
-            except Exception as exc:
-                logger.error(f"[RAGEngine] Lỗi từ llm_callable: {exc}")
-
-        if self.rag and hasattr(self.rag, "query"):
-            try:
-                return str(self.rag.query(prompt))
-            except Exception as exc:
-                logger.error(f"[RAGEngine] Lỗi từ LightRAG query: {exc}")
-
-        # Khi chưa kết nối LLM thật: Tự động phân tích prompt để trả về JSON mẫu chuẩn xác
-        return self._generate_mock_structured_response(prompt)
-
-    def _generate_mock_structured_response(self, prompt: str) -> str:
-        """Sinh JSON mẫu chuẩn xác phục vụ testbed và demo khi chưa có API key."""
-        text = prompt.lower()
-        if "cnc_milling" in text or "mc-mill-01" in text:
-            if "spindle_temp_c" in text or "rung" in text or "vibration" in text or "lube" in text:
-                return json.dumps(
-                    {
-                        "diagnosis": (
-                            "Nhiệt độ trục chính hoặc rung chấn vượt ngưỡng do thiếu bôi trơn bạc đạn. "
-                            "Cần giảm tốc chạy dao xuống 50% và chuẩn bị bổ sung dầu bôi trơn trục chính."
-                        ),
-                        "actions": [
-                            {
-                                "command": "SET_FEED_OVERRIDE",
-                                "params": {"override_pct": 50.0},
-                                "risk_level": "LOW",
-                                "reason": "Giảm tải cắt tức thời nhằm hạ nhiệt độ sinh ra",
-                            },
-                            {
-                                "command": "REFILL_SPINDLE_LUBRICANT",
-                                "params": {},
-                                "risk_level": "HIGH",
-                                "reason": "Bơm dầu bôi trơn trục chính theo khuyến nghị DMG MORI",
-                            },
-                        ],
-                    },
-                    ensure_ascii=False,
-                )
-
-        if "injection_molding" in text or "mc-inj-01" in text:
-            return json.dumps(
-                {
-                    "diagnosis": "Nhiệt độ nòng phun Zone 1 có xu hướng trôi nhiệt. Khuyến nghị hạ nhiệt về 215°C.",
-                    "actions": [
-                        {
-                            "command": "ADJUST_TEMPERATURE",
-                            "params": {"target_temp": 215.0},
-                            "risk_level": "LOW",
-                            "reason": "Điều chỉnh nhiệt độ nòng phun về dải an toàn",
-                        }
-                    ],
-                },
-                ensure_ascii=False,
-            )
-
-        if "robot_arm" in text or "mc-robot-01" in text:
-            return json.dumps(
-                {
-                    "diagnosis": "Quá dòng khớp J3. Khuyến nghị tạm dừng chuyển động và kiểm tra tải trọng gắp.",
-                    "actions": [
-                        {
-                            "command": "PAUSE_MOTION",
-                            "params": {},
-                            "risk_level": "LOW",
-                            "reason": "Tạm dừng cánh tay robot để bảo vệ motor servo",
-                        }
-                    ],
-                },
-                ensure_ascii=False,
-            )
-
-        if "amr_vehicle" in text or "mc-amr-01" in text:
-            return json.dumps(
-                {
-                    "diagnosis": "Pin xe AMR giảm thấp dưới ngưỡng. Điều phối xe quay về trạm sạc.",
-                    "actions": [
-                        {
-                            "command": "RETURN_TO_CHARGER",
-                            "params": {},
-                            "risk_level": "LOW",
-                            "reason": "Điều phối xe tự hành về dock sạc pin tự động",
-                        }
-                    ],
-                },
-                ensure_ascii=False,
-            )
-
-        if "aoi_inspection" in text or "mc-aoi-01" in text:
-            return json.dumps(
-                {
-                    "diagnosis": "Bụi bám lăng kính gây tăng tỷ lệ từ chối giả. Khuyến nghị hiệu chuẩn quang học.",
-                    "actions": [
-                        {
-                            "command": "RECALIBRATE_OPTICS",
-                            "params": {},
-                            "risk_level": "LOW",
-                            "reason": "Kích hoạt thổi khí làm sạch và cân bằng trắng quang học",
-                        }
-                    ],
-                },
-                ensure_ascii=False,
-            )
-
-        return json.dumps(
-            {
-                "diagnosis": "Thông số máy nằm ngoài tiêu chuẩn vận hành danh nghĩa.",
-                "actions": [],
-            },
-            ensure_ascii=False,
-        )
-
-    def _safe_parse_json(self, raw_text: str) -> Dict[str, Any]:
-        """Trích xuất và sửa lỗi JSON tự động từ chuỗi phản hồi của LLM."""
-        clean = (raw_text or "").strip()
-        # Loại bỏ các khối code block ```json ... ```
-        if "```" in clean:
-            match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", clean)
-            if match:
-                clean = match.group(1).strip()
-
-        # Tìm kiếm object JSON đầu tiên
-        json_match = re.search(r"\{[\s\S]*\}", clean)
-        if json_match:
-            clean = json_match.group(0)
-
+    # ------------------------------------------------------------------ documents
+    def retrieve(self, machine_type: str, telemetry: Dict[str, Any]) -> str:
+        if not self.retriever:
+            return ""
+        symptoms = "; ".join(f"{m['label']} {'cao' if d == 'high' else 'thấp'}"
+                             for m, _, d in _deviations(machine_type, telemetry))
+        query = f"Quy trình bảo trì {machine_type}: triệu chứng {symptoms or 'bất thường'}. Nguyên nhân và lệnh sửa?"
         try:
-            data = json.loads(clean)
-            if isinstance(data, dict):
-                return {
-                    "diagnosis": str(data.get("diagnosis", "")),
-                    "actions": list(data.get("actions", [])),
-                }
+            return self.retriever(query) or ""
         except Exception as exc:
-            logger.warning(f"[RAGEngine] Không thể parse JSON trực tiếp: {exc} | Raw text: {raw_text[:120]}")
+            logger.warning(f"[RAGEngine] Không lấy được tài liệu: {exc}")
+            return ""
 
-        # Fallback an toàn nếu LLM trả về văn bản tự do
-        return {
-            "diagnosis": raw_text,
-            "actions": [],
-        }
+    # ------------------------------------------------------------------ prompt
+    def build_format_prompt(self, machine_id: str, machine_type: str, telemetry: Dict[str, Any],
+                            documents: str = "", attempts: Optional[List[Dict[str, Any]]] = None) -> str:
+        catalog = COMMAND_CATALOG.get(machine_type, [])
+        repairs = [c for c in catalog if c["kind"] == "repair"]
+        others = [c for c in catalog if c["kind"] != "repair" and c["command"] != "EMERGENCY_STOP"]
+        docs = documents.strip()[:6000] if documents else ""
+        return (
+            "Bạn là Kỹ sư AI bảo trì nhà máy DENSO. Chẩn đoán nguyên nhân gốc của cảnh báo và chọn ĐÚNG MỘT lệnh sửa.\n\n"
+            f"--- THIẾT BỊ ---\n- Mã: {machine_id}\n- Dòng máy: {machine_type}\n"
+            f"- Telemetry hiện tại:\n{json.dumps(telemetry, ensure_ascii=False, indent=2)}\n\n"
+            f"--- DANH NGHĨA VÀ NGƯỠNG ---\n{_limits_text(machine_type)}\n"
+            f"--- CHỈ SỐ ĐANG VƯỢT NGƯỠNG ---\n{_deviations_text(machine_type, telemetry)}\n"
+            "Nguyên nhân phải giải thích được chính các chỉ số đang vượt ngưỡng; dao động nhỏ quanh danh nghĩa là nhiễu.\n\n"
+            "--- TÀI LIỆU BẢO TRÌ (từ kho tri thức) ---\n"
+            + (docs if docs else "(không lấy được tài liệu: chẩn đoán dựa trên ngưỡng, nói rõ điều này)") + "\n\n"
+            f"--- LỆNH SỬA CỦA MÁY (chọn 1; mỗi lệnh sửa đúng một lỗi 'fixes') ---\n"
+            f"{json.dumps(repairs, ensure_ascii=False, indent=2)}\n\n"
+            f"--- LỆNH VẬN HÀNH TẠM THỜI (tuỳ chọn, chỉ để giảm nhẹ khi chưa sửa được) ---\n"
+            f"{json.dumps(others, ensure_ascii=False, indent=2)}\n\n"
+            f"--- ĐÃ THỬ TRÊN MÁY NÀY ---\n{_attempts_text(attempts or [])}\n"
+            "Không chọn lại lệnh sửa đã thử mà triệu chứng vẫn quay lại.\n\n"
+            "--- ĐẦU RA: DUY NHẤT một JSON, không lời dẫn ---\n"
+            "{\n"
+            '  "diagnosis": "<2-3 câu tiếng Việt: chỉ số lệch (kèm giá trị), nguyên nhân gốc, dẫn tài liệu nếu có>",\n'
+            '  "repair": "<tên lệnh sửa, đúng như danh sách; null nếu không có lệnh sửa phù hợp>",\n'
+            '  "mitigation": {"command": "<lệnh vận hành>", "params": {}} hoặc null,\n'
+            '  "sources": ["<tên tài liệu đã dùng>"],\n'
+            '  "reason": "<vì sao lệnh sửa này khắc phục nguyên nhân gốc>"\n'
+            "}\n"
+            "Quy trình dừng máy, khoá an toàn, khởi động lại do hệ thống tự lập: KHÔNG đưa SAFE_STOP/LOCKOUT/START vào."
+        )
+
+    # ------------------------------------------------------------------ diagnosis
+    def query_with_schema(self, machine_id: str, machine_type: str, telemetry: Dict[str, Any],
+                          mode: str = "naive", attempts: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
+        """{"diagnosis", "repair", "mitigation", "sources", "documents_used", "notes", "actions"}.
+
+        `actions` lists the validated commands (repair first, else the mitigation) for callers that
+        route commands; it is empty when nothing valid was chosen."""
+        specs = command_specs(machine_type)
+        tried = {a["repair"] for a in attempts or [] if a.get("repair") and a.get("outcome") != "awaiting_restart"}
+        documents = self.retrieve(machine_type, telemetry)
+        prompt = self.build_format_prompt(machine_id, machine_type, telemetry, documents, attempts)
+
+        if not self.llm_callable:
+            return self._offline_diagnosis(machine_type, telemetry, specs, tried, bool(documents))
+
+        parsed = self._safe_parse_json(self._call_llm(prompt))
+        result, problem = self._validate(parsed, specs, tried)
+        if problem:
+            logger.warning(f"[RAGEngine] {machine_id}: {problem} - hỏi lại một lần")
+            retry_prompt = (prompt + f"\n\nCÂU TRẢ LỜI TRƯỚC KHÔNG DÙNG ĐƯỢC: {problem}\n"
+                            f"Lệnh sửa hợp lệ: {', '.join(n for n, s in specs.items() if s.kind == 'repair')}. "
+                            "Trả lại đúng JSON.")
+            parsed = self._safe_parse_json(self._call_llm(retry_prompt))
+            result, problem = self._validate(parsed, specs, tried)
+            if problem:
+                result["notes"].append(f"Agent không chọn được lệnh hợp lệ: {problem}")
+        result["documents_used"] = bool(documents)
+        return result
+
+    def _validate(self, parsed: Dict[str, Any], specs: Dict[str, CommandSpec], tried: set) -> tuple:
+        """The answer reduced to declared commands. Returns (result, problem or None)."""
+        result: Dict[str, Any] = {"diagnosis": str(parsed.get("diagnosis") or ""), "repair": None, "mitigation": None,
+                                  "sources": [str(s) for s in parsed.get("sources") or [] if s][:5],
+                                  "reason": str(parsed.get("reason") or ""), "notes": [], "actions": []}
+        problem = None
+        raw_repair = parsed.get("repair")
+        if raw_repair not in (None, "", "null"):
+            name = normalize_command(raw_repair, specs)
+            if name is None or specs[name].kind != "repair":
+                problem = f"'{raw_repair}' không phải lệnh sửa của máy này"
+            elif name in tried:
+                problem = f"{name} đã thử mà triệu chứng vẫn quay lại"
+            else:
+                result["repair"] = name
+        raw_mit = parsed.get("mitigation")
+        if isinstance(raw_mit, dict) and raw_mit.get("command"):
+            name = normalize_command(raw_mit.get("command"), specs)
+            if name and specs[name].kind != "repair" and name != "EMERGENCY_STOP":
+                try:
+                    result["mitigation"] = {"command": name, "params": validate_params(specs[name], raw_mit.get("params"))}
+                except ValueError as exc:
+                    result["notes"].append(f"Bỏ lệnh tạm thời: {exc}")
+            else:
+                result["notes"].append(f"Bỏ lệnh tạm thời không hợp lệ '{raw_mit.get('command')}'")
+        if result["repair"]:
+            result["actions"] = [{"command": result["repair"], "params": {}, "kind": "repair",
+                                  "risk_level": specs[result["repair"]].risk, "reason": result["reason"]}]
+        elif result["mitigation"]:
+            m = result["mitigation"]
+            result["actions"] = [{**m, "kind": specs[m["command"]].kind, "risk_level": specs[m["command"]].risk,
+                                  "reason": result["reason"]}]
+        return result, problem
+
+    def _offline_diagnosis(self, machine_type: str, telemetry: Dict[str, Any], specs: Dict[str, CommandSpec],
+                           tried: set, have_docs: bool) -> Dict[str, Any]:
+        devs = {(m["key"], d): (m, v) for m, v, d in _deviations(machine_type, telemetry)}
+        for key, direction, command in SYMPTOM_RULES.get(machine_type, []):
+            if (key, direction) in devs and command not in tried and command in specs:
+                m, v = devs[(key, direction)]
+                spec = specs[command]
+                cause = f"Nguyên nhân khả dĩ: {spec.fixes}." if spec.fixes else f"Không cần sửa: {spec.desc_vi}."
+                parsed = {"diagnosis": (f"{m['label']} = {v} {m['unit']} ({'cao' if direction == 'high' else 'thấp'} "
+                                        f"bất thường). {cause} (Chẩn đoán theo bảng triệu chứng, chưa có LLM.)"),
+                          "reason": spec.desc_vi}
+                if spec.kind == "repair":
+                    parsed["repair"] = command
+                else:
+                    parsed["mitigation"] = {"command": command, "params": {}}
+                result, _ = self._validate(parsed, specs, tried)
+                result["documents_used"] = have_docs
+                return result
+        return {"diagnosis": "Có cảnh báo nhưng chưa xác định được lệnh sửa phù hợp; cần kỹ sư kiểm tra trực tiếp.",
+                "repair": None, "mitigation": None, "sources": [], "reason": "", "notes": [], "actions": [],
+                "documents_used": have_docs}
+
+    def query(self, query_text: str, mode: str = "naive") -> str:
+        """Câu hỏi tự do của kỹ sư trên bảng tester: trả lời theo tài liệu nếu có LLM."""
+        docs = ""
+        if self.retriever:
+            try:
+                docs = self.retriever(query_text) or ""
+            except Exception as exc:
+                logger.warning(f"[RAGEngine] Không lấy được tài liệu: {exc}")
+        if self.llm_callable:
+            prompt = ("Trả lời ngắn gọn bằng tiếng Việt cho kỹ sư bảo trì, chỉ dựa trên tài liệu dưới đây; "
+                      "không có thông tin thì nói rõ.\n\n--- TÀI LIỆU ---\n"
+                      f"{docs[:6000] or '(không có)'}\n\n--- CÂU HỎI ---\n{query_text}")
+            answer = self._call_llm(prompt)
+            if answer:
+                return answer
+        if docs:
+            return "Trích tài liệu liên quan:\n" + docs[:1500]
+        return "Chưa kết nối LLM hay kho tài liệu; hãy hỏi qua giao diện DENSO (Agent Gateway)."
+
+    def _call_llm(self, prompt: str) -> str:
+        try:
+            return self.llm_callable(prompt) if self.llm_callable else ""
+        except Exception as exc:
+            logger.error(f"[RAGEngine] Lỗi từ llm_callable: {exc}")
+            return ""
+
+    @staticmethod
+    def _safe_parse_json(raw_text: str) -> Dict[str, Any]:
+        """The first JSON object in an LLM answer (code fences and surrounding text tolerated)."""
+        clean = (raw_text or "").strip()
+        fence = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", clean)
+        if fence:
+            clean = fence.group(1).strip()
+        obj = re.search(r"\{[\s\S]*\}", clean)
+        if obj:
+            try:
+                data = json.loads(obj.group(0))
+                if isinstance(data, dict):
+                    return data
+            except json.JSONDecodeError as exc:
+                logger.warning(f"[RAGEngine] JSON lỗi: {exc} | {raw_text[:120]}")
+        return {"diagnosis": raw_text or ""}

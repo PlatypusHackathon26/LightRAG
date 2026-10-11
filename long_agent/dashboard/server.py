@@ -42,6 +42,7 @@ def create_app(
     state_store: Any,
     machines_dict: Optional[dict] = None,
     approval: Any = None,
+    procedures: Any = None,
     on_chat: Optional[Callable[[str], str]] = None,
     on_decision: Optional[Callable[[str, str], Dict[str, Any]]] = None,
 ) -> FastAPI:
@@ -52,10 +53,16 @@ def create_app(
     html_file = Path(__file__).parent / "index.html"
 
     def machine_snapshot():
-        return {
-            mid: {**machine, "metrics": MACHINE_METRICS.get(machine.get("machine_type"), [])}
-            for mid, machine in state_store.get_all_machines().items()
-        }
+        out = {}
+        for mid, machine in state_store.get_all_machines().items():
+            live = (machines_dict or {}).get(mid)
+            out[mid] = {**machine, "metrics": MACHINE_METRICS.get(machine.get("machine_type"), [])}
+            if live is not None:
+                out[mid]["state"] = live.state
+                out[mid]["maintenance_remaining_s"] = round(live.maintenance_remaining_s(), 1)
+            if procedures is not None:
+                out[mid]["procedure_phase"] = procedures.phase(mid)
+        return out
 
     @app.get("/", response_class=HTMLResponse)
     def index():
@@ -72,6 +79,7 @@ def create_app(
                 for a in approval.get_pending_actions()
             ]
             snap["pending_approvals"] = approval.get_pending_actions()
+            snap["history"] = approval.get_history() if hasattr(approval, "get_history") else []
         return snap
 
     @app.get("/api/machines")
@@ -141,32 +149,29 @@ def create_app(
 
     @app.post("/api/decision")
     async def api_decision(request: Request):
+        """{action_id, decision}: 404 unknown/expired ticket, 400 bad decision, 409 the machine refused."""
+        from iot.action_approval import ActionDispatchError
         try:
             body = await request.json()
         except Exception:
             return JSONResponse({"error": "Body phai la JSON"}, status_code=400)
         action_id = body.get("action_id", "")
         decision = body.get("decision", "")
-        if on_decision is not None:
-            result = on_decision(action_id, decision)
-            status = result.get("status", "")
-            mapped = "approved" if status == "APPROVED" else (
-                "rejected" if status == "REJECTED" else status.lower())
-            if hasattr(state_store, "remove_approval"):
-                state_store.remove_approval(action_id, status=decision)
-            return {"status": status, "action_id": action_id}
-        if approval is None:
+        decide = on_decision or (approval.decide if approval is not None else None)
+        if decide is None:
             return JSONResponse({"error": "Khong co Approval service"}, status_code=500)
         try:
-            result = approval.decide(action_id, decision)
-        except (KeyError, ValueError) as exc:
-            return JSONResponse({"error": str(exc)}, status_code=404)
+            result = decide(action_id, decision)
+        except KeyError:
+            return JSONResponse({"error": f"Vé {action_id} không tồn tại hoặc đã hết hạn"}, status_code=404)
+        except ValueError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=400)
+        except ActionDispatchError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=409)
         if hasattr(state_store, "remove_approval"):
             state_store.remove_approval(action_id, status=decision)
-        st = result.get("status", "")
-        mapped = "approved" if st in ("approved", "EXECUTED") else (
-            "rejected" if st in ("rejected", "REJECTED") else st)
-        return {"status": mapped.upper() if mapped in ("approved", "rejected") else st,
+        st = str(result.get("status", ""))
+        return {"status": st.upper() if st in ("approved", "rejected") else st,
                 "action_id": action_id, "detail": result}
 
     @app.post("/api/actions/{action_id}/approve")

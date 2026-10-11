@@ -4,36 +4,12 @@ from __future__ import annotations
 import logging
 import time
 import uuid
+from collections import deque
 from datetime import datetime
 from threading import Lock
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Deque, Dict, List, Optional
 
 logger = logging.getLogger("ActionApproval")
-
-# Các lệnh rủi ro cao mặc định bắt buộc qua Human-in-the-Loop
-HIGH_RISK_COMMANDS = {
-    "EMERGENCY_STOP",
-    "REPLACE_TOOL",
-    "REFILL_SPINDLE_LUBRICANT",
-    "REPAIR_COOLANT_SYSTEM",
-    "SERVICE_HEATER_SSR",
-    "REPAIR_HYDRAULIC_VALVE",
-    "PURGE_BARREL",
-    "RESET_COLLISION_ALARM",
-    "REFILL_GEARBOX_GREASE",
-}
-
-# Các lệnh an toàn, cho phép Agent tự động can thiệp ngay để dập nguy cơ
-LOW_RISK_COMMANDS = {
-    "FEED_HOLD",
-    "SET_FEED_OVERRIDE",
-    "COOLANT_BOOST",
-    "PAUSE_MOTION",
-    "SET_SPEED_OVERRIDE",
-    "PAUSE_INSPECTION_LINE",
-    "ADJUST_TEMPERATURE",
-    "RESUME",
-}
 
 
 class ActionDispatchError(RuntimeError):
@@ -41,181 +17,155 @@ class ActionDispatchError(RuntimeError):
 
 
 class ActionApproval:
-    """Chốt chặn an toàn (Human-in-the-Loop) phân loại rủi ro, quản lý phê duyệt và bảo vệ vận hành."""
+    """Chốt chặn Human-in-the-Loop: phân loại rủi ro, giữ vé chờ duyệt, ghi lịch sử quyết định.
+
+    A ticket is either one command or a procedure (`steps`, `kind` "repair" / "restart"). Rules:
+    - risk comes from the machine's declaration (spec_lookup); a request cannot lower it, and a
+      procedure or an undeclared command is HIGH;
+    - an approved procedure is handed to the procedure runner, never dispatched here;
+    - every decision, expiry and execution is appended to `history` (newest last).
+    """
 
     def __init__(
         self,
         dispatcher: Optional[Any] = None,
         dispatcher_callback: Optional[Callable[[Dict[str, Any]], Any]] = None,
         event_bus: Optional[Any] = None,
-        default_ttl_sec: float = 300.0,  # Lệnh chờ duyệt quá 5 phút sẽ tự hết hạn (Expired)
+        default_ttl_sec: float = 300.0,
         require_approval_for_all: bool = False,  # True: cả lệnh LOW cũng chờ kỹ sư duyệt
+        spec_lookup: Optional[Callable[[str, str], Any]] = None,
+        procedure_runner: Optional[Any] = None,
     ) -> None:
         self.event_bus = event_bus
         self.default_ttl_sec = default_ttl_sec
         self.require_approval_for_all = require_approval_for_all
+        self.spec_lookup = spec_lookup
+        self.procedure_runner = procedure_runner
         self._lock = Lock()
 
         if dispatcher_callback is not None:
             self.dispatcher_callback = dispatcher_callback
         elif dispatcher is not None and hasattr(dispatcher, "execute"):
             self.dispatcher_callback = dispatcher.execute
-        elif dispatcher is not None and hasattr(dispatcher, "dispatch"):
-            # Tương thích dispatcher kiểu cũ: dispatch(machine_id, action, payload)
-            disp = dispatcher
-
-            def _compat_cb(command: Dict[str, Any]) -> Any:
-                return disp.dispatch(
-                    command.get("machine_id", "UNKNOWN"),
-                    command.get("command") or command.get("action") or "UNKNOWN",
-                    command.get("params") or command.get("payload") or {},
-                )
-
-            self.dispatcher_callback = _compat_cb
         else:
             self.dispatcher_callback = None
+        if spec_lookup is None and dispatcher is not None and hasattr(dispatcher, "machine"):
+            def _lookup(machine_id: str, name: str) -> Any:
+                machine = dispatcher.machine(machine_id)
+                return machine.commands.get(name) if machine is not None else None
+            self.spec_lookup = _lookup
 
         # Danh sách chờ: {approval_id: command_record}
         self.pending_actions: Dict[str, Dict[str, Any]] = {}
+        self.history: Deque[Dict[str, Any]] = deque(maxlen=300)
 
-    def _assess_risk_level(self, cmd_name: str, requested_level: Optional[str]) -> str:
-        """Đánh giá rủi ro hai lớp: nếu thuộc danh mục nguy hiểm thì ép buộc HIGH."""
-        cmd_upper = cmd_name.strip().upper()
-        if cmd_upper in HIGH_RISK_COMMANDS:
-            return "HIGH"
-        if requested_level:
-            return requested_level.strip().upper()
-        if cmd_upper in LOW_RISK_COMMANDS:
-            return "LOW"
-        return "HIGH"  # An toàn là trên hết: lệnh lạ chưa phân loại mặc định là HIGH
+    def _assess_risk_level(self, machine_id: str, cmd_name: str) -> str:
+        """Risk declared by the machine for this command (machines/commands.py). A request cannot
+        lower it; a command the machine does not declare, or a multi-step procedure, is HIGH."""
+        spec = self.spec_lookup(machine_id, cmd_name) if self.spec_lookup else None
+        return spec.risk if spec is not None else "HIGH"
+
+    def _record(self, event: str, rec: Dict[str, Any], **extra: Any) -> None:
+        entry = {"ts": datetime.now().isoformat(), "event": event, "approval_id": rec.get("approval_id"),
+                 "machine_id": rec.get("machine_id"), "command": rec.get("command"), "kind": rec.get("kind"),
+                 "title": rec.get("title"), **extra}
+        self.history.append(entry)
+        if self.event_bus:
+            self.event_bus.publish({"event_type": f"approval_{event}", "approval_id": rec.get("approval_id"),
+                                    "machine_id": rec.get("machine_id"), "command": rec, **extra})
 
     def _cleanup_expired(self) -> None:
-        """Dọn dẹp các ticket đã hết hạn."""
         now = time.time()
-        expired_ids = [
-            aid
-            for aid, rec in self.pending_actions.items()
-            if now > rec.get("expires_at", float("inf"))
-        ]
-        for aid in expired_ids:
-            rec = self.pending_actions.pop(aid, None)
-            logger.warning(f"[Approval] Ticket {aid} ({rec.get('command')}) ĐÃ HẾT HẠN (Expired TTL).")
-            if self.event_bus:
-                self.event_bus.publish({
-                    "event_type": "approval_expired",
-                    "approval_id": aid,
-                    "command": rec,
-                })
+        for aid in [a for a, rec in self.pending_actions.items() if now > rec.get("expires_at", float("inf"))]:
+            rec = self.pending_actions.pop(aid)
+            logger.warning(f"[Approval] Ticket {aid} ({rec.get('title') or rec.get('command')}) ĐÃ HẾT HẠN.")
+            self._record("expired", rec)
 
     def process_action_request(self, command: Dict[str, Any]) -> Dict[str, Any]:
-        """Phân loại mức độ rủi ro và xử lý luồng thực thi / chờ phê duyệt."""
+        """Run a LOW-risk single command at once; hold anything else as a ticket."""
         with self._lock:
             self._cleanup_expired()
-
             machine_id = command.get("machine_id", "UNKNOWN")
             cmd_name = str(command.get("command") or command.get("action") or "UNKNOWN")
-            user_risk = command.get("risk_level")
-            final_risk = self._assess_risk_level(cmd_name, user_risk)
-            if self.require_approval_for_all:
-                final_risk = "HIGH"
+            steps = command.get("steps")
+            risk = "HIGH" if steps or self.require_approval_for_all else self._assess_risk_level(machine_id, cmd_name)
 
-            # 1. RỦI RO THẤP (LOW): Chuyển xuống Dispatcher thực thi tức thì
-            if final_risk == "LOW":
-                logger.info(
-                    f"[Approval] Lệnh AN TOÀN [{cmd_name}] trên [{machine_id}] "
-                    f"-> Tự động phê duyệt thi hành ngay."
-                )
-                if self.dispatcher_callback:
-                    return self.dispatcher_callback(command)
-                return {"status": "NO_DISPATCHER_ATTACHED", "command": command}
+            if risk == "LOW":
+                logger.info(f"[Approval] Lệnh an toàn [{cmd_name}] trên [{machine_id}] -> thi hành ngay.")
+                if not self.dispatcher_callback:
+                    return {"status": "NO_DISPATCHER_ATTACHED", "command": command}
+                res = self.dispatcher_callback(command)
+                self._record("executed", {**command, "command": cmd_name}, result=res.get("status"))
+                return res
 
-            # 2. RỦI RO CAO (HIGH): Sinh mã phê duyệt & giữ lại chờ kỹ sư
             approval_id = f"APP-{str(uuid.uuid4())[:8].upper()}"
             now_ts = time.time()
-            command_record = {
+            record = {
                 **command,
+                "command": cmd_name if not steps else command.get("command") or command.get("title"),
+                "kind": command.get("kind") or ("command" if not steps else "repair"),
                 "approval_id": approval_id,
                 "action_id": approval_id,
                 "risk_level": "HIGH",
                 "status": "PENDING_APPROVAL",
-                "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "created_at": datetime.now().isoformat(),
                 "expires_at": now_ts + self.default_ttl_sec,
             }
-            self.pending_actions[approval_id] = command_record
-
-            logger.warning(
-                f"[Approval] LỆNH NGUY HIỂM / BẢO TRÌ [{cmd_name}] trên [{machine_id}]! "
-                f"Yêu cầu xác nhận từ kỹ sư. [Mã Ticket: {approval_id}]"
-            )
-
-            # Bắn event thông báo lên EventBus cho Dashboard / Webhook
+            self.pending_actions[approval_id] = record
+            logger.warning(f"[Approval] Chờ kỹ sư duyệt [{record.get('title') or cmd_name}] trên [{machine_id}] "
+                           f"[{approval_id}]")
             if self.event_bus:
-                self.event_bus.publish({
-                    "event_type": "approval_required",
-                    "approval_id": approval_id,
-                    "command": command_record,
-                })
+                self.event_bus.publish({"event_type": "approval_required", "approval_id": approval_id,
+                                        "command": record})
+            return record
 
-            return command_record
-
-    # --- API tương thích bản cũ (test_hitl dùng propose/decide/snapshot) ---
     def propose(self, machine_id: str, action: str, payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """Tạo đề xuất hành động (alias của process_action_request cho API cũ)."""
-        return self.process_action_request({
-            "machine_id": machine_id,
-            "command": action,
-            "action": action,
-            "payload": payload or {},
-            "params": payload or {},
-        })
-
-    def snapshot(self) -> List[Dict[str, Any]]:
-        """Danh sách ticket đang chờ (API cũ)."""
-        with self._lock:
-            self._cleanup_expired()
-            return list(self.pending_actions.values())
+        """A single-command ticket (shorthand for process_action_request)."""
+        return self.process_action_request({"machine_id": machine_id, "command": action,
+                                            "payload": payload or {}, "params": payload or {}})
 
     def approve(self, action_id: str) -> Dict[str, Any]:
-        """Kỹ sư bấm [Duyệt Thực Thi] trên giao diện."""
+        """Kỹ sư bấm [Duyệt]. A procedure starts on the runner; a single command is dispatched and
+        must succeed, otherwise ActionDispatchError (the ticket is consumed either way, and recorded)."""
         with self._lock:
             self._cleanup_expired()
-            command = self.pending_actions.pop(action_id, None)
-
-        if not command:
-            logger.warning(f"[Approval] Không thể duyệt: Ticket {action_id} không tồn tại hoặc đã hết hạn.")
+            record = self.pending_actions.pop(action_id, None)
+        if not record:
             raise KeyError(action_id)
 
-        logger.info(f"[Approval] Kỹ sư ĐÃ DUYỆT lệnh {action_id} ({command.get('command')}) -> Chuyển thi hành.")
-        if self.dispatcher_callback:
-            try:
-                exec_res = self.dispatcher_callback(command)
-            except Exception as exc:
-                raise ActionDispatchError(str(exc)) from exc
-            status = exec_res.get("status") if isinstance(exec_res, dict) else None
-            if status not in ("SUCCESS", "dispatched", "EXECUTED"):
-                raise ActionDispatchError(f"Dispatcher trả về trạng thái lỗi: {status}")
-            return {"status": "approved", "action_id": action_id, "dispatch_result": exec_res}
-        return {"status": "DISPATCHER_UNAVAILABLE", "action_id": action_id}
+        if record.get("steps"):
+            if self.procedure_runner is None or not self.procedure_runner.start(record):
+                self._record("failed", record, error="máy đang chạy một quy trình khác")
+                raise ActionDispatchError("Máy đang chạy một quy trình khác")
+            self._record("approved", record)
+            return {"status": "approved", "action_id": action_id, "procedure": "started"}
+
+        if not self.dispatcher_callback:
+            return {"status": "DISPATCHER_UNAVAILABLE", "action_id": action_id}
+        try:
+            exec_res = self.dispatcher_callback(record)
+        except Exception as exc:
+            self._record("failed", record, error=str(exc))
+            raise ActionDispatchError(str(exc)) from exc
+        status = exec_res.get("status") if isinstance(exec_res, dict) else None
+        if status not in ("SUCCESS", "dispatched", "EXECUTED"):
+            error = (exec_res or {}).get("error") or status
+            self._record("failed", record, error=error)
+            raise ActionDispatchError(f"Máy từ chối lệnh: {error}")
+        self._record("approved", record, result=status)
+        return {"status": "approved", "action_id": action_id, "dispatch_result": exec_res}
 
     def reject(self, action_id: str, reason: str = "Rejected by operator") -> Dict[str, Any]:
-        """Kỹ sư bấm [Từ Chối] trên giao diện."""
+        """Kỹ sư bấm [Từ chối]."""
         with self._lock:
-            command = self.pending_actions.pop(action_id, None)
-
-        if command:
-            logger.info(f"[Approval] Đã TỪ CHỐI lệnh {action_id}. Lý do: {reason}")
-            if self.event_bus:
-                self.event_bus.publish({
-                    "event_type": "approval_rejected",
-                    "approval_id": action_id,
-                    "command": command,
-                    "reason": reason,
-                })
-            return {"status": "rejected", "action_id": action_id}
-        raise KeyError(action_id)
+            record = self.pending_actions.pop(action_id, None)
+        if not record:
+            raise KeyError(action_id)
+        logger.info(f"[Approval] Đã TỪ CHỐI {action_id}. Lý do: {reason}")
+        self._record("rejected", record, reason=reason)
+        return {"status": "rejected", "action_id": action_id}
 
     def decide(self, action_id: str, decision: str) -> Dict[str, Any]:
-        """Endpoint đa năng phục vụ REST API Dashboard."""
         dec = decision.strip().upper()
         if dec in ("APPROVE", "APPROVED", "YES", "CONFIRM"):
             return self.approve(action_id)
@@ -224,7 +174,14 @@ class ActionApproval:
         raise ValueError(f"Decision không hợp lệ: {decision}")
 
     def get_pending_actions(self) -> List[Dict[str, Any]]:
-        """Lấy danh sách các lệnh đang chờ duyệt trên Dashboard."""
         with self._lock:
             self._cleanup_expired()
             return list(self.pending_actions.values())
+
+    def has_pending(self, machine_id: str) -> bool:
+        return any(a.get("machine_id") == machine_id for a in self.get_pending_actions())
+
+    def get_history(self) -> List[Dict[str, Any]]:
+        with self._lock:
+            self._cleanup_expired()
+            return list(self.history)

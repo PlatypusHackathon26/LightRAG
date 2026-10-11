@@ -6,7 +6,7 @@ from unittest.mock import Mock, patch
 
 from fastapi.testclient import TestClient
 from agent.brain import AgentBrain
-from agent.tools import AgentTools
+from sim_helpers import repair, restart
 from dashboard.server import create_app
 from dashboard.state_store import StateStore
 from machines.specifications import MACHINE_METRICS
@@ -128,14 +128,18 @@ class SmoothTelemetryTests(unittest.TestCase):
         machine.set_active_faults(['OPTICAL_LENS_CONTAMINATION', 'LED_DRIVER_DEGRADATION'])
         for _ in range(180):
             self.tick(machine)
-        before = (machine.optics_cleanliness_pct, machine.illumination_actual_lux, machine.false_reject_rate_pct)
-        machine.receive_plc_command('RECALIBRATE_OPTICS')
-        machine.receive_plc_command('REPLACE_LED_MODULE')
-        self.assertEqual(before, (machine.optics_cleanliness_pct, machine.illumination_actual_lux, machine.false_reject_rate_pct))
+        repair(machine, 'RECALIBRATE_OPTICS')
+        repair(machine, 'REPLACE_LED_MODULE')
+        self.assertEqual(machine.get_active_faults(), [])
+        # The parts are fixed; the readings are still on their way back, not reset to nominal.
+        clean, lux = machine.optics_cleanliness_pct, machine.illumination_actual_lux
+        self.assertLess(clean, 90)
+        self.assertLess(lux, 18500)
+        restart(machine)
         after = self.tick(machine)
-        self.assertGreater(after['Optics_Cleanliness_Pct'], before[0])
+        self.assertGreater(after['Optics_Cleanliness_Pct'], clean)
         self.assertLess(after['Optics_Cleanliness_Pct'], 99.2)
-        self.assertGreater(after['Illumination_Intensity_Lux'], before[1])
+        self.assertGreater(after['Illumination_Intensity_Lux'], lux)
         self.assertLess(after['Illumination_Intensity_Lux'], 18500)
 
     def test_api_supplies_same_metric_contract_used_by_models(self):
@@ -162,19 +166,15 @@ class SmoothTelemetryTests(unittest.TestCase):
 
     def test_tester_agent_proposes_actions_without_modifying_machines(self):
         bus, rag = Mock(), Mock()
-        rag.query.return_value = 'Hạ nhiệt nòng phun về 215°C (ADJUST_TEMPERATURE)'
-        brain = AgentBrain(rag, AgentTools(), bus, execute_actions=False)
+        rag.query_with_schema.return_value = {
+            'diagnosis': 'Nòng phun quá nhiệt',
+            'actions': [{'command': 'ADJUST_TEMPERATURE', 'params': {'target_temp': 215.0}, 'kind': 'setpoint'}],
+        }
+        brain = AgentBrain(rag, bus, execute_actions=False)
         brain.handle_alert({'machine_id': 'MC-INJ-01', 'machine_type': 'INJECTION_MOLDING', 'payload': {}})
         events = [call.args[0] for call in bus.publish.call_args_list]
         self.assertTrue(any(event['event_type'] == 'action_proposed' for event in events))
         self.assertFalse(any(event['event_type'] == 'action_command' for event in events))
-
-    def test_temperature_parser_does_not_read_a_machine_code_as_celsius(self):
-        actions = AgentTools().translate_advice_to_actions(
-            'MC-INJ-01', 'INJECTION_MOLDING', 'MC-INJ-01 cần giảm nhiệt đầu phun về 215°C'
-        )
-        temperature = next(a for a in actions if a['command'] == 'ADJUST_TEMPERATURE')
-        self.assertEqual(temperature['params']['target_temp'], 215)
 
 
 if __name__ == '__main__':

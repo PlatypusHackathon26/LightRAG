@@ -41,6 +41,12 @@ for machine_type, metrics in MACHINE_METRICS.items():
         if limits:
             MACHINE_THRESHOLDS[machine_type][metric["key"]] = limits
 
+# Below this a reading is still on its way up to the operating point: nominal minus three times
+# the sensor noise.
+WARM_UP_BELOW: Dict[str, Dict[str, float]] = {
+    t: {m["key"]: m["nominal"] - 3 * m.get("noise", 0) for m in metrics} for t, metrics in MACHINE_METRICS.items()
+}
+
 
 class TelemetryReceiver:
     def __init__(
@@ -48,10 +54,15 @@ class TelemetryReceiver:
         event_hub: Optional[Any] = None,
         heartbeat_interval_sec: float = 10.0,
         alert_cooldown_sec: float = 60.0,
+        settle_sec: float = 60.0,
     ) -> None:
         self.event_hub = event_hub
         self.heartbeat_interval_sec = heartbeat_interval_sec
         self.alert_cooldown_sec = alert_cooldown_sec
+        # After START a machine's readings climb from rest to their operating values; only ceilings
+        # are checked until it has run this long, so the climb is not mistaken for a fault.
+        self.settle_sec = settle_sec
+        self._running_since: Dict[str, float] = {}
 
         # Lưu lịch sử mẫu: {machine_id: {param_name: deque([(monotonic_ts, value), ...])}}
         self._history: Dict[str, Dict[str, Deque[Tuple[float, float]]]] = {}
@@ -129,7 +140,22 @@ class TelemetryReceiver:
             return []
 
         anomalies: List[Dict[str, Any]] = []
-        ctrl_exec = payload.get("Controller_Execution", "RUNNING")
+        state = payload.get("Controller_Execution", "RUNNING")
+
+        # Which checks apply depends on what the machine is doing:
+        # - isolated or under repair (LOCKED_OUT, MAINTENANCE, E_STOP): nothing - it is in a known safe state;
+        # - stopped, paused, charging, starting, or running for less than settle_sec: ceilings only
+        #   (overheating still matters; a pressure or speed at zero is what stopping means);
+        # - running and settled: every limit plus rate of change.
+        if state != "RUNNING":
+            self._running_since.pop(machine_id, None)
+        elif machine_id not in self._running_since:
+            self._running_since[machine_id] = now_mono
+        settled = state == "RUNNING" and now_mono - self._running_since[machine_id] >= self.settle_sec
+        if not settled:
+            self._history.pop(machine_id, None)   # rate of change restarts from settled readings
+        if state in ("LOCKED_OUT", "MAINTENANCE", "E_STOP"):
+            return []
 
         if machine_id not in self._history:
             self._history[machine_id] = {}
@@ -144,12 +170,6 @@ class TelemetryReceiver:
 
             current_val = float(val)
 
-            # Bỏ qua kiểm tra áp suất thấp nếu máy đang dừng, ngắt hoặc sạc
-            if "Pressure" in param and ctrl_exec in ("FEED_HOLD", "EMERGENCY_STOP", "PAUSED", "MOLD_MAINTENANCE", "IDLE"):
-                continue
-            if param == "Battery_Pct" and ctrl_exec == "CHARGING":
-                continue
-
             # 1. So khớp ngưỡng tĩnh cứng
             static_violated = False
             if "max" in limits and current_val > limits["max"]:
@@ -159,7 +179,7 @@ class TelemetryReceiver:
                     "reason": f"Vượt ngưỡng trần cho phép ({current_val} > {limits['max']})",
                 })
                 static_violated = True
-            elif "min" in limits and current_val < limits["min"]:
+            elif settled and "min" in limits and current_val < limits["min"]:
                 anomalies.append({
                     "param": param,
                     "value": current_val,
@@ -169,7 +189,7 @@ class TelemetryReceiver:
 
             # 2. So khớp tốc độ biến thiên theo thời gian (ROC)
             max_roc = limits.get("max_roc_per_min")
-            if max_roc is not None:
+            if max_roc is not None and settled:
                 window_sec = limits.get("window_sec", 60.0)
 
                 if param not in self._history[machine_id]:
@@ -189,7 +209,11 @@ class TelemetryReceiver:
                     # khuếch đại thành ROC/phút và kích hoạt Agent sai.
                     if duration_sec >= (window_sec * 0.8):
                         roc_per_min = ((current_val - oldest_val) / duration_sec) * 60.0
-                        if roc_per_min > max_roc:
+                        # A rise that started below the normal operating point is the machine
+                        # warming back up (after a restart), not a fault.
+                        floor = WARM_UP_BELOW.get(machine_type, {}).get(param)
+                        warming_up = floor is not None and oldest_val < floor
+                        if roc_per_min > max_roc and not warming_up:
                             anomalies.append({
                                 "param": param,
                                 "value": current_val,

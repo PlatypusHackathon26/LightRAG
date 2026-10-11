@@ -126,11 +126,72 @@ class StateStore:
                 conv["messages"].append({
                     "role": "approval", "approval_id": aid,
                     "command": cmd.get("command", ""),
+                    "title": cmd.get("title", ""),
+                    "steps": cmd.get("steps") or [],
                     "params": cmd.get("params") or cmd.get("payload") or {},
                     "reason": cmd.get("reason", ""),
                     "risk_level": cmd.get("risk_level", "HIGH"),
                     "status": "pending", "timestamp": _now(),
                 })
+            else:
+                text = self._event_text(event)
+                if text:
+                    machine = mid if mid != "UNKNOWN" else (event.get("command") or {}).get("machine_id", mid)
+                    self._find_or_create_conv(machine, "system_alert")["messages"].append(
+                        {"role": "event", "event": etype, "text": text, "timestamp": _now()})
+                if etype.startswith("approval_") and event.get("approval_id"):
+                    self._mark_approval(event["approval_id"], etype.removeprefix("approval_"))
+
+    @staticmethod
+    def _event_text(event: Dict[str, Any]) -> str:
+        """One line for the machine's thread for each step of a decision or a procedure."""
+        etype = event.get("event_type", "")
+        rec = event.get("command") if isinstance(event.get("command"), dict) else {}
+        title = rec.get("title") or rec.get("command") or event.get("command") or ""
+        if etype == "approval_approved":
+            return f"✔ Kỹ sư đã duyệt: {title}"
+        if etype == "approval_rejected":
+            return f"✖ Kỹ sư đã từ chối: {title}"
+        if etype == "approval_expired":
+            return f"⌛ Hết hạn, không ai duyệt: {title}"
+        if etype == "approval_failed":
+            return f"⚠ Không thực hiện được {title}: {event.get('error', '')}"
+        if etype == "approval_executed":
+            return f"▶ Đã thực hiện ngay (lệnh rủi ro thấp): {title} – {event.get('result', '')}"
+        if etype == "procedure_step":
+            name, status = event.get("command", ""), event.get("status")
+            if status == "running":
+                return f"… {name}: đang thực hiện"
+            if status == "done":
+                return f"✓ {name}: {event.get('detail') or 'xong'}"
+            return f"✖ {name} thất bại: {event.get('detail', '')}"
+        if etype == "procedure_done":
+            if not event.get("ok"):
+                return f"⚠ Quy trình dừng ở bước {event.get('failed_step')}; máy giữ nguyên trạng thái an toàn hiện tại."
+            if event.get("kind") == "repair":
+                return "🔧 Sửa xong, máy đang dừng. Chờ kỹ sư kiểm tra và duyệt khởi động lại."
+            return "▶ Máy đã chạy lại."
+        if etype == "verification":
+            status = event.get("status")
+            if status == "started":
+                return f"⏱ Đang theo dõi {event.get('seconds', 0):.0f} s để xác minh sửa chữa."
+            if status == "verified":
+                return f"✅ Đã xác minh: máy chạy ổn định sau {event.get('repair') or 'sửa chữa'}."
+            if status == "failed":
+                params = ", ".join(p for p in event.get("params") or [] if p)
+                return f"❌ Sửa chưa đúng: cảnh báo quay lại sau {event.get('repair') or 'sửa chữa'} ({params}). Agent chẩn đoán lại."
+        return ""
+
+    def _mark_approval(self, approval_id: str, status: str) -> None:
+        for c in self._conversations:
+            for m in c.get("messages", []):
+                if m.get("role") == "approval" and m.get("approval_id") == approval_id:
+                    m["status"] = status
+
+    def add_machine_note(self, machine_id: str, text: str) -> None:
+        with self._lock:
+            self._find_or_create_conv(machine_id, "system_alert")["messages"].append(
+                {"role": "event", "event": "note", "text": f"⚠ {text}", "timestamp": _now()})
 
     def _find_or_create_conv(self, machine_id: str, category: str) -> Dict[str, Any]:
         for c in self._conversations:

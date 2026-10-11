@@ -3,34 +3,41 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Dict, List, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 logger = logging.getLogger("AgentBrain")
 
 
 class AgentBrain:
+    """Turns edge alerts into one diagnosis and at most one proposed command per incident.
+
+    Rules: a machine that is busy (a procedure running or a ticket waiting) is not diagnosed again;
+    the diagnosis gets the repairs already tried on the machine; only commands the RAG engine
+    validated against the machine's declaration are published - never commands guessed from text.
+    """
+
     def __init__(
         self,
         rag_engine: Any,
-        tools: Any,
         event_bus: Any = None,
         execute_actions: bool = True,
         repeat_window_s: float = 0.0,
+        busy: Optional[Callable[[str], bool]] = None,
+        attempts: Optional[Callable[[str], List[Dict[str, Any]]]] = None,
     ) -> None:
         self.rag = rag_engine
-        self.tools = tools
         self.event_bus = event_bus
         self.execute_actions = execute_actions
-        # Bộ nhớ lưu trạng thái gần nhất của các máy
+        self.busy = busy
+        self.attempts = attempts
         self.machine_states: Dict[str, Dict[str, Any]] = {}
         # Trong cửa sổ này, một máy chỉ được chẩn đoán lại khi có THÊM chỉ số bất thường mới: với LLM thật,
-        # mỗi cảnh báo lặp (kể cả từng chỉ số của cùng một sự cố đến lệch nhau vài giây) là một lượt gọi API
-        # và một chẩn đoán trùng. 0 = luôn chẩn đoán (như bản gốc).
+        # mỗi cảnh báo lặp là một lượt gọi API và một chẩn đoán trùng. 0 = luôn chẩn đoán.
         self.repeat_window_s = repeat_window_s
         self._diagnosed: Dict[str, Tuple[float, set]] = {}  # máy -> (thời điểm, các chỉ số đã chẩn đoán)
 
     def handle_heartbeat(self, event: Dict[str, Any]) -> None:
-        """Gói tin 'normal' (chu kỳ định kỳ): chỉ cập nhật trạng thái sống, không gọi RAG."""
+        """Gói tin 'normal': chỉ cập nhật trạng thái sống, không chẩn đoán."""
         machine_id = event.get("machine_id", "UNKNOWN")
         self.machine_states[machine_id] = {
             "timestamp": event.get("timestamp"),
@@ -38,12 +45,19 @@ class AgentBrain:
             "payload": event.get("payload", {}),
         }
 
+    def handle_verification(self, event: Dict[str, Any]) -> None:
+        """A repair was verified or failed: the next alert is a new situation, diagnose it."""
+        if event.get("status") in ("failed", "verified"):
+            self._diagnosed.pop(event.get("machine_id", ""), None)
+
     def handle_alert(self, event: Dict[str, Any]) -> None:
-        """Gói tin 'alert': Quy trình xử lý sự cố chuẩn hóa với LLM/RAG."""
         machine_id = event.get("machine_id", "UNKNOWN")
         machine_type = event.get("machine_type", "")
         payload = event.get("payload", {})
 
+        if self.busy and self.busy(machine_id):
+            logger.info(f"[Brain] {machine_id} đang có quy trình hoặc vé chờ duyệt: không chẩn đoán thêm")
+            return
         params = {str(a.get("param")) for a in event.get("anomalies") or [] if isinstance(a, dict)}
         now = time.monotonic()
         if self.repeat_window_s:
@@ -51,104 +65,48 @@ class AgentBrain:
             if now - since < self.repeat_window_s and params <= seen:
                 logger.info(f"[Brain] Bỏ qua cảnh báo lặp {machine_id} {sorted(params)} (đã chẩn đoán gần đây)")
                 return
-            # Chỉ số mới tham gia: chẩn đoán lại với toàn bộ telemetry hiện tại.
             self._diagnosed[machine_id] = (now, (seen | params) if now - since < self.repeat_window_s else params)
 
-        logger.info(f"[Brain] Bắt đầu xử lý cảnh báo cho máy {machine_id} ({machine_type})")
+        logger.info(f"[Brain] Chẩn đoán {machine_id} ({machine_type})")
+        attempts = self.attempts(machine_id) if self.attempts else []
+        try:
+            result = self.rag.query_with_schema(machine_id=machine_id, machine_type=machine_type,
+                                                telemetry=payload, attempts=attempts)
+        except Exception as exc:
+            logger.exception(f"[Brain] Chẩn đoán {machine_id} lỗi: {exc}")
+            result = {"diagnosis": f"Agent không chẩn đoán được cảnh báo này ({exc}); cần kỹ sư kiểm tra.",
+                      "actions": []}
 
-        # =========================================================================
-        # BƯỚC 1: Gọi RAG + LLM với Schema ép buộc để chuẩn hóa định dạng IoT
-        # =========================================================================
-        diagnosis_text = ""
-        actions: List[Dict[str, Any]] = []
+        text = str(result.get("diagnosis") or "").strip()
+        if result.get("sources"):
+            text += "\n\nNguồn: " + "; ".join(result["sources"])
+        elif result.get("documents_used") is False:
+            text += "\n\n(Không lấy được tài liệu bảo trì: chẩn đoán dựa trên ngưỡng vận hành.)"
+        for note in result.get("notes") or []:
+            text += f"\n⚠ {note}"
+        if self.event_bus and text:
+            self.event_bus.publish({"event_type": "chat_notification", "machine_id": machine_id,
+                                    "text": text, "source": "AI_RAG"})
 
-        schema_result = None
-        # Kiểm tra nếu RAG hỗ trợ query_with_schema và trả về dict thực sự
-        if hasattr(self.rag, "query_with_schema") and callable(getattr(self.rag, "query_with_schema", None)):
-            try:
-                res = self.rag.query_with_schema(
-                    machine_id=machine_id,
-                    machine_type=machine_type,
-                    telemetry=payload,
-                )
-                if isinstance(res, dict):
-                    schema_result = res
-            except Exception as exc:
-                logger.warning(f"[Brain] Lỗi gọi query_with_schema: {exc}")
-
-        if schema_result is not None:
-            diagnosis_text = str(schema_result.get("diagnosis", "") or "")
-            raw_actions = schema_result.get("actions", [])
-            actions = list(raw_actions) if isinstance(raw_actions, (list, tuple)) else []
-        else:
-            # Fallback tương thích nếu đối tượng RAG chỉ hỗ trợ query chuỗi
-            rag_input = (
-                f"đây là máy {machine_type} (ID: {machine_id}), "
-                f"đang có trạng thái {payload}, "
-                f"hãy đưa ra giải pháp giúp máy ổn định"
-            )
-            raw_advice = self.rag.query(rag_input) if hasattr(self.rag, "query") else ""
-            diagnosis_text = str(raw_advice) if raw_advice is not None else ""
-
-        # Phát câu chẩn đoán của RAG lên Chatbot Dashboard cho kỹ sư đọc
-        if self.event_bus and diagnosis_text:
+        for act in result.get("actions") or []:
+            if not self.event_bus or not isinstance(act, dict) or not act.get("command"):
+                continue
             self.event_bus.publish({
-                "event_type": "chat_notification",
+                "event_type": "action_command" if self.execute_actions else "action_proposed",
                 "machine_id": machine_id,
-                "text": diagnosis_text,
-                "source": "AI_RAG",
+                "command": act["command"],
+                "kind": act.get("kind", "control"),
+                "params": act.get("params", {}),
+                "payload": act.get("params", {}),
+                "risk_level": act.get("risk_level", "HIGH"),
+                "reason": act.get("reason") or "Theo chẩn đoán của agent",
+                "diagnosis": result.get("diagnosis", ""),
             })
-
-        # =========================================================================
-        # BƯỚC 2: Phòng vệ an toàn (Defensive Fallback)
-        # Nếu LLM không sinh ra actions trong JSON thì dùng Tool bóc tách từ text
-        # =========================================================================
-        if not actions and diagnosis_text and hasattr(self.tools, "translate_advice_to_actions"):
-            logger.info("[Brain] Kích hoạt Defensive Fallback: Dùng tools để bóc tách hành động từ văn bản.")
-            extracted = self.tools.translate_advice_to_actions(
-                machine_id=machine_id,
-                machine_type=machine_type,
-                advice_text=diagnosis_text,
-            )
-            if isinstance(extracted, (list, tuple)):
-                actions = list(extracted)
-
-        # =========================================================================
-        # BƯỚC 3: Đẩy các hành động chuẩn hóa cố định vào EventBus cho IoT Core
-        # =========================================================================
-        if actions and self.event_bus:
-            for act in actions:
-                if not isinstance(act, dict):
-                    continue
-                cmd_name = act.get("command")
-                if not cmd_name:
-                    continue
-
-                params = act.get("params", {})
-                risk_level = act.get("risk_level", "LOW")
-                reason = act.get("reason", "Thực thi theo khuyến nghị chuẩn từ RAG")
-
-                command_event = {
-                    "event_type": "action_command" if self.execute_actions else "action_proposed",
-                    "machine_id": machine_id,
-                    "command": cmd_name,
-                    "params": params,
-                    "payload": params,
-                    "risk_level": risk_level,
-                    "reason": reason,
-                }
-                self.event_bus.publish(command_event)
-                logger.info(
-                    f"[Brain] Đã đẩy lệnh chuẩn '{cmd_name}' (Risk: {risk_level}) "
-                    f"vào Bus cho máy {machine_id}"
-                )
+            logger.info(f"[Brain] Đề xuất '{act['command']}' cho {machine_id}")
 
     def handle_user_query(self, query_text: str) -> str:
-        """Xử lý tin nhắn do user chủ động gửi từ ô chat trên Dashboard."""
+        """Câu hỏi kỹ sư gõ trên bảng tester."""
         text = (query_text or "").strip()
         if not text:
             return "Vui lòng nhập nội dung cần tra cứu."
-
-        logger.info(f"[Brain] User truy vấn: {text[:80]}")
-        advice = self.rag.query(text)
-        return advice
+        return self.rag.query(text)

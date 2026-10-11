@@ -1,13 +1,18 @@
 from __future__ import annotations
 
 import random
-import time
 from typing import Any, Dict, Optional
+
+from machines import commands as cmd
 from machines.base_machine import BaseMachine
+from machines.commands import CommandSpec
 
 
 class AoiInspection(BaseMachine):
     """Mô phỏng máy kiểm tra quang học 3D SMT (Model: Koh Young Zenith 3D AOI)."""
+
+    MACHINE_TYPE = "AOI_INSPECTION"
+    LIGHTS_OFF_STATES = frozenset({cmd.LOCKED_OUT, cmd.MAINTENANCE, cmd.E_STOP})
 
     def __init__(self, event_hub: Optional[Any] = None) -> None:
         super().__init__(
@@ -19,7 +24,6 @@ class AoiInspection(BaseMachine):
         )
 
         # 1. Trạng thái điều khiển
-        self.state = "RUNNING"
         self.target_conveyor_speed = 1.2
         self.illumination_target_lux = 18500.0
 
@@ -34,7 +38,6 @@ class AoiInspection(BaseMachine):
         self._inspection_progress = 0.0
         self.boards_inspected_total = 1500
         self.boards_flagged_defect = 25
-        self.last_update_time = time.time()
 
         # 3. Khai báo danh mục lỗi
         self.active_faults = {
@@ -43,39 +46,59 @@ class AoiInspection(BaseMachine):
             "SMEMA_CONVEYOR_JAM": False,          # Kẹt bảng mạch trên băng chuyền
         }
 
+    @classmethod
+    def command_specs(cls) -> Dict[str, CommandSpec]:
+        specs = cmd.control_commands(hold_aliases=("PAUSE_INSPECTION_LINE", "PAUSE_LINE"),
+                                     hold_desc="Tạm dừng băng tải nạp, giữ buồng quang học sẵn sàng")
+        for spec in (
+            cmd.repair("RECALIBRATE_OPTICS", "OPTICAL_LENS_CONTAMINATION",
+                       "Vệ sinh lăng kính và hiệu chuẩn lại buồng quang học", 30,
+                       ("CLEAN_OPTICS", "CLEAN_LENS", "CALIBRATE_OPTICS")),
+            cmd.repair("REPLACE_LED_MODULE", "LED_DRIVER_DEGRADATION", "Thay module / driver đèn LED", 40,
+                       ("REPLACE_LED", "REPLACE_LED_DRIVER")),
+            cmd.repair("CLEAR_CONVEYOR_JAM", "SMEMA_CONVEYOR_JAM", "Gỡ bảng mạch kẹt trên băng chuyền", 20,
+                       ("CLEAR_JAM", "UNJAM_CONVEYOR", "GO_KET_BANG_TAI")),
+        ):
+            specs[spec.name] = spec
+        return specs
+
+    def on_repaired(self, name: str) -> None:
+        if name == "RECALIBRATE_OPTICS":
+            self.optics_recovery_rate = 0.5   # the next inspections re-measure a clean lens quickly
+
+    def at_rest(self) -> bool:
+        return self.conveyor_speed_m_min < 0.05
+
     def generate_telemetry(self) -> Dict[str, Any]:
         with self._lock:
-            current_time = time.time()
-            dt = max(0.1, min(current_time - self.last_update_time, 2.5))
-            self.last_update_time = current_time
+            dt = self._tick()
 
             # --- BĂNG CHUYỀN ---
-            if self.state == "RUNNING" and not self.active_faults["SMEMA_CONVEYOR_JAM"]:
-                target_speed = self.target_conveyor_speed
-            else:
-                target_speed = 0.0
+            target_speed = (self.target_conveyor_speed
+                            if self.running and not self.active_faults["SMEMA_CONVEYOR_JAM"] else 0.0)
             self.conveyor_speed_m_min = self.ramp(self.conveyor_speed_m_min, target_speed, dt, 0.2)
             target_cycle = 4.1 if target_speed > 0 else 0.0
             self.inspection_cycle_time_sec = self.ramp(self.inspection_cycle_time_sec, target_cycle, dt, 0.7)
 
-            # --- ĐỘ SẠCH THẤU KÍNH & CHIẾU SÁNG ---
+            # --- ĐỘ SẠCH THẤU KÍNH ---
             if self.active_faults["OPTICAL_LENS_CONTAMINATION"]:
+                self.optics_recovery_rate = 0.1
                 self.optics_cleanliness_pct = max(30.0, self.optics_cleanliness_pct - 0.5 * dt)
             else:
                 self.optics_cleanliness_pct = self.ramp(
-                    self.optics_cleanliness_pct, self.optics_cleanliness_target_pct,
-                    dt, self.optics_recovery_rate,
+                    self.optics_cleanliness_pct, self.optics_cleanliness_target_pct, dt, self.optics_recovery_rate,
                 )
 
-            if self.active_faults["LED_DRIVER_DEGRADATION"]:
-                self.illumination_actual_lux = max(9000.0, self.illumination_actual_lux - 350.0 * dt)
+            # --- CHIẾU SÁNG: tắt khi khoá an toàn / bảo trì / dừng khẩn cấp ---
+            if self.state in self.LIGHTS_OFF_STATES:
+                self.illumination_actual_lux = max(0.0, self.illumination_actual_lux - 3000.0 * dt)
             else:
-                self.illumination_actual_lux = self.ramp(
-                    self.illumination_actual_lux, self.illumination_target_lux, dt, 350.0
-                )
+                # A degraded LED driver only reaches 9000 Lux.
+                target_lux = 9000.0 if self.active_faults["LED_DRIVER_DEGRADATION"] else self.illumination_target_lux
+                self.illumination_actual_lux = self.ramp(self.illumination_actual_lux, target_lux, dt, 350.0)
 
-            # --- TỶ LỆ TỪ CHỐI GIẢ (FRR %) ---
-            if self.state == "RUNNING":
+            # --- TỶ LỆ TỪ CHỐI GIẢ (FRR %): chỉ đo khi đang kiểm tra ---
+            if self.running:
                 dirt_penalty = max(0.0, (88.0 - self.optics_cleanliness_pct) * 0.18)
                 lux_penalty = max(0.0, abs(18500.0 - self.illumination_actual_lux) / 500.0 * 0.4)
                 target_frr = 0.6 + dirt_penalty + lux_penalty
@@ -92,7 +115,7 @@ class AoiInspection(BaseMachine):
                             self.boards_flagged_defect += 1
 
             noise_frr = random.uniform(-0.04, 0.04)
-            noise_lux = random.uniform(-15.0, 15.0)
+            noise_lux = random.uniform(-15.0, 15.0) if self.illumination_actual_lux > 100.0 else 0.0
             noise_clean = random.uniform(-0.1, 0.1)
             noise_conv = random.uniform(-0.02, 0.02) if self.conveyor_speed_m_min > 0.0 else 0.0
 
@@ -107,62 +130,3 @@ class AoiInspection(BaseMachine):
                 "Total_Defect_Count": self.boards_flagged_defect,
                 "Simulated_Active_Faults": self.get_active_faults(),
             }
-
-    def detect_anomaly(self, telemetry: Dict[str, Any]) -> Optional[str]:
-        frr = telemetry.get("False_Reject_Rate_Pct", 0.0)
-        clean = telemetry.get("Optics_Cleanliness_Pct", 100.0)
-        lux = telemetry.get("Illumination_Intensity_Lux", 18500.0)
-
-        if frr > 4.0:
-            return "CRITICAL_HIGH_FALSE_REJECT_RATE"
-        if clean < 75.0:
-            return "OPTICAL_LENS_DEGRADED"
-        if lux < 14000.0:
-            return "ILLUMINATION_UNDER_THRESHOLD"
-        if frr > 2.0:
-            return "WARNING_FRR_ELEVATED"
-        return None
-
-    def receive_plc_command(
-        self, command: str, payload: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
-        payload = payload or {}
-        with self._lock:
-            detail = ""
-
-            if command == "RECALIBRATE_OPTICS":
-                self.clear_fault("OPTICAL_LENS_CONTAMINATION")
-                self.optics_cleanliness_target_pct = 99.0
-                self.optics_recovery_rate = 0.5
-                detail = "Thổi khí nén tự động và hiệu chuẩn lại cân bằng trắng buồng quang học thành công."
-
-            elif command == "REPLACE_LED_MODULE":
-                self.clear_fault("LED_DRIVER_DEGRADATION")
-                detail = "Đã bảo trì driver LED; cường độ sáng khôi phục mức tiêu chuẩn."
-
-            elif command == "CLEAR_CONVEYOR_JAM":
-                self.clear_fault("SMEMA_CONVEYOR_JAM")
-                detail = "Đã gỡ kẹt PCB trên băng chuyền nạp."
-
-            elif command == "PAUSE_INSPECTION_LINE":
-                self.state = "LINE_PAUSED"
-                detail = "Tạm dừng băng tải nạp để ngăn ngừa phế phẩm dây chuyền SMT."
-
-            elif command == "RESUME":
-                self.state = "RUNNING"
-                detail = "Tiếp tục chu trình kiểm tra quang học 3D tự động."
-
-            else:
-                detail = f"Lệnh '{command}' không hợp lệ trên cầu nối AOI."
-
-            return self._build_event(
-                "plc_command_executed",
-                {
-                    "machine_id": self.machine_id,
-                    "command": command,
-                    "execution_detail": detail,
-                    "current_state": self.state,
-                    "active_faults": self.get_active_faults(),
-                },
-                priority="info",
-            )
