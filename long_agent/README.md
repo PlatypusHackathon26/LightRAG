@@ -153,7 +153,7 @@ python main.py          # bảng tester tại http://127.0.0.1:8085
 | `LONG_AGENT_PROPOSE` | `1` | `0` = chỉ chẩn đoán, không đề xuất lệnh |
 | `LONG_AGENT_AUTO_LOW` | — | `1` = lệnh rủi ro thấp chạy ngay (hành vi gốc); mặc định mọi lệnh chờ duyệt |
 | `LONG_AGENT_REPEAT_S` | `120` | Khác 0: trong một đợt sự cố chỉ chẩn đoán lại khi có chỉ số mới; 0 = chẩn đoán mọi cảnh báo |
-| `LONG_AGENT_RECOVERY_S` | `30` | Máy bình thường liên tục bấy nhiêu giây thì đợt sự cố đóng: các lệnh còn chờ của máy được rút, lần cảnh báo sau là sự cố mới |
+| `LONG_AGENT_RECOVERY_S` | `20` | Máy bình thường liên tục bấy nhiêu giây thì đợt sự cố đóng: các lệnh còn chờ của máy được rút, lần cảnh báo sau là sự cố mới |
 
 ## 🔌 9. API (`dashboard/server.py`)
 

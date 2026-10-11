@@ -44,7 +44,7 @@ class RecoveryTracker:
     """alert(machine) mở / giữ đợt; normal(machine) trả True đúng một lần khi đợt đóng."""
 
     def __init__(
-        self, hold_s: float = 30.0, clock: Optional[Callable[[], float]] = None
+        self, hold_s: float = 20.0, clock: Optional[Callable[[], float]] = None
     ) -> None:
         self.hold_s = hold_s
         self._clock = clock or time.monotonic

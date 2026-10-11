@@ -85,9 +85,9 @@ def main():
     bus.subscribe("alert", brain.handle_alert)
     bus.subscribe("normal", brain.handle_heartbeat)
 
-    # Đợt sự cố: mở ở cảnh báo đầu, đóng khi máy bình thường liên tục 30 s -> 'machine_recovered'.
+    # Đợt sự cố: mở ở cảnh báo đầu, đóng khi máy bình thường liên tục 20 s -> 'machine_recovered'.
     recovery = RecoveryTracker(
-        hold_s=float(os.environ.get("LONG_AGENT_RECOVERY_S", "30"))
+        hold_s=float(os.environ.get("LONG_AGENT_RECOVERY_S", "20"))
     )
     bus.subscribe("alert", lambda e: recovery.alert(e.get("machine_id", "UNKNOWN")))
 
