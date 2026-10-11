@@ -10,13 +10,56 @@ Dự án cho đề A3 – DENSO Factory Hacks 2026:
 
 ## Cấu trúc
 
-| Thư mục | Nội dung | Hướng dẫn |
-|---|---|---|
-| [`denso/`](denso/) | Pipeline xử lý tài liệu, Agent Gateway (backend của giao diện), đánh giá độ chính xác, kịch bản chạy | [denso/README.md](denso/README.md) – **bắt đầu ở đây** |
-| [`long_agent/`](long_agent/) | Long-agent: 5 máy nhà xưởng mô phỏng, edge IoT gateway, agent, dashboard tester | [long_agent/README.md](long_agent/README.md) |
-| [`lightrag_webui/`](lightrag_webui/) | Giao diện web (React); phần của dự án nằm trong `src/features/agentic/` | |
-| [`lightrag/`](lightrag/) | Lõi RAG – [LightRAG](https://github.com/HKUDS/LightRAG), dùng nguyên, không sửa | [docs/LightRAG-README.md](docs/LightRAG-README.md) |
-| `tests/`, `docs/`, `scripts/` | Test, tài liệu thiết kế và bộ cài đặt của LightRAG gốc | |
+```
+LightRAG/
+├── README.md                    tài liệu này
+├── .env                         (gitignored) cấu hình + API key, ghép từ env.example và denso/env.denso
+│
+├── denso/                       ★ phần chính của dự án – bắt đầu ở denso/README.md
+│   ├── scripts/serve_chat.ps1   bật toàn bộ backend (-WithUI giao diện, -WithIoT Long-agent, -Tunnel demo)
+│   ├── start.ps1                bật Docker Desktop + Docling
+│   ├── pipeline/                xử lý tài liệu: Docling → OCR → làm sạch → nạp vào LightRAG
+│   ├── gateway/                 Agent Gateway :9700 – backend của giao diện
+│   │   ├── app.py               API, phân quyền, trích dẫn, upload/xoá tài liệu, relay dashboard
+│   │   ├── long_agent.py        dựng sự cố + thẻ duyệt HITL từ cảnh báo của Long-agent
+│   │   └── jobs.py, language.py, lookup.py
+│   ├── tools/                   proxy giới hạn tốc độ LLM, reranker ưu tiên ngôn ngữ
+│   ├── prompts/                 quy tắc trả lời, loại thực thể cho đồ thị
+│   ├── tests/                   test gateway và pipeline (pytest)
+│   ├── docs/                    đặc tả API gateway
+│   ├── docling/                 Docling bản CPU (Docker)
+│   └── data/ logs/ results/     (gitignored) tài liệu, log, kết quả đo
+│
+├── long_agent/                  Long-agent – giám sát nhà xưởng mô phỏng (long_agent/README.md)
+│   ├── main.py                  ghép 3 tầng + FastAPI :8085
+│   ├── machines/                5 máy mô phỏng (CNC, robot, ép nhựa, AOI, AMR) + ngưỡng
+│   ├── iot/                     event bus, lọc bất thường, duyệt HITL, gửi lệnh tới máy mô phỏng
+│   ├── agent/                   chẩn đoán bằng LLM, đề xuất lệnh sửa gốc
+│   ├── dashboard/               bảng tester (bật lỗi mô phỏng), API trạng thái
+│   ├── machines_description.md  mô tả máy và lỗi – cũng nạp vào kho tri thức
+│   └── tests/
+│
+├── lightrag_webui/              giao diện web (React + Vite), deploy lên Vercel (vercel.json)
+│   ├── agentic.html             trang vào của giao diện DENSO
+│   └── src/
+│       ├── features/agentic/    ★ giao diện DENSO: chat, Automated Alerts, thẻ duyệt, kho tri thức
+│       │   ├── components/      thanh trên (nút Dashboard), sidebar sự cố, khung chat, thẻ HITL
+│       │   ├── stores/          trạng thái hội thoại, duyệt / từ chối qua gateway
+│       │   ├── liveIncidents.ts gộp sự cố từ gateway vào sidebar, theo thứ tự thời gian
+│       │   └── mock/            dữ liệu mẫu khi chạy không có gateway
+│       ├── api/agent.ts         client gọi Agent Gateway
+│       └── ...                  phần còn lại là WebUI gốc của LightRAG
+│
+├── lightrag/                    lõi RAG – LightRAG (HKUDS), dùng nguyên, không sửa
+├── tests/                       test của lõi LightRAG
+├── docs/                        tài liệu LightRAG gốc (docs/LightRAG-README.md) và thiết kế lõi
+├── scripts/                     bộ chạy test, bộ cài đặt môi trường của LightRAG
+├── prompts/                     mẫu prompt của LightRAG
+├── pyproject.toml, uv.lock      phụ thuộc Python (uv sync)
+├── Dockerfile, docker-compose-full.yml, Makefile, env.example   từ LightRAG gốc
+│
+└── rag_storage/                 (gitignored) kho tri thức: level_1/, level_1_lookup/
+```
 
 ## Chạy nhanh
 

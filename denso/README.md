@@ -99,6 +99,7 @@ denso/
 │
 ├── gateway/                     backend của giao diện agentic
 │   ├── app.py                   API, phân quyền, trích dẫn, xoá tài liệu
+│   ├── long_agent.py            sự cố + thẻ duyệt HITL từ cảnh báo của Long-agent
 │   ├── jobs.py                  hàng đợi upload: parse → clean → ingest → ảnh
 │   ├── language.py              nhận diện ngôn ngữ, chỉ dẫn trả lời, câu chào
 │   ├── lookup.py                tra cứu từ khoá trong catalogue theo xe
