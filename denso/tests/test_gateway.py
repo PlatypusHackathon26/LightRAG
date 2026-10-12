@@ -1349,7 +1349,7 @@ def test_only_the_latest_long_agent_diagnosis_is_shown():
     (inc,) = incidents_from_state({**LA_STATE, "conversations": [conv]})
     diagnoses = [m["content"] for m in inc["messages"] if m["role"] == "assistant"]
     assert diagnoses == [
-        "**Chẩn đoán của agent giám sát (Long-agent):** Coolant pump failure: pressure 0 bar, spindle 139.9 °C."
+        "**Chẩn đoán của Agent giám sát:** Coolant pump failure: pressure 0 bar, spindle 139.9 °C."
     ]
 
 

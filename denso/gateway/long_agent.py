@@ -16,7 +16,7 @@ MACHINE_TYPE_VI = {
     "AOI_INSPECTION": "Máy kiểm tra quang AOI",
     "INJECTION_MOLDING": "Máy ép phun",
 }
-DIAGNOSIS_PREFIX = "**Chẩn đoán của agent giám sát (Long-agent):** "
+DIAGNOSIS_PREFIX = "**Chẩn đoán của Agent giám sát:** "
 SHOWN_MESSAGES = (
     16  # one line per metric, the episode's diagnosis and the decisions' results
 )
