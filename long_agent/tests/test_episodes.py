@@ -131,3 +131,30 @@ def test_the_receiver_says_per_sample_whether_a_machine_is_still_out_of_range():
         sample(0.0) is True
     )  # the alert is in cooldown, the machine is still abnormal
     assert sample(20.0) is False
+
+
+def test_what_came_of_each_decision_is_written_to_the_incident_thread():
+    store = StateStore()
+    store.handle_event(_alert())
+    store.handle_event(
+        {
+            "event_type": "command_response",
+            "machine_id": "MC-MILL-01",
+            "command": "REPAIR_COOLANT_SYSTEM",
+            "status": "SUCCESS",
+            "details": {"execution_detail": "Ap suat phuc hoi"},
+        }
+    )
+    store.handle_event(
+        {
+            "event_type": "approval_rejected",
+            "command": {"machine_id": "MC-MILL-01", "command": "COOLANT_BOOST"},
+            "reason": "Đã sửa tận gốc bằng REPAIR_COOLANT_SYSTEM",
+        }
+    )
+    store.handle_event({"event_type": "machine_recovered", "machine_id": "MC-MILL-01"})
+    (conv,) = store.get_snapshot()["conversations"]
+    results = [m["text"] for m in conv["messages"] if m["role"] == "result"]
+    assert results[0] == "✅ Đã thực hiện REPAIR_COOLANT_SYSTEM: Ap suat phuc hoi"
+    assert results[1].startswith("↩ Đã rút đề xuất COOLANT_BOOST")
+    assert results[2].startswith("✅ Mọi chỉ số đã về bình thường")

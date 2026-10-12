@@ -1,6 +1,6 @@
 # DENSO A3 – Knowledge Agent
 
-Dự án cho đề A3 – DENSO Factory Hacks 2026. Một trợ lý AI cho nhà xưởng, gồm hai phần dùng chung một giao diện:
+Dự án cho đề A3 – DENSO Factory Hacks 2026. Một trợ lý AI cho nhà xưởng, gồm hai phần với hai giao diện:
 
 - **Chatbot tài liệu kỹ thuật** – đọc tài liệu doanh nghiệp cấp (PDF, bản scan, ảnh chụp, DOCX, XLSX, TXT;
   tiếng Việt, Anh, Nhật), trả lời bằng ngôn ngữ người hỏi, **luôn kèm tài liệu và số trang**, và nói rõ
@@ -170,6 +170,7 @@ LightRAG/
 │   ├── main.py                  ghép 3 tầng + FastAPI :8085
 │   ├── machines/                Machines: 5 máy mô phỏng + ngưỡng (specifications.py)
 │   ├── iot/                     IoT devices + HITL: event bus, lọc bất thường, duyệt, gửi lệnh
+│   │   └── recovery.py          đợt sự cố của từng máy, tự rút lệnh tạm thời khi đã sửa / máy hồi phục
 │   ├── agent/                   Agent: chẩn đoán bằng LLM, đề xuất lệnh sửa gốc
 │   ├── dashboard/               bảng tester (bật lỗi mô phỏng), API trạng thái
 │   ├── machines_description.md  mô tả máy và lỗi – cũng nạp vào kho tri thức
@@ -182,6 +183,8 @@ LightRAG/
 │       │   ├── components/      thanh trên (nút Dashboard), sidebar sự cố, khung chat, thẻ HITL
 │       │   ├── stores/          trạng thái hội thoại, duyệt / từ chối qua gateway
 │       │   ├── liveIncidents.ts gộp sự cố từ gateway vào sidebar, theo thứ tự thời gian
+│       │   ├── chatHistory.ts   lịch sử trò chuyện (lưu trên trình duyệt)
+│       │   ├── alertDismissal.ts xoá cảnh báo đã xử lý khỏi sidebar
 │       │   └── mock/            dữ liệu mẫu khi chạy không có gateway
 │       ├── api/agent.ts         client gọi Agent Gateway
 │       └── ...                  phần còn lại là WebUI gốc của LightRAG

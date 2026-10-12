@@ -166,6 +166,34 @@ class StateStore:
                 if st is not None and st.get("episode_started"):
                     st["episode_ended"] = _now()
                     st["status"] = "normal"
+                    self._add_result(
+                        mid, "✅ Mọi chỉ số đã về bình thường – sự cố đã xử lý xong."
+                    )
+            elif etype == "command_response":
+                # Kết quả lệnh đã duyệt, hiện lại trong hội thoại sự cố của máy.
+                command = event.get("command", "")
+                detail = (event.get("details") or {}).get(
+                    "execution_detail"
+                ) or event.get("error", "")
+                status = event.get("status", "")
+                if status == "SUCCESS":
+                    text = f"✅ Đã thực hiện {command}" + (
+                        f": {detail}" if detail else ""
+                    )
+                else:
+                    text = f"❌ {command} không thực hiện được ({status})" + (
+                        f": {detail}" if detail else ""
+                    )
+                self._add_result(mid, text)
+            elif etype == "approval_rejected":
+                cmd = event.get("command") or {}
+                reason = event.get("reason", "")
+                name = cmd.get("command", "")
+                if reason in ("", "Rejected by operator"):
+                    text = f"✖ Kỹ sư đã từ chối {name} – máy không bị tác động."
+                else:
+                    text = f"↩ Đã rút đề xuất {name}: {reason}."
+                self._add_result(cmd.get("machine_id", mid), text)
             elif etype == "chat_notification":
                 conv = self._find_or_create_conv(mid, "system_alert")
                 conv["messages"].append(
@@ -194,6 +222,11 @@ class StateStore:
                         "timestamp": _now(),
                     }
                 )
+
+    def _add_result(self, machine_id: str, text: str) -> None:
+        """Một dòng kết quả (lệnh đã chạy / bị từ chối / máy hồi phục) trong hội thoại sự cố."""
+        conv = self._find_or_create_conv(machine_id, "system_alert")
+        conv["messages"].append({"role": "result", "text": text, "timestamp": _now()})
 
     def _find_or_create_conv(self, machine_id: str, category: str) -> Dict[str, Any]:
         for c in self._conversations:

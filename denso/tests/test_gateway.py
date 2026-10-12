@@ -1196,6 +1196,39 @@ def test_an_earlier_episode_never_leaks_into_the_current_one():
     assert inc["status"] == "active"  # the episode is open even between two alerts
 
 
+def test_the_results_of_decisions_show_in_the_thread_but_are_not_the_diagnosis():
+    from long_agent import incident_context, incidents_from_state
+
+    messages = [
+        {
+            "role": "assistant",
+            "text": "Bơm tưới nguội hỏng",
+            "timestamp": "2026-10-12T00:20:00",
+        },
+        {
+            "role": "result",
+            "text": "✅ Đã thực hiện REPAIR_COOLANT_SYSTEM",
+            "timestamp": "2026-10-12T00:21:00",
+        },
+        {
+            "role": "result",
+            "text": "✅ Mọi chỉ số đã về bình thường",
+            "timestamp": "2026-10-12T00:21:10",
+        },
+    ]
+    state = _episode_state(
+        "2026-10-12T00:19:50", [_low("2026-10-12T00:19:52", 0.0)], messages
+    )
+    (inc,) = incidents_from_state(state)
+    contents = [m["content"] for m in inc["messages"]]
+    assert contents[-2:] == [
+        "**Kết quả:** ✅ Đã thực hiện REPAIR_COOLANT_SYSTEM",
+        "**Kết quả:** ✅ Mọi chỉ số đã về bình thường",
+    ]
+    assert "Bơm tưới nguội hỏng" in incident_context(inc)
+    assert "Đã thực hiện" not in incident_context(inc)
+
+
 def _la_gateway(tmp_path, state=None):
     seen = []
 

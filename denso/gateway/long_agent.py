@@ -16,7 +16,10 @@ MACHINE_TYPE_VI = {
     "AOI_INSPECTION": "Máy kiểm tra quang AOI",
     "INJECTION_MOLDING": "Máy ép phun",
 }
-SHOWN_MESSAGES = 12  # one line per metric plus the episode's diagnoses
+DIAGNOSIS_PREFIX = "**Chẩn đoán của agent giám sát (Long-agent):** "
+SHOWN_MESSAGES = (
+    16  # one line per metric, the episode's diagnosis and the decisions' results
+)
 EPISODE_GAP_S = (
     600  # without Long-agent's episode marks: alerts closer than this are one incident
 )
@@ -65,7 +68,8 @@ def _messages(
 
     Long-agent's edge filter repeats an alert for a metric every minute while it stays out of range;
     that is one line per metric here, carrying its latest reading and how often it was raised.
-    Earlier episodes are left out, and of this one's diagnoses only the newest is shown.
+    Earlier episodes are left out, and of this one's diagnoses only the newest is shown; the results
+    of the operator's decisions (run, rejected, withdrawn) and the recovery follow in time order.
     """
     lines: dict[str, dict] = {}
     for a in episode:
@@ -90,6 +94,18 @@ def _messages(
                 "timestamp": line["first"],
             }
         )
+    # What came of the operator's decisions: commands run, rejected or withdrawn, and the recovery.
+    for m in raw:
+        ts = m.get("timestamp") or ""
+        if m.get("role") == "result" and (m.get("text") or "").strip() and ts >= since:
+            shown.append(
+                {
+                    "id": f"la-{machine_id}-result-{ts}",
+                    "role": "assistant",
+                    "content": f"**Kết quả:** {m['text'].strip()}",
+                    "timestamp": ts,
+                }
+            )
     # Only the newest diagnosis of the episode: an earlier one was written on fewer, earlier readings.
     latest = max(
         (
@@ -107,8 +123,7 @@ def _messages(
             {
                 "id": f"la-{machine_id}-{since}-diagnosis",
                 "role": "assistant",
-                "content": "**Chẩn đoán của agent giám sát (Long-agent):** "
-                + latest["text"].strip(),
+                "content": DIAGNOSIS_PREFIX + latest["text"].strip(),
                 "timestamp": latest.get("timestamp") or "",
             }
         )
@@ -275,6 +290,7 @@ def incident_context(inc: dict) -> str:
             m["content"]
             for m in reversed(inc.get("messages") or [])
             if m.get("role") == "assistant"
+            and m["content"].startswith(DIAGNOSIS_PREFIX)
         ),
         "",
     )
