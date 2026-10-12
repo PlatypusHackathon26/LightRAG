@@ -180,3 +180,24 @@ def test_the_injection_machine_returns_to_production_after_a_purge():
             telemetry = machine.generate_telemetry()
     assert machine.state == "RUNNING"
     assert telemetry["Clamping_Pressure_Bar"] >= 115
+
+
+def test_a_machine_still_alerting_with_nothing_left_to_approve_is_diagnosed_again():
+    """Seen live: coolant failure + tool wear. The coolant repair ran, vibration stayed high, and
+    no REPLACE_TOOL came: vibration had been part of the first diagnosis, so its alerts were skipped."""
+    rag = MagicMock()
+    rag.query_with_schema.return_value = {"diagnosis": "x", "actions": []}
+    pending = {"MC-MILL-01": True}
+    brain = AgentBrain(
+        rag_engine=rag,
+        tools=MagicMock(),
+        event_bus=MagicMock(),
+        repeat_window_s=1,
+        has_pending=lambda mid: pending.get(mid, False),
+    )
+    brain.handle_alert(_alert("Vibration_RMS_mm_s"))
+    brain.handle_alert(_alert("Vibration_RMS_mm_s"))  # a ticket is waiting: skipped
+    assert rag.query_with_schema.call_count == 1
+    pending["MC-MILL-01"] = False  # the repair was approved, nothing left to decide
+    brain.handle_alert(_alert("Vibration_RMS_mm_s"))  # still high: diagnosed again
+    assert rag.query_with_schema.call_count == 2

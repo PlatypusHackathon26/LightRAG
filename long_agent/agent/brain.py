@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List
+from typing import Any, Callable, Dict, List, Optional
 
 logger = logging.getLogger("AgentBrain")
 
@@ -15,6 +15,7 @@ class AgentBrain:
         event_bus: Any = None,
         execute_actions: bool = True,
         repeat_window_s: float = 0.0,
+        has_pending: Optional[Callable[[str], bool]] = None,
     ) -> None:
         self.rag = rag_engine
         self.tools = tools
@@ -29,6 +30,9 @@ class AgentBrain:
         self._diagnosed: Dict[
             str, set
         ] = {}  # máy -> các chỉ số đã chẩn đoán trong đợt này
+        # Máy còn lệnh chờ duyệt không: không còn lệnh nào mà máy vẫn báo lỗi (vd. lỗi thứ hai sau khi
+        # đã sửa lỗi thứ nhất) thì cảnh báo lặp được chẩn đoán lại thay vì bỏ qua.
+        self.has_pending = has_pending
 
     def handle_heartbeat(self, event: Dict[str, Any]) -> None:
         """Gói tin 'normal' (chu kỳ định kỳ): chỉ cập nhật trạng thái sống, không gọi RAG."""
@@ -56,7 +60,8 @@ class AgentBrain:
         }
         if self.repeat_window_s:
             seen = self._diagnosed.get(machine_id, set())
-            if params <= seen:
+            waiting = self.has_pending is None or self.has_pending(machine_id)
+            if params <= seen and waiting:
                 logger.info(
                     f"[Brain] Bỏ qua cảnh báo lặp {machine_id} {sorted(params)} (đã chẩn đoán trong đợt này)"
                 )

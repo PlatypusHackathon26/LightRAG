@@ -83,6 +83,9 @@ def main():
         event_bus=bus,
         execute_actions=os.environ.get("LONG_AGENT_PROPOSE", "1") != "0",
         repeat_window_s=float(os.environ.get("LONG_AGENT_REPEAT_S", "120")),
+        has_pending=lambda mid: any(
+            a.get("machine_id") == mid for a in approval.get_pending_actions()
+        ),
     )
     bus.subscribe("alert", brain.handle_alert)
     bus.subscribe("normal", brain.handle_heartbeat)
