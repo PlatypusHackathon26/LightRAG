@@ -43,6 +43,11 @@ class AgentBrain:
         """Gói tin 'machine_recovered': đợt sự cố đã đóng, lần cảnh báo sau là sự cố mới."""
         self._diagnosed.pop(event.get("machine_id", "UNKNOWN"), None)
 
+    def rediagnose(self, machine_id: str) -> None:
+        """Một lệnh sửa gốc vừa chạy: nếu máy vẫn còn bất thường (lỗi thứ hai), cảnh báo kế tiếp được
+        chẩn đoán lại trên số liệu hiện tại, kể cả khi chỉ số đó đã có trong lần chẩn đoán trước."""
+        self._diagnosed.pop(machine_id, None)
+
     def handle_alert(self, event: Dict[str, Any]) -> None:
         """Gói tin 'alert': Quy trình xử lý sự cố chuẩn hóa với LLM/RAG."""
         machine_id = event.get("machine_id", "UNKNOWN")

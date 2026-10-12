@@ -134,6 +134,15 @@ def main():
                 ticket.get("machine_id", "UNKNOWN"),
                 f"Đã sửa tận gốc bằng {ticket.get('command')}",
             )
+            mid = ticket.get("machine_id", "UNKNOWN")
+            brain.rediagnose(mid)
+            # Đợi số đo ổn định sau khi sửa, rồi bỏ cooldown: còn lỗi thứ hai thì cảnh báo + chẩn đoán
+            # lại ngay, không phải chờ hết 60 s cooldown của chỉ số đó.
+            threading.Timer(
+                float(os.environ.get("LONG_AGENT_SETTLE_S", "10")),
+                receiver.reset_cooldown,
+                args=(mid,),
+            ).start()
         return result
 
     def _route_action_command(event: dict) -> None:

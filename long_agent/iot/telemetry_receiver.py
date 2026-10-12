@@ -65,6 +65,10 @@ class TelemetryReceiver:
         # Mẫu gần nhất của máy có chỉ số bất thường không (kể cả khi cảnh báo đang bị cooldown chặn)
         self._abnormal: Dict[str, bool] = {}
 
+    def reset_cooldown(self, machine_id: str) -> None:
+        """Cảnh báo kế tiếp của máy được phát ngay (vd. sau một lệnh sửa, để thấy ngay lỗi còn lại)."""
+        self._last_alert_time.pop(machine_id, None)
+
     def is_abnormal(self, machine_id: str) -> bool:
         """Mẫu telemetry gần nhất của máy còn chỉ số ngoài ngưỡng / tăng quá nhanh hay không."""
         return self._abnormal.get(machine_id, False)
