@@ -8,7 +8,7 @@ from iot.event_bus import EventBus
 from iot.telemetry_receiver import TelemetryReceiver
 from iot.actuator_dispatcher import ActuatorDispatcher
 from iot.action_approval import ActionApproval
-from iot.recovery import RecoveryTracker, is_repair, withdraw_mitigations
+from iot.recovery import RecoveryTracker, RepairLog, is_repair, withdraw_mitigations
 
 from agent.brain import AgentBrain
 from agent.tools import AgentTools
@@ -107,7 +107,11 @@ def main():
     ) -> None:
         withdraw_mitigations(approval, machine_id, why, include_repairs=everything)
 
+    repairs = RepairLog()  # lệnh sửa đã chạy trong đợt hiện tại: không đề xuất lại
     bus.subscribe("machine_recovered", brain.handle_recovered)
+    bus.subscribe(
+        "machine_recovered", lambda e: repairs.clear(e.get("machine_id", "UNKNOWN"))
+    )
     bus.subscribe(
         "machine_recovered",
         lambda e: _withdraw_mitigations(
@@ -135,17 +139,24 @@ def main():
                 f"Đã sửa tận gốc bằng {ticket.get('command')}",
             )
             mid = ticket.get("machine_id", "UNKNOWN")
-            brain.rediagnose(mid)
-            # Đợi số đo ổn định sau khi sửa, rồi bỏ cooldown: còn lỗi thứ hai thì cảnh báo + chẩn đoán
-            # lại ngay, không phải chờ hết 60 s cooldown của chỉ số đó.
+            repairs.record(mid, ticket.get("command", ""))
+
+            def _after_settle() -> None:
+                # Số đo đã có thời gian hồi phục; máy vẫn bất thường thì còn lỗi khác: chẩn đoán lại ngay
+                # trên số liệu hiện tại thay vì chờ hết 60 s cooldown của chỉ số đó.
+                if receiver.is_abnormal(mid):
+                    brain.rediagnose(mid)
+                    receiver.reset_cooldown(mid)
+
             threading.Timer(
-                float(os.environ.get("LONG_AGENT_SETTLE_S", "10")),
-                receiver.reset_cooldown,
-                args=(mid,),
+                float(os.environ.get("LONG_AGENT_SETTLE_S", "10")), _after_settle
             ).start()
         return result
 
     def _route_action_command(event: dict) -> None:
+        # Lệnh sửa đã chạy trong đợt này: số đo còn đang hồi phục, không đề xuất lại.
+        if repairs.done(event.get("machine_id", "UNKNOWN"), event.get("command", "")):
+            return
         # Một lệnh đang chờ duyệt cho máy này thì không tạo thêm bản trùng.
         if any(
             a.get("machine_id") == event.get("machine_id")

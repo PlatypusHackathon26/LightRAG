@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 from agent.brain import AgentBrain
 from dashboard.state_store import StateStore
 from iot.action_approval import ActionApproval
-from iot.recovery import RecoveryTracker, is_repair, withdraw_mitigations
+from iot.recovery import RecoveryTracker, RepairLog, is_repair, withdraw_mitigations
 
 
 def _alert(param="Coolant_Pressure_Bar", machine="MC-MILL-01"):
@@ -220,3 +220,15 @@ def test_a_command_the_machine_does_not_have_is_reported_as_refused():
         assert result["status"] == "REJECTED", (m.machine_id, result)
     ok = dispatcher.execute({"machine_id": "MC-MILL-01", "command": "REPLACE_TOOL"})
     assert ok["status"] == "SUCCESS"
+
+
+def test_a_repair_that_ran_in_this_episode_is_not_proposed_again():
+    """Seen live: while the AOI's readings were still recovering, REPLACE_LED_MODULE and
+    RECALIBRATE_OPTICS were proposed (and run) three and four times in one episode."""
+    log = RepairLog()
+    log.record("MC-AOI-01", "REPLACE_LED_MODULE")
+    assert log.done("MC-AOI-01", "replace_led_module")
+    assert not log.done("MC-AOI-01", "RECALIBRATE_OPTICS")
+    assert not log.done("MC-MILL-01", "REPLACE_LED_MODULE")
+    log.clear("MC-AOI-01")  # the machine recovered: a new episode may need it again
+    assert not log.done("MC-AOI-01", "REPLACE_LED_MODULE")
