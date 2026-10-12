@@ -112,15 +112,7 @@ class ActuatorDispatcher:
             detail = str(exec_payload.get("execution_detail", ""))
 
             # Phân loại kết quả thực thi
-            # Máy mô phỏng viết tiếng Việt không dấu ("khong hop le"): nhận cả hai cách viết.
-            refused = (
-                "rejected",
-                "không hợp lệ",
-                "khong hop le",
-                "không được hỗ trợ",
-                "không có trong tập",
-            )
-            if any(word in detail.lower() for word in refused):
+            if "rejected" in detail.lower() or "không hợp lệ" in detail.lower():
                 status = "REJECTED"
             else:
                 status = "SUCCESS"

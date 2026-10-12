@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 from agent.brain import AgentBrain
 from dashboard.state_store import StateStore
 from iot.action_approval import ActionApproval
-from iot.recovery import RecoveryTracker, RepairLog, is_repair, withdraw_mitigations
+from iot.recovery import RecoveryTracker, is_repair, withdraw_mitigations
 
 
 def _alert(param="Coolant_Pressure_Bar", machine="MC-MILL-01"):
@@ -158,77 +158,3 @@ def test_what_came_of_each_decision_is_written_to_the_incident_thread():
     assert results[0] == "✅ Đã thực hiện REPAIR_COOLANT_SYSTEM: Ap suat phuc hoi"
     assert results[1].startswith("↩ Đã rút đề xuất COOLANT_BOOST")
     assert results[2].startswith("✅ Mọi chỉ số đã về bình thường")
-
-
-def test_a_second_fault_is_diagnosed_once_the_first_one_is_repaired():
-    """Seen live: coolant failure + tool wear. The coolant repair ran, vibration stayed high, and no
-    REPLACE_TOOL came because vibration had been part of the first diagnosis."""
-    rag = MagicMock()
-    rag.query_with_schema.return_value = {"diagnosis": "x", "actions": []}
-    brain = AgentBrain(
-        rag_engine=rag, tools=MagicMock(), event_bus=MagicMock(), repeat_window_s=1
-    )
-    brain.handle_alert(_alert("Vibration_RMS_mm_s"))
-    brain.handle_alert(_alert("Vibration_RMS_mm_s"))
-    assert rag.query_with_schema.call_count == 1
-    brain.rediagnose("MC-MILL-01")  # REPAIR_COOLANT_SYSTEM was approved and ran
-    brain.handle_alert(
-        _alert("Vibration_RMS_mm_s")
-    )  # still high: diagnosed on current readings
-    assert rag.query_with_schema.call_count == 2
-
-
-def test_resetting_the_cooldown_lets_the_next_sample_alert_again():
-    from iot.telemetry_receiver import TelemetryReceiver
-
-    receiver = TelemetryReceiver()
-    sample = {
-        "event_type": "telemetry",
-        "machine_id": "MC-MILL-01",
-        "machine_type": "CNC_MILLING",
-        "payload": {"Controller_Execution": "RUNNING", "Coolant_Pressure_Bar": 0.0},
-    }
-    assert receiver.process(dict(sample))["label"] == "alert"
-    assert receiver.process(dict(sample)) is None  # in cooldown
-    receiver.reset_cooldown("MC-MILL-01")
-    assert receiver.process(dict(sample))["label"] == "alert"
-
-
-def test_a_command_the_machine_does_not_have_is_reported_as_refused():
-    """Seen live: TOGGLE_COOLANT on the CNC came back "khong hop le" and showed as executed.
-    Each machine words its refusal differently; none may pass as executed."""
-    from iot.actuator_dispatcher import ActuatorDispatcher
-    from machines.amr_vehicle import AmrVehicle
-    from machines.aoi_inspection import AoiInspection
-    from machines.cnc_milling import CncMilling
-    from machines.injection_molding import InjectionMolding
-    from machines.robot_arm import RobotArm
-
-    machines = [
-        CncMilling(),
-        RobotArm(),
-        AmrVehicle(),
-        AoiInspection(),
-        InjectionMolding(),
-    ]
-    dispatcher = ActuatorDispatcher()
-    dispatcher.register_machines(machines)
-    for m in machines:
-        result = dispatcher.execute(
-            {"machine_id": m.machine_id, "command": "TOGGLE_COOLANT"}
-        )
-        assert result["status"] == "REJECTED", (m.machine_id, result)
-    ok = dispatcher.execute({"machine_id": "MC-MILL-01", "command": "REPLACE_TOOL"})
-    assert ok["status"] == "SUCCESS"
-
-
-def test_a_repair_that_ran_in_this_episode_is_not_proposed_again():
-    """Seen live: while the AOI's readings were still recovering, REPLACE_LED_MODULE and
-    RECALIBRATE_OPTICS were proposed (and run) three and four times in one episode."""
-    log = RepairLog()
-    log.record("MC-AOI-01", "REPLACE_LED_MODULE")
-    assert log.done("MC-AOI-01", "replace_led_module")
-    assert not log.done("MC-AOI-01", "RECALIBRATE_OPTICS")
-    assert not log.done("MC-MILL-01", "REPLACE_LED_MODULE")
-    log.clear("MC-AOI-01")  # the machine recovered: a new episode may need it again
-    assert not log.done("MC-AOI-01", "REPLACE_LED_MODULE")

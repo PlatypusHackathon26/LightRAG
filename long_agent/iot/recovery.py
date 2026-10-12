@@ -92,27 +92,3 @@ def withdraw_mitigations(
         except KeyError:
             pass  # vừa được duyệt hoặc hết hạn
     return withdrawn
-
-
-class RepairLog:
-    """Lệnh sửa gốc đã chạy thành công trong đợt sự cố hiện tại của từng máy.
-
-    Ngay sau khi sửa, số đo còn đang hồi phục; chẩn đoán lúc đó dễ đề xuất lại đúng lệnh vừa chạy.
-    Trong cùng một đợt, một lệnh sửa đã chạy không được đề xuất lại; đợt mới thì xoá sổ.
-    """
-
-    def __init__(self) -> None:
-        self._lock = Lock()
-        self._done: Dict[str, set] = {}
-
-    def record(self, machine_id: str, command: str) -> None:
-        with self._lock:
-            self._done.setdefault(machine_id, set()).add(str(command).upper())
-
-    def done(self, machine_id: str, command: str) -> bool:
-        with self._lock:
-            return str(command).upper() in self._done.get(machine_id, set())
-
-    def clear(self, machine_id: str) -> None:
-        with self._lock:
-            self._done.pop(machine_id, None)
