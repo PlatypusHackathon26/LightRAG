@@ -158,3 +158,25 @@ def test_what_came_of_each_decision_is_written_to_the_incident_thread():
     assert results[0] == "✅ Đã thực hiện REPAIR_COOLANT_SYSTEM: Ap suat phuc hoi"
     assert results[1].startswith("↩ Đã rút đề xuất COOLANT_BOOST")
     assert results[2].startswith("✅ Mọi chỉ số đã về bình thường")
+
+
+def test_the_injection_machine_returns_to_production_after_a_purge():
+    """Seen live: after PURGE_BARREL the machine stayed in PURGING with clamping pressure 0, so the
+    incident never resolved."""
+    from unittest.mock import patch
+
+    from machines.injection_molding import InjectionMolding
+
+    machine = InjectionMolding()
+    machine.inject_fault("NOZZLE_CLOGGING")
+    machine.receive_plc_command("PURGE_BARREL")
+    assert (
+        machine.state == "PURGING"
+        and "NOZZLE_CLOGGING" not in machine.get_active_faults()
+    )
+    later = machine.purge_until + 1
+    for step in range(30):  # 30 s after the purge cycle
+        with patch("machines.injection_molding.time.time", return_value=later + step):
+            telemetry = machine.generate_telemetry()
+    assert machine.state == "RUNNING"
+    assert telemetry["Clamping_Pressure_Bar"] >= 115

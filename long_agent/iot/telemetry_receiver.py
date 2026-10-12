@@ -165,6 +165,7 @@ class TelemetryReceiver:
                 "PAUSED",
                 "MOLD_MAINTENANCE",
                 "IDLE",
+                "PURGING",
             ):
                 continue
             if param == "Battery_Pct" and ctrl_exec == "CHARGING":

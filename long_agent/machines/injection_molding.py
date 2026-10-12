@@ -8,6 +8,8 @@ from machines.base_machine import BaseMachine
 
 
 class InjectionMolding(BaseMachine):
+    PURGE_SECONDS = 5.0  # thời gian một chu trình đùn xả nòng
+
     """Mô phỏng máy ép phun nhựa chuẩn EUROMAP 63/77 (Model: FANUC ROBOSHOT S-2000i)."""
 
     def __init__(self, event_hub: Optional[Any] = None) -> None:
@@ -51,6 +53,12 @@ class InjectionMolding(BaseMachine):
             current_time = time.time()
             dt = max(0.1, min(current_time - self.last_update_time, 2.5))
             self.last_update_time = current_time
+
+            # Chu trình xả nòng ngắn: xong thì máy tự quay lại chạy (trước đây kẹt mãi ở PURGING).
+            if self.state == "PURGING" and current_time >= getattr(
+                self, "purge_until", 0.0
+            ):
+                self.state = "RUNNING"
 
             # --- NHIỆT ĐỘ ĐẦU PHUN ZONE 1 ---
             # Tự phục hồi nếu một lệnh cũ/không hợp lệ đã làm hỏng setpoint hoặc
@@ -186,6 +194,7 @@ class InjectionMolding(BaseMachine):
             elif command == "PURGE_BARREL":
                 self.clear_fault("NOZZLE_CLOGGING")
                 self.state = "PURGING"
+                self.purge_until = time.time() + self.PURGE_SECONDS
                 detail = "Đã thực hiện chu trình đùn xả nhựa cặn thông nòng phun."
 
             elif command == "ADJUST_TEMPERATURE":
