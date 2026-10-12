@@ -1229,6 +1229,24 @@ def test_the_results_of_decisions_show_in_the_thread_but_are_not_the_diagnosis()
     assert "Đã thực hiện" not in incident_context(inc)
 
 
+def test_results_written_at_the_same_instant_keep_distinct_ids():
+    """Seen live: three results shared one timestamp, so one id; the UI kept the stale rows
+    of that thread and showed them in the next machine's thread."""
+    from long_agent import incidents_from_state
+
+    same = "2026-10-12T10:18:51.614264"
+    messages = [
+        {"role": "result", "text": f"✅ result {i}", "timestamp": same}
+        for i in range(3)
+    ]
+    state = _episode_state(
+        "2026-10-12T10:18:28", [_low("2026-10-12T10:18:29", 0.0)], messages
+    )
+    (inc,) = incidents_from_state(state)
+    ids = [m["id"] for m in inc["messages"]]
+    assert len(ids) == len(set(ids)) == 4
+
+
 def _la_gateway(tmp_path, state=None):
     seen = []
 

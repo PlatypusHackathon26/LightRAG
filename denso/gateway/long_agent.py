@@ -95,12 +95,14 @@ def _messages(
             }
         )
     # What came of the operator's decisions: commands run, rejected or withdrawn, and the recovery.
-    for m in raw:
+    for n, m in enumerate(
+        raw
+    ):  # n: place in Long-agent's append-only thread, so ids stay unique
         ts = m.get("timestamp") or ""
         if m.get("role") == "result" and (m.get("text") or "").strip() and ts >= since:
             shown.append(
                 {
-                    "id": f"la-{machine_id}-result-{ts}",
+                    "id": f"la-{machine_id}-result-{n}",
                     "role": "assistant",
                     "content": f"**Kết quả:** {m['text'].strip()}",
                     "timestamp": ts,
